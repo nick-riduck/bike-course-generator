@@ -1,0 +1,25 @@
+# Node.js
+node_modules/
+dist/
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.env
+
+# Valhalla Data (Large files)
+valhalla_data/
+valhalla_tiles/
+*.osm.pbf
+*.hgt
+
+# Server Logs
+*.log
+backend/server.log
+frontend/server.log
+debug_output.txt
+
+# Serena
+.serena/

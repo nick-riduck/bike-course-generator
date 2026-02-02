@@ -1,0 +1,9 @@
+
+> frontend@0.0.0 dev
+> vite --port 5188
+
+
+  VITE v7.3.1  ready in 135 ms
+
+  ➜  Local:   http://localhost:5188/
+  ➜  Network: use --host to expose

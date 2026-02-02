@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --color-riduck-primary: #2a9e92;
+  --color-riduck-dark: #121212;
+  --color-riduck-card: #1E1E1E;
+  --color-riduck-flat: #A5D6A7;
+  --color-riduck-uphill: #F44336;
+  --color-riduck-downhill: #00ACC1;
+}
+
+:root {
+  background-color: var(--color-riduck-dark);
+  color: white;
+  font-family: 'Pretendard', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}

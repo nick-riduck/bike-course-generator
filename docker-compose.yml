@@ -1,0 +1,16 @@
+services:
+  valhalla:
+    image: ghcr.io/valhalla/valhalla-scripted:latest
+    container_name: valhalla
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./valhalla_data:/custom_files
+    environment:
+      - tile_urls=https://download.geofabrik.de/asia/south-korea-latest.osm.pbf https://download.geofabrik.de/asia/china-latest.osm.pbf
+      - build_elevation=True
+      - build_admins=True
+      - build_time_zones=True
+      - serve_tiles=True
+      - server_threads=2
+    restart: always
