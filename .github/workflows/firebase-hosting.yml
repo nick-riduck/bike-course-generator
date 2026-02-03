@@ -1,0 +1,56 @@
+name: Deploy to Firebase Hosting
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - 'firebase.json'
+      - '.github/workflows/firebase-hosting.yml'
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - 'firebase.json'
+      - '.github/workflows/firebase-hosting.yml'
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1. Google Cloud 인증 (WIF 방식)
+      # token_format: 'access_token'을 지정하여 임시 액세스 토큰을 직접 발급받습니다.
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          workload_identity_provider: 'projects/388936157935/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'github-action-deploy@riduck-bike-course-simulator.iam.gserviceaccount.com'
+          token_format: 'access_token'
+
+      # 2. 발급받은 액세스 토큰을 FIREBASE_TOKEN 환경 변수로 설정합니다.
+      # Firebase CLI는 이 환경 변수를 우선적으로 사용하여 인증합니다.
+      - name: Set Firebase Token
+        run: echo "FIREBASE_TOKEN=${{ steps.auth.outputs.access_token }}" >> $GITHUB_ENV
+
+      - name: Install Dependencies
+        run: cd frontend && npm ci
+
+      - name: Build
+        run: cd frontend && npm run build
+
+      # 3. 배포 (npx 사용)
+      - name: Deploy to Firebase Hosting (Live)
+        if: github.ref == 'refs/heads/main'
+        run: npx firebase-tools deploy --only hosting --project riduck-bike-course-simulator --non-interactive
+
+      - name: Deploy to Firebase Hosting (Preview)
+        if: github.event_name == 'pull_request'
+        run: npx firebase-tools hosting:channel:deploy pr-${{ github.event.number }} --project riduck-bike-course-simulator --non-interactive
