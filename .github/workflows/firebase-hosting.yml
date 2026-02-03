@@ -18,7 +18,7 @@ jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
     
-    # 1. 권한 설정 추가 (Workload Identity Federation을 위해 필수)
+    # 1. 권한 설정 (WIF 필수)
     permissions:
       contents: read
       id-token: write
@@ -33,8 +33,10 @@ jobs:
         with:
           workload_identity_provider: 'projects/388936157935/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
           service_account: 'github-action-deploy@riduck-bike-course-simulator.iam.gserviceaccount.com'
+          create_credentials_file: true
+          export_environment_variables: true
 
-      # 3. Firebase 툴 설치 (인증된 세션 사용)
+      # 3. Firebase 툴 설치
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
@@ -44,15 +46,15 @@ jobs:
       - name: Build
         run: cd frontend && npm run build
 
-      # 4. 배포 (인증된 환경에서 실행)
+      # 4. 배포 (GOOGLE_APPLICATION_CREDENTIALS 환경변수가 자동으로 적용됨)
       - name: Deploy to Firebase Hosting (Live)
         if: github.ref == 'refs/heads/main'
         run: |
           cd frontend
-          firebase deploy --only hosting --project riduck-bike-course-simulator
+          firebase deploy --only hosting --project riduck-bike-course-simulator --non-interactive
 
       - name: Deploy to Firebase Hosting (Preview)
         if: github.event_name == 'pull_request'
         run: |
           cd frontend
-          firebase hosting:channel:deploy pr-${{ github.event.number }} --project riduck-bike-course-simulator
+          firebase hosting:channel:deploy pr-${{ github.event.number }} --project riduck-bike-course-simulator --non-interactive
