@@ -26,15 +26,19 @@ jobs:
       - uses: actions/checkout@v4
 
       # 1. Google Cloud 인증 (WIF 방식)
-      # create_credentials_file: true를 통해 환경 변수 GOOGLE_APPLICATION_CREDENTIALS가 설정됩니다.
+      # token_format: 'access_token'을 지정하여 임시 액세스 토큰을 직접 발급받습니다.
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@v2'
         with:
           workload_identity_provider: 'projects/388936157935/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
           service_account: 'github-action-deploy@riduck-bike-course-simulator.iam.gserviceaccount.com'
-          create_credentials_file: true
-          export_environment_variables: true
+          token_format: 'access_token'
+
+      # 2. 발급받은 액세스 토큰을 FIREBASE_TOKEN 환경 변수로 설정합니다.
+      # Firebase CLI는 이 환경 변수를 우선적으로 사용하여 인증합니다.
+      - name: Set Firebase Token
+        run: echo "FIREBASE_TOKEN=${{ steps.auth.outputs.access_token }}" >> $GITHUB_ENV
 
       - name: Install Dependencies
         run: cd frontend && npm ci
@@ -42,8 +46,7 @@ jobs:
       - name: Build
         run: cd frontend && npm run build
 
-      # 2. 배포 (npx 사용)
-      # Firebase CLI는 GOOGLE_APPLICATION_CREDENTIALS 환경 변수를 자동으로 감지하여 인증에 사용합니다.
+      # 3. 배포 (npx 사용)
       - name: Deploy to Firebase Hosting (Live)
         if: github.ref == 'refs/heads/main'
         run: npx firebase-tools deploy --only hosting --project riduck-bike-course-simulator --non-interactive
