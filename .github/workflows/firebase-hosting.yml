@@ -18,22 +18,23 @@ jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
     
-    # 1. 권한 설정 (WIF 필수)
     permissions:
       contents: read
       id-token: write
-      pull-requests: write # PR에 댓글 달기 위해 필요
 
     steps:
       - uses: actions/checkout@v4
 
-      # 2. Google Cloud 인증 (WIF 방식)
+      # 1. Google Cloud 인증 (WIF 방식)
+      # create_credentials_file: true를 통해 환경 변수 GOOGLE_APPLICATION_CREDENTIALS가 설정됩니다.
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@v2'
         with:
           workload_identity_provider: 'projects/388936157935/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
           service_account: 'github-action-deploy@riduck-bike-course-simulator.iam.gserviceaccount.com'
+          create_credentials_file: true
+          export_environment_variables: true
 
       - name: Install Dependencies
         run: cd frontend && npm ci
@@ -41,10 +42,12 @@ jobs:
       - name: Build
         run: cd frontend && npm run build
 
-      # 3. 배포 (공식 액션 사용 - WIF 연동)
-      - name: Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ steps.auth.outputs.service_account_email }}'
-          projectId: riduck-bike-course-simulator
+      # 2. 배포 (npx 사용)
+      # Firebase CLI는 GOOGLE_APPLICATION_CREDENTIALS 환경 변수를 자동으로 감지하여 인증에 사용합니다.
+      - name: Deploy to Firebase Hosting (Live)
+        if: github.ref == 'refs/heads/main'
+        run: npx firebase-tools deploy --only hosting --project riduck-bike-course-simulator --non-interactive
+
+      - name: Deploy to Firebase Hosting (Preview)
+        if: github.event_name == 'pull_request'
+        run: npx firebase-tools hosting:channel:deploy pr-${{ github.event.number }} --project riduck-bike-course-simulator --non-interactive
