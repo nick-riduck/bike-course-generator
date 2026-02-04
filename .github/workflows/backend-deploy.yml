@@ -4,9 +4,9 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend-deploy.yml'
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 env:
@@ -16,9 +16,26 @@ env:
   SERVICE_NAME: backend-fastapi
 
 jobs:
-  deploy:
+  # [1] 변경 사항 확인
+  changes:
     runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/backend-deploy.yml'
 
+  # [2] 배포 (백엔드 변경 시에만 실행)
+  deploy:
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
@@ -27,7 +44,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. Google Cloud Authentication
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@v2'
@@ -35,26 +51,22 @@ jobs:
           workload_identity_provider: 'projects/388936157935/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
           service_account: 'github-action-deploy@riduck-bike-course-simulator.iam.gserviceaccount.com'
 
-      # 2. Configure Docker to use gcloud as a credential helper
       - name: Configure Docker
         run: |
           gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
-      # 3. Build Docker Image
       - name: Build Docker Image
         run: |
           docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} ./backend
 
-      # 4. Push Docker Image to Artifact Registry
       - name: Push Docker Image
         run: |
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
 
-      # 5. Deploy to Cloud Run
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: ${{ env.SERVICE_NAME }}
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
           region: ${{ env.REGION }}
-          flags: '--allow-unauthenticated' # Public access for now (can be restricted later)
+          flags: '--allow-unauthenticated'
