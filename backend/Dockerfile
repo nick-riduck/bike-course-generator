@@ -17,5 +17,5 @@ COPY . .
 ENV PORT=8080
 
 # Run the application
-# Cloud Run injects the PORT env var, but we set a default above.
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT}
+# Use shell form to ensure environment variable expansion
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT}"]
