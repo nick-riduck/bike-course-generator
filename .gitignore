@@ -3,11 +3,26 @@ node_modules/
 dist/
 .DS_Store
 
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Valhalla Data & Large Files
+valhalla_data/
+*.pbf
+*.tar
+rest_data.tar
+valhalla_tiles.tar
+
 # Python
 __pycache__/
 *.py[cod]
-venv/
-.env
+*$py.class
 
 # Valhalla Data (Large files)
 valhalla_data/

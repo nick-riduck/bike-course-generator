@@ -6,17 +6,12 @@ import httpx
 import polyline
 import copy
 
+import os
+
 app = FastAPI()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5230"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-VALHALLA_URL = "http://localhost:8002"
+# Get Valhalla URL from environment variable, default to localhost for local dev
+VALHALLA_URL = os.getenv("VALHALLA_URL", "http://localhost:8002")
 
 def get_segment_style(edge: dict):
     surf = str(edge.get("surface", "paved")).lower()
