@@ -10,6 +10,17 @@ import os
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5230",
+        "https://riduck-bike-course-simulator.web.app"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Get Valhalla URL from environment variable, default to localhost for local dev
 VALHALLA_URL = os.getenv("VALHALLA_URL", "http://localhost:8002")
 
