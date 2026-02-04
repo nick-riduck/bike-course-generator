@@ -1,0 +1,60 @@
+name: Deploy Backend to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-deploy.yml'
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: riduck-bike-course-simulator
+  REGION: asia-northeast3
+  REPO_NAME: backend-repo
+  SERVICE_NAME: backend-fastapi
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 1. Google Cloud Authentication
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          workload_identity_provider: 'projects/388936157935/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'github-action-deploy@riduck-bike-course-simulator.iam.gserviceaccount.com'
+
+      # 2. Configure Docker to use gcloud as a credential helper
+      - name: Configure Docker
+        run: |
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      # 3. Build Docker Image
+      - name: Build Docker Image
+        run: |
+          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} ./backend
+
+      # 4. Push Docker Image to Artifact Registry
+      - name: Push Docker Image
+        run: |
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+
+      # 5. Deploy to Cloud Run
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          region: ${{ env.REGION }}
+          flags: '--allow-unauthenticated' # Public access for now (can be restricted later)
