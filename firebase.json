@@ -1,48 +1,24 @@
 {
-  "hosting": [
-    {
-      "target": "simulator",
-      "public": "frontend/dist",
-      "ignore": [
-        "firebase.json",
-        "**/.*",
-        "**/node_modules/**"
-      ],
-      "rewrites": [
-        {
-          "source": "/api/**",
-          "run": {
-            "serviceId": "backend-fastapi",
-            "region": "asia-northeast3"
-          }
-        },
-        {
-          "source": "**",
-          "destination": "/index.html"
+  "hosting": {
+    "site": "riduck-bike-course-generator",
+    "public": "frontend/dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/api/**",
+        "run": {
+          "serviceId": "backend-fastapi",
+          "region": "asia-northeast3"
         }
-      ]
-    },
-    {
-      "target": "generator",
-      "public": "frontend/dist",
-      "ignore": [
-        "firebase.json",
-        "**/.*",
-        "**/node_modules/**"
-      ],
-      "rewrites": [
-        {
-          "source": "/api/**",
-          "run": {
-            "serviceId": "backend-fastapi",
-            "region": "asia-northeast3"
-          }
-        },
-        {
-          "source": "**",
-          "destination": "/index.html"
-        }
-      ]
-    }
-  ]
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
 }
