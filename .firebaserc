@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "riduck-bike-course-simulator"
-  }
+  },
+  "targets": {
+    "riduck-bike-course-simulator": {
+      "hosting": {
+        "simulator": [
+          "riduck-bike-course-simulator"
+        ],
+        "generator": [
+          "riduck-bike-course-generator"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
