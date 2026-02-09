@@ -60,4 +60,4 @@ jobs:
 
       - name: Deploy to Firebase Hosting (Preview)
         if: github.event_name == 'pull_request'
-        run: npx firebase-tools hosting:channel:deploy pr-${{ github.event.number }} --project riduck-bike-course-simulator --non-interactive
+        run: npx firebase-tools hosting:channel:deploy pr-${{ github.event.number }} --only hosting:generator --project riduck-bike-course-simulator --non-interactive
