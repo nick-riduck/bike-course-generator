@@ -5,21 +5,124 @@ from typing import List, Optional
 import httpx
 import polyline
 import copy
-
 import os
+import firebase_admin
+from firebase_admin import auth, credentials
+from dotenv import load_dotenv
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+# .env 로드
+load_dotenv()
+
+# Firebase 초기화 (ADC 방식: 환경변수 기반 자동 인증)
+try:
+    firebase_admin.initialize_app()
+    print("Firebase Admin Initialized with ADC")
+except Exception as e:
+    print(f"Firebase Init Warning: {e}. (Ignore if running without Google Auth credentials locally)")
 
 app = FastAPI()
+
+# DB 연결 설정
+DB_CONFIG = {
+    "host": os.getenv("DB_HOST", "localhost"),
+    "port": os.getenv("DB_PORT", "5433"),
+    "user": os.getenv("DB_USER", "postgres"),
+    "password": os.getenv("DB_PASSWORD", "password"),
+    "dbname": os.getenv("DB_NAME", "postgres")
+}
+
+def get_db_conn():
+    return psycopg2.connect(**DB_CONFIG, cursor_factory=RealDictCursor)
+
+class LoginRequest(BaseModel):
+    id_token: str
+
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5230",
+        "http://localhost:5173", # 로컬 개발용 Vite 포트 추가
         "https://riduck-bike-course-simulator.web.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.post("/api/auth/login")
+async def login(request: LoginRequest):
+    try:
+        # 1. Firebase ID Token 검증
+        decoded_token = auth.verify_id_token(request.id_token)
+        uid = decoded_token['uid']
+        email = decoded_token.get('email')
+        name = decoded_token.get('name', 'Anonymous Rider')
+        picture = decoded_token.get('picture')
+
+        conn = get_db_conn()
+        cur = conn.cursor()
+
+        # 2. 임시 매핑 테이블에서 유저 조회
+        cur.execute(
+            "SELECT user_id FROM auth_mapping_temp WHERE provider = 'FIREBASE' AND provider_uid = %s",
+            (uid,)
+        )
+        row = cur.fetchone()
+
+        if row:
+            # 기존 유저: users 테이블에서 상세 정보 가져오기
+            user_id = row['user_id']
+            cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+            user = cur.fetchone()
+        else:
+            # 신규 유저: users 생성 및 mapping 추가
+            # riduck_id는 임시로 -1 * (기존 최소값 - 1) 또는 시퀀스 활용 (여기서는 간단히 처리)
+            print(f"Creating new user for Firebase UID: {uid}")
+            
+            # 임시 음수 riduck_id 생성 (나중에 정식 연동 전까지 식별용)
+            cur.execute("SELECT COALESCE(MIN(riduck_id), 0) as min_id FROM users WHERE riduck_id < 0")
+            min_id = cur.fetchone()['min_id']
+            temp_riduck_id = min_id - 1
+
+            # users 테이블에 삽입
+            cur.execute(
+                """
+                INSERT INTO users (riduck_id, username, email, profile_image_url) 
+                VALUES (%s, %s, %s, %s) RETURNING *
+                """,
+                (temp_riduck_id, name, email, picture)
+            )
+            user = cur.fetchone()
+            user_id = user['id']
+
+            # mapping 테이블에 삽입
+            cur.execute(
+                "INSERT INTO auth_mapping_temp (provider, provider_uid, user_id) VALUES ('FIREBASE', %s, %s)",
+                (uid, user_id)
+            )
+            conn.commit()
+
+        cur.close()
+        conn.close()
+
+        # 3. 자체 세션 정보 반환 (간단히 유저 정보 통째로 응답)
+        return {
+            "status": "success",
+            "user": {
+                "id": user['id'],
+                "uuid": str(user['uuid']),
+                "username": user['username'],
+                "email": user['email'],
+                "profile_image_url": user['profile_image_url']
+            }
+        }
+
+    except Exception as e:
+        print(f"Login Error: {e}")
+        raise HTTPException(status_code=401, detail=f"Invalid authentication: {str(e)}")
 
 # Get Valhalla URL from environment variable, default to localhost for local dev
 VALHALLA_URL = os.getenv("VALHALLA_URL", "http://localhost:8002")
