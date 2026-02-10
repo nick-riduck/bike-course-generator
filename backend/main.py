@@ -215,15 +215,13 @@ def get_segment_style(edge: dict):
     use = str(edge.get("use", "road")).lower()
     density = edge.get("density", 0)
     
-    # 1. 비포장 / 산악 / 험로 / 페리 (Brown/Grey)
-    rough_uses = ["track", "path", "bridleway", "steps", "mountain_bike", "ferry"]
+    # 1. 비포장 / 산악 / 험로 (Brown)
+    rough_uses = ["track", "path", "bridleway", "steps", "mountain_bike"]
     unpaved_surfaces = ["gravel", "dirt", "earth", "sand", "unpaved", "cobblestone", "grass", "compacted", "fine_gravel", "pebbles", "wood"]
     
     if any(s in surf for s in unpaved_surfaces) or use in rough_uses:
-        color = "#8D6E63" if use != "ferry" else "#9E9E9E"
-        label = f"Rough/Special ({use})"
-        desc = "Rough road. You may need to walk your bike." if use != "ferry" else "Ferry crossing section."
-        return color, label, desc
+        material = use if use in rough_uses else surf
+        return "#8D6E63", f"Rough ({material})", "Rough road. You may need to walk your bike."
 
     # 2. 자전거 전용 (Green)
     if use in ["cycleway", "bicycle"]: 
@@ -231,8 +229,7 @@ def get_segment_style(edge: dict):
 
     # 3. 위험 / 합류 주의 (Red)
     if use in ["ramp"]:
-        desc = "High traffic risk - Proceed with caution!"
-        return "#FF5252", "Ramp", desc
+        return "#FF5252", "Ramp", "High traffic risk - Proceed with caution!"
 
     # 4. 생활 도로 / 보행자 우선 / 주차장 (Yellow)
     yellow_uses = [
@@ -241,20 +238,20 @@ def get_segment_style(edge: dict):
         "driveway", "service_road"
     ]
     if use in yellow_uses:
-        desc = "Pedestrians / Shared road. Please slow down."
-        return "#FFC400", f"Living Road ({use})", desc
+        return "#FFC400", "Residence", "Pedestrians / Shared road. Please slow down."
 
     # 5. 일반 포장 공도 (Blue)
     blue_uses = ["road", "primary", "secondary", "tertiary", "trunk", "unclassified", "turn_channel", "drive_through", "culdesac"]
     if use in blue_uses:
-        if density >= 6:
-            desc = "City Area (Traffic Lights Expected)"
-        else:
-            desc = "Open Road (Low Traffic)"
-        return "#2979FF", f"Paved Road ({use})", desc
+        desc = "City Area (Traffic Lights Expected)" if density >= 6 else "Open Road (Low Traffic)"
+        return "#2979FF", "Paved", desc
 
-    # 6. 진짜 알 수 없는 경우 (Grey)
-    return "#9E9E9E", f"Other ({use})", "Unknown road type."
+    # 6. 페리 (Grey)
+    if use == "ferry":
+        return "#9E9E9E", "Ferry", "Ferry crossing section."
+
+    # 7. 기타 (Grey)
+    return "#9E9E9E", "Other", ""
 
 class RouteRequest(BaseModel):
     locations: List[Location]

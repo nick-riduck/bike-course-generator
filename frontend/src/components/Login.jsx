@@ -33,7 +33,8 @@ const Login = () => {
       className="px-4 py-2 bg-white text-black font-bold rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
     >
       <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" className="w-4 h-4" />
-      Google Login
+      <span className="hidden md:inline">Google Login</span>
+      <span className="md:hidden">Login</span>
     </button>
   );
 };

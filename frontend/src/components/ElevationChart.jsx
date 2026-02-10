@@ -191,31 +191,54 @@ const ElevationChart = ({ segments, onHoverPoint }) => {
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
+    layout: {
+      padding: {
+        top: 10,
+        bottom: 0, // 하단 패딩 제거 (부모 컨테이너 패딩 활용)
+        left: 0,
+        right: 10 // 마지막 라벨 잘림 방지
+      }
+    },
     plugins: {
       legend: { display: false },
       tooltip: {
         mode: 'index',
         intersect: false,
-        backgroundColor: '#1E1E1E',
-        titleColor: '#fff',
-        bodyColor: '#2a9e92',
-        borderColor: '#444',
+        backgroundColor: '#111827', // gray-900
+        titleColor: '#F3F4F6', // gray-100
+        bodyColor: '#2DD4BF', // teal-400
+        borderColor: '#374151', // gray-700
         borderWidth: 1,
+        padding: 10,
         callbacks: {
-          label: (context) => `Ele: ${Math.round(context.parsed.y)}m`,
+          label: (context) => ` Ele: ${Math.round(context.parsed.y)}m`,
           title: (items) => `Dist: ${items[0].label}km`,
         }
       },
     },
     scales: {
       x: {
-        grid: { display: false },
-        ticks: { color: '#666', maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
+        grid: { display: false, drawBorder: false },
+        ticks: { 
+            color: '#9CA3AF',
+            maxRotation: 0, 
+            autoSkip: true, 
+            maxTicksLimit: 10,
+            padding: 4,
+            includeBounds: true,
+            align: 'start',
+            crossAlign: 'near'
+        },
+        border: { display: false }
       },
       y: {
-        grid: { color: '#333' },
-        ticks: { color: '#666' },
+        grid: { color: '#374151' },
+        ticks: { 
+            color: '#9CA3AF',
+            padding: 4
+        },
         beginAtZero: false,
+        border: { display: false }
       },
     },
     interaction: {
@@ -244,25 +267,18 @@ const ElevationChart = ({ segments, onHoverPoint }) => {
 
   if (!segments || segments.length === 0) {
     return (
-      <div className="w-full h-48 bg-[#1E1E1E] rounded-xl border border-gray-800 flex items-center justify-center text-gray-500 italic mt-6">
-        No elevation data available
+      <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs italic tracking-wider">
+        Create a route to see elevation profile
       </div>
     );
   }
 
   return (
     <div 
-        className="w-full bg-[#1E1E1E]/90 backdrop-blur-md rounded-xl border border-gray-800 p-4 mt-6 shadow-lg h-[250px]"
+        className="w-full h-full bg-transparent flex flex-col"
         onMouseLeave={handleClearHover}
     >
-      <h3 className="text-xs font-bold text-[#2a9e92] mb-2 uppercase tracking-wider flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-        </svg>
-        Elevation Profile
-      </h3>
-      <div className="w-full h-[190px]">
-        {/* Pass custom plugin via plugins prop */}
+      <div className="flex-1 w-full min-h-0 relative">
         <Line ref={chartRef} data={chartData} options={options} plugins={[cpLinePlugin]} />
       </div>
     </div>
