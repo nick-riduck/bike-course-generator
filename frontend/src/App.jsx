@@ -1,5 +1,6 @@
 import React from 'react'
 import BikeRoutePlanner from './components/BikeRoutePlanner'
+import Login from './components/Login'
 
 function App() {
   return (
@@ -8,9 +9,7 @@ function App() {
         <h1 className="text-3xl md:text-4xl font-bold text-riduck-primary">
           Riduck Route Planner <span className="text-xs text-gray-500 border border-gray-600 px-2 py-1 rounded ml-2">ALPHA</span>
         </h1>
-        <div className="text-sm text-gray-400">
-          User: 7267
-        </div>
+        <Login />
       </header>
       
       <main className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-6">
