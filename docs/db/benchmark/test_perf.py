@@ -1,10 +1,9 @@
 import psycopg2
 import random
 import time
-import uuid
 from psycopg2.extras import execute_values
 
-# DB 연결 정보 (Docker로 띄울 포트 5433 기준)
+# DB Configuration (Docker Port 5433)
 DB_CONFIG = {
     "host": "localhost",
     "port": 5433,
@@ -17,169 +16,137 @@ def setup_db():
     conn = psycopg2.connect(**DB_CONFIG)
     cur = conn.cursor()
     
-    print("1. 스키마 초기화 및 테이블 생성...")
+    print("1. Initializing Schema...")
     cur.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
-    cur.execute("DROP TABLE IF EXISTS routes CASCADE;")
-    cur.execute("DROP TABLE IF EXISTS users CASCADE;")
-    cur.execute("DROP TYPE IF EXISTS user_status CASCADE;")
-    cur.execute("DROP TYPE IF EXISTS route_status CASCADE;")
-
-    cur.execute("CREATE TYPE user_status AS ENUM ('ACTIVE', 'BANNED', 'PENDING_DELETION', 'DELETED');")
+    
+    # 1. Geometry Table (Flat Earth)
+    cur.execute("DROP TABLE IF EXISTS routes_geom;")
     cur.execute("""
-        CREATE TABLE users (
-            id BIGINT GENERATED ALWAYS AS IDENTITY (START WITH 100000000) PRIMARY KEY,
-            uuid UUID DEFAULT gen_random_uuid() UNIQUE NOT NULL,
-            riduck_id INTEGER UNIQUE NOT NULL,
-            username VARCHAR(50) NOT NULL,
-            email VARCHAR(255) NOT NULL,
-            status user_status DEFAULT 'ACTIVE' NOT NULL,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        CREATE TABLE routes_geom (
+            id SERIAL PRIMARY KEY,
+            path GEOMETRY(LineString, 4326)
         );
     """)
-    # 멘토님 조언: status 선행 인덱스
-    cur.execute("CREATE INDEX idx_users_status_email ON users(status, email);")
+    cur.execute("CREATE INDEX idx_routes_geom_path ON routes_geom USING GIST (path);")
 
-    cur.execute("CREATE TYPE route_status AS ENUM ('PUBLIC', 'PRIVATE', 'LINK_ONLY', 'DELETED');")
+    # 2. Geography Table (Round Earth)
+    cur.execute("DROP TABLE IF EXISTS routes_geog;")
     cur.execute("""
-        CREATE TABLE routes (
-            id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-            user_id BIGINT NOT NULL,
-            title VARCHAR(255) DEFAULT 'Test Course', -- 테스트용 기본값 추가
-            status route_status DEFAULT 'PUBLIC' NOT NULL,
-            summary_path GEOGRAPHY(LineString, 4326),
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        CREATE TABLE routes_geog (
+            id SERIAL PRIMARY KEY,
+            path GEOGRAPHY(LineString, 4326)
         );
     """)
-    cur.execute("CREATE INDEX idx_routes_status_user ON routes(status, user_id);")
-    cur.execute("CREATE INDEX idx_routes_summary_path ON routes USING GIST (summary_path);")
-
-    # 통계 테이블 추가
-    cur.execute("DROP TABLE IF EXISTS route_stats CASCADE;")
-    cur.execute("""
-        CREATE TABLE route_stats (
-            route_id BIGINT PRIMARY KEY,
-            view_count INTEGER DEFAULT 0 NOT NULL,
-            download_count INTEGER DEFAULT 0 NOT NULL
-        );
-    """)
+    cur.execute("CREATE INDEX idx_routes_geog_path ON routes_geog USING GIST (path);")
     
     conn.commit()
     cur.close()
     conn.close()
 
-def seed_data():
+def seed_data(count=100000):
     conn = psycopg2.connect(**DB_CONFIG)
     cur = conn.cursor()
     
-    # 1. Users 데이터 (10만 건)
-    print("2. 유저 데이터 10만 건 생성 중...")
-    users = []
-    for i in range(100000):
-        status = random.choice(['ACTIVE', 'ACTIVE', 'ACTIVE', 'BANNED', 'DELETED']) # 60% Active
-        users.append((
-            i + 2000000, # riduck_id
-            f"user_{i}",
-            f"rider_{i}@example.com",
-            status
-        ))
+    print(f"2. Seeding {count} records...")
     
-    execute_values(cur, 
-        "INSERT INTO users (riduck_id, username, email, status) VALUES %s", 
-        users, page_size=5000)
+    batch_size = 5000
+    data = []
     
-    # 2. Routes 데이터 (5만 건 - 서울 근처 랜덤 폴리라인)
-    print("3. 코스 데이터 5만 건 생성 중 (서울 근방)...")
-    routes = []
-    # 서울 시청 중심 (37.5665, 126.9780)
-    for i in range(50000):
-        user_id = random.randint(100000000, 100099999)
-        status = random.choice(['PUBLIC', 'PUBLIC', 'PRIVATE'])
+    # Generate random paths around Seoul (37.5, 127.0)
+    for _ in range(count):
+        lat = 37.5 + (random.random() - 0.5) * 2.0  # +/- 1 degree
+        lon = 127.0 + (random.random() - 0.5) * 2.0 # +/- 1 degree
         
-        # 간단한 2개 점으로 된 LineString 생성
-        lat1 = 37.4 + random.random() * 0.4
-        lon1 = 126.7 + random.random() * 0.5
-        lat2 = lat1 + 0.01
-        lon2 = lon1 + 0.01
+        # Simple line string
+        wkt = f'LINESTRING({lon} {lat}, {lon+0.01} {lat+0.01})'
+        data.append((wkt,))
         
-        wkt = f'LINESTRING({lon1} {lat1}, {lon2} {lat2})'
-        routes.append((user_id, status, wkt))
+        if len(data) >= batch_size:
+            execute_values(cur, "INSERT INTO routes_geom (path) VALUES %s", data, template="(ST_GeomFromText(%s, 4326))")
+            execute_values(cur, "INSERT INTO routes_geog (path) VALUES %s", data, template="(ST_GeogFromText(%s))")
+            data = []
+            
+    if data:
+        execute_values(cur, "INSERT INTO routes_geom (path) VALUES %s", data, template="(ST_GeomFromText(%s, 4326))")
+        execute_values(cur, "INSERT INTO routes_geog (path) VALUES %s", data, template="(ST_GeogFromText(%s))")
 
-    # %s 플레이스홀더 오류 수정: template 인자 활용
-    execute_values(cur, 
-        "INSERT INTO routes (user_id, status, summary_path) VALUES %s", 
-        routes, 
-        template="(%s, %s, ST_GeogFromText(%s))",
-        page_size=2000)
-
-    # route_stats 데이터 생성 (routes 데이터 기반)
-    print("4. 코스 통계 데이터 생성 중...")
-    cur.execute("SELECT id FROM routes")
-    route_ids = [row[0] for row in cur.fetchall()]
-    stats = []
-    for rid in route_ids:
-        views = random.randint(0, 1000)
-        downloads = random.randint(0, int(views * 0.1)) # 다운로드는 조회수의 10% 정도
-        stats.append((rid, views, downloads))
-    
-    execute_values(cur,
-        "INSERT INTO route_stats (route_id, view_count, download_count) VALUES %s",
-        stats, page_size=5000)
-    
     conn.commit()
-    print("데이터 삽입 완료. ANALYZE 실행 중...")
-    cur.execute("ANALYZE users; ANALYZE routes;")
+    print("   Running ANALYZE...")
+    cur.execute("ANALYZE routes_geom; ANALYZE routes_geog;")
     conn.commit()
     cur.close()
     conn.close()
 
-def run_benchmarks():
+def run_benchmark_query(label, query, params):
     conn = psycopg2.connect(**DB_CONFIG)
     cur = conn.cursor()
     
-    print("\n=== [TEST 1] 로그인 쿼리 분석 (status, email) ===")
-    target_email = "rider_99999@example.com"
-    cur.execute(f"EXPLAIN ANALYZE SELECT * FROM users WHERE status = 'ACTIVE' AND email = '{target_email}';")
-    for row in cur.fetchall():
-        print(row[0])
-
-    print("\n=== [TEST 2] 내 주변(5km) 코스 검색 (GIST) ===")
-    # 서울 도심의 특정 포인트
-    ref_lon, ref_lat = 126.9780, 37.5665 
-    cur.execute(f"""
-        EXPLAIN ANALYZE 
-        SELECT id, status 
-        FROM routes 
-        WHERE ST_DWithin(summary_path, ST_Point({ref_lon}, {ref_lat})::geography, 5000); -- 형변환 없이 바로 비교
-    """)
-    for row in cur.fetchall():
-        print(row[0])
-
-    print("\n=== [TEST 3] 가중치 랭킹 검색 (거리 + 인기) ===")
-    # 내 위치 반경 5km 내 코스 중 (조회수 + 다운로드*5) 점수가 높은 순으로 20개
-    # 거리(m)가 멀수록 점수 감점 (Distance Decay)
-    cur.execute(f"""
-        EXPLAIN ANALYZE 
-        SELECT r.id, r.title, s.view_count, 
-               ST_Distance(r.summary_path, ST_Point({ref_lon}, {ref_lat})::geography) as dist_m,
-               (s.view_count + s.download_count * 5) / (ST_Distance(r.summary_path, ST_Point({ref_lon}, {ref_lat})::geography) + 1) as score
-        FROM routes r
-        JOIN route_stats s ON r.id = s.route_id
-        WHERE ST_DWithin(r.summary_path, ST_Point({ref_lon}, {ref_lat})::geography, 5000)
-        ORDER BY score DESC
-        LIMIT 20;
-    """)
-    for row in cur.fetchall():
-        print(row[0])
-
+    # Warm up (run once, ignore result)
+    cur.execute(query, params)
+    
+    start_time = time.time()
+    for _ in range(5):
+        cur.execute(query, params)
+    end_time = time.time()
+    
+    avg_time = (end_time - start_time) / 5 * 1000 # ms
+    print(f"[{label}] Avg Time: {avg_time:.2f} ms")
+    
+    # Get Explain Analyze
+    cur.execute("EXPLAIN ANALYZE " + query, params)
+    # Only print first line of explain (Execution Time usually at end, but Cost at start)
+    # execution_time_line = [row[0] for row in cur.fetchall() if 'Execution Time' in row[0]]
+    # if execution_time_line:
+    #     print(f"   Explain: {execution_time_line[0]}")
+    
     cur.close()
     conn.close()
+
+def run_tests():
+    print("\n3. Running Benchmarks (Search radius: 5km around Seoul center)")
+    
+    # Center Point (Seoul)
+    center_lon = 127.0
+    center_lat = 37.5
+    radius_m = 5000
+    radius_deg = 0.05 # Approx 5km
+    
+    # Case A: GEOMETRY (Fast, Approx)
+    # Using ST_DWithin with degrees
+    query_a = """
+        SELECT count(*) FROM routes_geom 
+        WHERE ST_DWithin(path, ST_SetSRID(ST_MakePoint(%s, %s), 4326), %s)
+    """
+    run_benchmark_query("GEOMETRY (Degree)", query_a, (center_lon, center_lat, radius_deg))
+
+    # Case B: GEOGRAPHY (Accurate, Slower)
+    # Using ST_DWithin with meters
+    query_b = """
+        SELECT count(*) FROM routes_geog 
+        WHERE ST_DWithin(path, ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography, %s)
+    """
+    run_benchmark_query("GEOGRAPHY (Meter)", query_b, (center_lon, center_lat, radius_m))
+
+    # Case C: CASTING (GEOMETRY -> GEOGRAPHY)
+    # Converting column on the fly (Index usage check)
+    query_c = """
+        SELECT count(*) FROM routes_geom 
+        WHERE ST_DWithin(path::geography, ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography, %s)
+    """
+    run_benchmark_query("CAST (Geom->Geog)", query_c, (center_lon, center_lat, radius_m))
+
+    # Case D: HYBRID (Filter by Geom Box first, then refine with Geography)
+    # This simulates what we might do in application code or complex query
+    query_d = """
+        SELECT count(*) FROM routes_geom 
+        WHERE ST_DWithin(path, ST_SetSRID(ST_MakePoint(%s, %s), 4326), %s) -- Coarse Filter (Index)
+        AND ST_DWithin(path::geography, ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography, %s) -- Precise Check
+    """
+    # Note: radius_deg needs to be slightly larger to be safe (0.06 deg)
+    run_benchmark_query("HYBRID (Box -> Exact)", query_d, (center_lon, center_lat, 0.06, center_lon, center_lat, radius_m))
+
 
 if __name__ == "__main__":
-    try:
-        setup_db()
-        seed_data()
-        run_benchmarks()
-    except Exception as e:
-        print(f"Error: {e}")
-        print("\n[도움말] 테스트를 위해 Docker가 실행 중이어야 합니다.")
-        print("명령어: docker run --name pg_perf_test -e POSTGRES_PASSWORD=password -d -p 5433:5432 postgis/postgis:15-3.3")
+    setup_db()
+    seed_data(100000)
+    run_tests()

@@ -34,6 +34,7 @@ CREATE TABLE users (
     -- 기본 정보
     username VARCHAR(50) NOT NULL,
     email VARCHAR(255),
+    profile_image_url VARCHAR(255),
     
     -- 계정 상태 (가입, 정지, 탈퇴 등)
     status user_status DEFAULT 'ACTIVE' NOT NULL,
@@ -67,7 +68,8 @@ CREATE TABLE user_tokens (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
     -- 소유자 (Users 테이블 FK - BIGINT)
-    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    -- 물리적 FK 제약조건 제거 (Logical Reference Only)
+    user_id BIGINT NOT NULL,
 
     -- 인증 제공자 (ENUM 사용으로 입력값 제한)
     provider auth_provider NOT NULL,
@@ -89,11 +91,10 @@ CREATE TABLE user_tokens (
 
     -- 메타 데이터
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 
-    -- [정책] Provider당 단일 토큰 세트 유지
-    -- 인덱스 순서: (user_id, provider) -> "내 연동 계정 조회" 패턴에 최적화
-    UNIQUE(user_id, provider)
+    -- [정책 변경] 멀티 디바이스 지원을 위해 Unique 제약조건 제거
+    -- UNIQUE(user_id, provider) 삭제됨
 );
 
 -- Index 3: API 요청 및 갱신 시 토큰 검증 (Status 선행)

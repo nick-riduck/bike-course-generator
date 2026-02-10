@@ -43,6 +43,9 @@ CREATE TABLE routes (
     data_file_path TEXT NOT NULL,
 
     -- [Spatial] 지리 정보 (PostGIS)
+    -- 성능 최적화를 위해 GEOMETRY 타입(평면 좌표) 사용
+    -- *거리 계산 시 주의:* 정확한 미터(m) 단위 계산이 필요할 경우, 쿼리 레벨에서 
+    -- 'Hybrid Query Pattern' (Box Search로 1차 필터링 -> Geography Casting으로 2차 정밀 계산)을 사용해야 함.
     summary_path GEOMETRY(LineString, 4326),
     start_point GEOMETRY(Point, 4326),
 
@@ -113,7 +116,10 @@ CREATE TABLE route_segments (
     sequence INTEGER NOT NULL,
     start_index INTEGER NOT NULL, 
     end_index INTEGER NOT NULL,
-    PRIMARY KEY (route_id, segment_id)
+    
+    -- [PK 변경] (route_id, segment_id) -> (route_id, sequence)
+    -- 사유: 인터벌 코스나 순환 코스처럼 동일한 세그먼트를 여러 번 타는 경우를 지원하기 위함
+    PRIMARY KEY (route_id, sequence)
 );
 ```
 
