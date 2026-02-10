@@ -27,6 +27,23 @@ const generateGPX = (segments) => {
 
 const BikeRoutePlanner = () => {
   const mapRef = useRef();
+  
+  // 지하철/철도 라인 켜기
+  const handleMapLoad = (e) => {
+    const map = e.target;
+    try {
+      const layers = map.getStyle().layers;
+      layers.forEach(layer => {
+        // 지하철, 철도, 대중교통 관련 레이어 찾기
+        if (layer.id.includes('subway') || layer.id.includes('railway') || layer.id.includes('transit')) {
+          map.setLayoutProperty(layer.id, 'visibility', 'visible');
+        }
+      });
+    } catch (err) {
+      console.log("Layer styling warning:", err);
+    }
+  };
+
   const [points, setPoints] = useState([]);
   const [segments, setSegments] = useState([]);
   const [isMockMode, setIsMockMode] = useState(false);
@@ -34,8 +51,24 @@ const BikeRoutePlanner = () => {
   const [loadingMsg, setLoadingMsg] = useState('');
   const [hoveredCoord, setHoveredCoord] = useState(null);
   const [history, setHistory] = useState({ past: [], future: [] });
+  const [hoverInfo, setHoverInfo] = useState(null);
 
   const handleHoverPoint = useCallback((coord) => setHoveredCoord(coord), []);
+
+  const onHover = useCallback(event => {
+    const {
+      features,
+      point: { x, y }
+    } = event;
+    const hoveredFeature = features && features[0];
+
+    setHoverInfo(
+      hoveredFeature && hoveredFeature.properties
+        ? { feature: hoveredFeature, x, y }
+        : null
+    );
+  }, []);
+
   const saveToHistory = (p, s) => setHistory(curr => ({ past: [...curr.past, { points: p, segments: s }], future: [] }));
 
   const handleUndo = () => {
@@ -65,7 +98,6 @@ const BikeRoutePlanner = () => {
     
     setLoadingMsg('Finding Route...');
     try {
-      // const API_BASE_URL = import.meta.env.VITE_API_URL || '';
       const response = await fetch(`/api/route_v2`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -77,7 +109,15 @@ const BikeRoutePlanner = () => {
           })
       });
       
-      if (!response.ok) throw new Error(`Backend error: ${response.status}`);
+      if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          if (response.status === 400 && errorData.detail) {
+              alert(errorData.detail);
+          } else {
+              throw new Error(`Backend error: ${response.status}`);
+          }
+          return null;
+      }
       const data = await response.json();
       
       const rawFeatures = data.display_geojson.features || [];
@@ -89,7 +129,8 @@ const BikeRoutePlanner = () => {
           },
           properties: {
               color: f.properties.color || '#2a9e92',
-              surface: f.properties.surface || 'unknown'
+              surface: f.properties.surface || 'unknown',
+              description: f.properties.description || ''
           }
       }));
 
@@ -144,7 +185,13 @@ const BikeRoutePlanner = () => {
       
       try {
           const realData = await fetchSegmentData(lastPoint, newPoint, isMockMode ? 'mock' : 'real');
-          setSegments(prev => prev.map(s => s.id === segmentId ? { ...s, ...realData } : s));
+          if (realData) {
+            setSegments(prev => prev.map(s => s.id === segmentId ? { ...s, ...realData } : s));
+          } else {
+            // Error handled (e.g. 400 Bad Request), remove the failed segment
+            setSegments(prev => prev.filter(s => s.id !== segmentId));
+            setPoints(prev => prev.slice(0, -1)); // Remove the point too
+          }
       } catch(e) { }
     }
   };
@@ -174,7 +221,12 @@ const BikeRoutePlanner = () => {
       setIsLoading(true);
       try {
           const realData = await fetchSegmentData(prevPoint, nextPoint, isMockMode ? 'mock' : 'real');
-          setSegments(prev => prev.map(s => s.id === segmentId ? { ...s, ...realData } : s));
+          if (realData) {
+            setSegments(prev => prev.map(s => s.id === segmentId ? { ...s, ...realData } : s));
+          } else {
+             // Handle error during re-routing
+             setSegments(prev => prev.filter(s => s.id !== segmentId));
+          }
       } finally { setIsLoading(false); setLoadingMsg(''); }
     } else { 
         setSegments(newSegments); 
@@ -207,8 +259,12 @@ const BikeRoutePlanner = () => {
         <Map 
             ref={mapRef} 
             initialViewState={INITIAL_VIEW_STATE} 
-            mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json" 
-            onClick={handleMapClick} 
+            mapStyle="https://api.maptiler.com/maps/jp-mierune-dark/style.json?key=hmAnzLL30c4tItQZZ8B9" 
+            onLoad={handleMapLoad}
+            onClick={handleMapClick}
+            onMouseMove={onHover}
+            onMouseLeave={() => setHoverInfo(null)}
+            interactiveLayerIds={['route-layer']}
             style={{ width: '100%', height: '100%' }} 
             cursor={isLoading ? 'wait' : 'crosshair'}
         >
@@ -241,24 +297,24 @@ const BikeRoutePlanner = () => {
           ))}
           
           {hoveredCoord && <Marker key={`hover-${hoveredCoord.lng}-${hoveredCoord.lat}`} longitude={hoveredCoord.lng} latitude={hoveredCoord.lat} anchor="center" style={{ zIndex: 99999 }}><div className="w-2.5 h-2.5 rounded-full bg-yellow-400 border border-white pointer-events-none"></div></Marker>}
+
+          {hoverInfo && (
+            <div 
+              className="absolute z-50 pointer-events-none bg-gray-900/95 text-white p-2 rounded text-xs border border-gray-600 shadow-xl" 
+              style={{left: hoverInfo.x + 10, top: hoverInfo.y + 10}}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-2 h-2 rounded-full" style={{backgroundColor: hoverInfo.feature.properties.color}}></div>
+                <span className="font-bold">{hoverInfo.feature.properties.surface}</span>
+              </div>
+              {hoverInfo.feature.properties.description && (
+                <div className="mt-1 text-[10px] text-gray-300 leading-tight">
+                  {hoverInfo.feature.properties.description}
+                </div>
+              )}
+            </div>
+          )}
         </Map>
-        
-        {/* NEW LEGEND POSITION */}
-        <div className="absolute bottom-6 left-4 z-50">
-          <div className="p-4 bg-gray-900/95 backdrop-blur rounded-xl border border-gray-700 shadow-2xl text-white min-w-[200px]">
-            <div className="flex justify-between items-center mb-3">
-                <span className="font-bold text-base text-white">Route Legend</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-xs text-gray-300">
-                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#2a9e92]"></div>Road</div>
-                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#00E676]"></div>Cycleway</div>
-                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#FF9800]"></div>Gravel/Dirt</div>
-                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#FFC107]"></div>Path</div>
-                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#4FC3F7]"></div>Residential</div>
-                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#00695C]"></div>Main Road</div>
-            </div>
-          </div>
-        </div>
 
         <div className="absolute top-4 left-4 z-50 flex flex-col gap-2">
           <div className="p-3 bg-gray-900/90 backdrop-blur rounded-lg border border-gray-700 shadow text-white min-w-[160px]">
