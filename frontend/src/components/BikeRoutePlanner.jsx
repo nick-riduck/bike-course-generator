@@ -155,7 +155,81 @@ const BikeRoutePlanner = () => {
   const [routeName, setRouteName] = useState('Untitled Route');
   const [isEditingName, setIsEditingName] = useState(false);
 
+  // Place Search State
+  const [isPlaceSearchOpen, setIsPlaceSearchOpen] = useState(false);
+  const [placeSearchQuery, setPlaceSearchQuery] = useState('');
+
+  // Long Press State for Mobile
+  const longPressTimerRef = useRef(null);
+  const isLongPressRef = useRef(false);
+  const touchStartPosRef = useRef(null);
+
   const handleHoverPoint = useCallback((coord) => setHoveredCoord(coord), []);
+
+  const handleTouchStart = (e) => {
+      // Only single touch
+      if (e.points.length !== 1) return;
+      
+      const { x, y } = e.point;
+      const { lng, lat } = e.lngLat;
+      
+      touchStartPosRef.current = { x, y };
+      isLongPressRef.current = false;
+
+      longPressTimerRef.current = setTimeout(() => {
+          // Long Press Triggered
+          isLongPressRef.current = true;
+          
+          // Check if we are on the route
+          // We need to access the map instance directly or pass it via refs, 
+          // but mapRef.current is available.
+          if (!mapRef.current) return;
+          
+          const map = mapRef.current; // mapRef.current is the MapRef object
+          const features = map.queryRenderedFeatures([x, y], { layers: ['route-layer'] });
+
+          if (features.length > 0) {
+              // Haptic feedback if available
+              if (navigator.vibrate) navigator.vibrate(50);
+              
+              // Find insert candidate logic (reused from hover logic partially)
+              // Since we don't have hover state, we calculate candidate now.
+              const feature = features[0];
+              const sectionIdx = feature.properties.sectionIndex;
+              const segmentIdx = feature.properties.segmentIndex;
+              
+              if (sectionIdx !== undefined && segmentIdx !== undefined) {
+                   const candidate = {
+                       sectionIdx,
+                       segmentIdx,
+                       candidates: [{ sectionIdx, segmentIdx }] // simplified
+                   };
+                   performInsertPoint(candidate, lng, lat);
+              }
+          }
+      }, 500); // 500ms threshold
+  };
+
+  const handleTouchMove = (e) => {
+      if (!touchStartPosRef.current) return;
+      const { x, y } = e.point;
+      const dx = Math.abs(x - touchStartPosRef.current.x);
+      const dy = Math.abs(y - touchStartPosRef.current.y);
+      
+      // If moved more than 10px, cancel long press (it's a drag/pan)
+      if (dx > 10 || dy > 10) {
+          clearTimeout(longPressTimerRef.current);
+          touchStartPosRef.current = null;
+      }
+  };
+
+  const handleTouchEnd = () => {
+      clearTimeout(longPressTimerRef.current);
+      touchStartPosRef.current = null;
+      // Note: We don't prevent default click here. 
+      // If long press fired, the point is inserted. 
+      // If not, it's a tap, handled by onClick.
+  };
 
   const handleSectionHover = useCallback((index) => {
     setHoveredSectionIndex(index);
@@ -806,9 +880,6 @@ const BikeRoutePlanner = () => {
     // 3. SPECIAL: Previous Section's Last Segment (Leading into this Header)
     // If this point is the FIRST point of a section (and not the first section of all)
 
-  // Route Metadata
-  const [routeName, setRouteName] = useState('Untitled Route');
-  const [isEditingName, setIsEditingName] = useState(false);
     if (pointIdx === 0 && sectionIdx > 0) {
         const prevSection = updatedSections[sectionIdx - 1];
         const lastPointOfPrevSection = prevSection.points[prevSection.points.length - 1];
@@ -1021,11 +1092,12 @@ const BikeRoutePlanner = () => {
         
         {/* Map Area */}
         <div className="flex-1 relative">
-                        {/* Top Right: Straight Line Mode Toggle */}
-            <div className="absolute top-4 right-4 md:top-6 md:right-6 z-10">
+                        {/* Top Right: Tools Container */}
+            <div className="absolute top-4 right-4 md:top-6 md:right-6 z-10 flex flex-col items-end gap-3 pointer-events-none">
+                {/* 1. Straight Line Mode Toggle */}
                 <button 
                     onClick={() => setIsMockMode(!isMockMode)}
-                    className={`flex items-center justify-between gap-2 md:gap-4 px-3 py-2 md:px-5 md:py-3 rounded-2xl border shadow-xl backdrop-blur-md transition-all duration-300 ${
+                    className={`pointer-events-auto flex items-center justify-between gap-2 md:gap-4 px-3 py-2 md:px-5 md:py-3 rounded-2xl border shadow-xl backdrop-blur-md transition-all duration-300 ${
                         isMockMode 
                         ? 'bg-riduck-primary/90 border-riduck-primary text-white shadow-riduck-primary/20' 
                         : 'bg-gray-900/90 border-gray-700 text-gray-400 hover:text-white hover:border-gray-500'
@@ -1046,6 +1118,38 @@ const BikeRoutePlanner = () => {
                         <div className={`absolute top-0.5 left-0.5 w-3 h-3 md:w-4 md:h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${isMockMode ? 'translate-x-4 md:translate-x-5' : 'translate-x-0'}`} />
                     </div>
                 </button>
+
+                {/* 2. Place Search Bar (Floating) */}
+                <div className={`pointer-events-auto flex items-center bg-gray-900/90 backdrop-blur-md border border-gray-700 shadow-xl rounded-full transition-all duration-300 ease-in-out ${isPlaceSearchOpen ? 'w-64 px-4 py-2' : 'w-10 h-10 md:w-12 md:h-12 justify-center p-0'}`}>
+                    
+                    {/* Input Field (Visible only when open) */}
+                    <input 
+                        type="text"
+                        placeholder="Search places..."
+                        value={placeSearchQuery}
+                        onChange={(e) => setPlaceSearchQuery(e.target.value)}
+                        className={`bg-transparent text-white text-sm outline-none transition-all duration-300 ${isPlaceSearchOpen ? 'w-full opacity-100' : 'w-0 opacity-0'}`}
+                        // Focus automatically when opened might require ref
+                    />
+
+                    {/* Toggle Button (Magnifying Glass) */}
+                    <button 
+                        onClick={() => setIsPlaceSearchOpen(!isPlaceSearchOpen)}
+                        className={`text-gray-400 hover:text-white transition-colors shrink-0 ${isPlaceSearchOpen ? 'ml-2' : ''}`}
+                    >
+                        {isPlaceSearchOpen && placeSearchQuery ? (
+                            // Clear Icon if text exists (Optional logic, sticking to toggle for now)
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        ) : (
+                            // Search Icon
+                            <svg xmlns="http://www.w3.org/2000/svg" className={`${isPlaceSearchOpen ? 'h-5 w-5' : 'h-5 w-5 md:h-6 md:w-6'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        )}
+                    </button>
+                </div>
             </div>
 
             {/* Stats Overlay */}
@@ -1089,6 +1193,10 @@ const BikeRoutePlanner = () => {
                 onClick={handleMapClick}
                 onMouseMove={onHover}
                 
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+
                 onMouseLeave={() => { setHoverInfo(null); setDragState(null); }} // Cancel drag if leave?
                 interactiveLayerIds={['route-layer']}
                 style={{ width: '100%', height: '100%' }} 
