@@ -742,6 +742,12 @@ const BikeRoutePlanner = () => {
     }
   };
 
+  const handlePointRename = (sectionIdx, pointIdx, newName) => {
+      const updatedSections = [...sections];
+      updatedSections[sectionIdx].points[pointIdx].name = newName;
+      setSections(updatedSections);
+  };
+
   const handlePointMove = async (sectionIdx, pointIdx, evt) => {
     const { lng, lat } = evt.lngLat;
     saveToHistory(sections);
@@ -962,6 +968,7 @@ const BikeRoutePlanner = () => {
                     onDownloadGPX={handleDownloadGPX}
                     sections={sections}
                     onPointRemove={handlePointRemove}
+                    onPointRename={handlePointRename}
                     onSplitSection={handleSplitSection}
                     onSectionHover={handleSectionHover}
                     onSectionDelete={handleSectionDelete}

@@ -9,6 +9,7 @@ const MenuPanel = ({
   onDownloadGPX, 
   sections,
   onPointRemove,
+  onPointRename,
   onSplitSection,
   onSectionHover,
   onSectionDelete,
@@ -18,19 +19,36 @@ const MenuPanel = ({
   isMockMode,
   setIsMockMode
 }) => {
+  // Section Rename State
   const [editingSectionId, setEditingSectionId] = useState(null);
-  const [tempName, setTempName] = useState('');
+  const [sectionTempName, setSectionTempName] = useState('');
 
-  const handleStartRename = (section) => {
+  // Point Rename State
+  const [editingPointId, setEditingPointId] = useState(null);
+  const [pointTempName, setPointTempName] = useState('');
+
+  // --- Section Handlers ---
+  const handleStartSectionRename = (section) => {
     setEditingSectionId(section.id);
-    setTempName(section.name);
+    setSectionTempName(section.name);
   };
 
-  const handleFinishRename = (sIdx) => {
-    if (tempName.trim()) {
-      onSectionRename(sIdx, tempName.trim());
+  const handleFinishSectionRename = (sIdx) => {
+    if (sectionTempName.trim()) {
+      onSectionRename(sIdx, sectionTempName.trim());
     }
     setEditingSectionId(null);
+  };
+
+  // --- Point Handlers ---
+  const handleStartPointRename = (point) => {
+    setEditingPointId(point.id);
+    setPointTempName(point.name || '');
+  };
+
+  const handleFinishPointRename = (sIdx, pIdx) => {
+    onPointRename(sIdx, pIdx, pointTempName.trim());
+    setEditingPointId(null);
   };
 
   return (
@@ -70,34 +88,34 @@ const MenuPanel = ({
                   onMouseLeave={() => onSectionHover && onSectionHover(null)}
                 >
                   {/* Section Header Card */}
-                  <div className="bg-gray-800/40 border border-gray-700/50 rounded-2xl p-3 shadow-sm hover:border-gray-600 transition-all">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <div className="w-2.5 h-2.5 rounded-full shadow-sm shrink-0" style={{ backgroundColor: section.color }}></div>
+                  <div className="bg-gray-800/40 border border-gray-700/50 rounded-2xl p-4 shadow-sm hover:border-gray-600 transition-all">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3 flex-1 min-w-0 mt-0.5">
+                        <div className="w-3 h-3 rounded-full shadow-sm shrink-0 ring-2 ring-gray-800" style={{ backgroundColor: section.color }}></div>
                         {editingSectionId === section.id ? (
                           <input 
                             autoFocus
-                            className="bg-gray-900 text-white text-xs font-bold px-2 py-1 rounded border border-riduck-primary focus:outline-none w-full"
-                            value={tempName}
-                            onChange={(e) => setTempName(e.target.value)}
-                            onBlur={() => handleFinishRename(sIdx)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleFinishRename(sIdx)}
+                            className="bg-gray-900 text-white text-lg font-bold px-2 py-1 rounded border border-riduck-primary focus:outline-none w-full"
+                            value={sectionTempName}
+                            onChange={(e) => setSectionTempName(e.target.value)}
+                            onBlur={() => handleFinishSectionRename(sIdx)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleFinishSectionRename(sIdx)}
                           />
                         ) : (
                           <h3 
-                            className="text-sm font-bold text-gray-200 tracking-tight truncate cursor-pointer hover:text-white transition-colors"
-                            onClick={() => handleStartRename(section)}
+                            className="text-lg font-bold text-white tracking-normal truncate cursor-pointer hover:text-riduck-primary transition-colors leading-tight"
+                            onClick={() => handleStartSectionRename(section)}
                           >
                             {section.name}
                           </h3>
                         )}
                       </div>
-                      <div className="flex flex-col items-end">
-                        <span className="text-[10px] text-gray-400 font-mono font-bold">
-                          {secDist.toFixed(1)}km
+                      <div className="flex flex-col items-end pl-2">
+                        <span className="text-sm text-white font-mono font-black tracking-tight">
+                          {secDist.toFixed(1)}<span className="text-xs text-gray-500 ml-0.5 font-sans font-normal">km</span>
                         </span>
-                        <span className="text-[9px] text-gray-600 font-mono">
-                          +{Math.round(secAsc)}m
+                        <span className="text-xs text-gray-400 font-mono">
+                          +{Math.round(secAsc)}<span className="text-[10px] text-gray-600 ml-0.5 font-sans">m</span>
                         </span>
                       </div>
                     </div>
@@ -114,7 +132,6 @@ const MenuPanel = ({
                         </svg>
                       </button>
                       
-                      {/* Merge UP (First section can't merge up) */}
                       {sIdx > 0 && (
                         <button 
                           onClick={() => onSectionMerge(sIdx - 1)}
@@ -127,7 +144,6 @@ const MenuPanel = ({
                         </button>
                       )}
 
-                      {/* Merge DOWN (Last section can't merge down) */}
                       {sIdx < sections.length - 1 && (
                         <button 
                           onClick={() => onSectionMerge(sIdx)}
@@ -158,9 +174,13 @@ const MenuPanel = ({
                       const isFirst = sIdx === 0 && pIdx === 0;
                       const isLast = sIdx === sections.length - 1 && pIdx === section.points.length - 1;
                       const bgColor = isFirst ? '#10B981' : (isLast ? '#EF4444' : section.color);
+                      
+                      const displayName = p.name ? p.name : `Point ${pIdx + 1}`;
+                      const isNameCustom = !!p.name;
 
                       return (
                         <div key={p.id} className="group flex items-center gap-3 bg-gray-800/20 p-2.5 rounded-xl border border-transparent hover:border-gray-700 hover:bg-gray-800/40 transition-all">
+                          {/* Styled to match map marker */}
                           <div 
                             className="w-6 h-6 rounded-full border-2 border-white shadow-sm flex items-center justify-center text-[9px] font-black text-white shrink-0" 
                             style={{ backgroundColor: bgColor }}
@@ -169,30 +189,49 @@ const MenuPanel = ({
                           </div>
                           
                           <div className="flex-1 min-w-0">
-                            <p className="text-[10px] text-gray-500 font-mono truncate group-hover:text-gray-300 transition-colors">
-                              {p.lat.toFixed(4)}, {p.lng.toFixed(4)}
-                            </p>
+                            {editingPointId === p.id ? (
+                                <input 
+                                    autoFocus
+                                    className="bg-gray-900 text-white text-xs px-2 py-1 rounded border border-riduck-primary focus:outline-none w-full font-medium"
+                                    value={pointTempName}
+                                    onChange={(e) => setPointTempName(e.target.value)}
+                                    onBlur={() => handleFinishPointRename(sIdx, pIdx)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleFinishPointRename(sIdx, pIdx)}
+                                    placeholder={`Point ${pIdx + 1}`}
+                                />
+                            ) : (
+                                <p 
+                                    className={`text-xs truncate cursor-text transition-colors hover:text-riduck-primary ${isNameCustom ? 'text-white font-bold' : 'text-gray-500 font-medium'}`}
+                                    onClick={() => handleStartPointRename(p)}
+                                    title="Click to rename"
+                                >
+                                    {displayName}
+                                </p>
+                            )}
                           </div>
                           
-                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                          {/* Actions (Always visible) */}
+                          <div className="flex items-center gap-0.5">
                             {pIdx > 0 && (
                               <button 
                                 onClick={() => onSplitSection(sIdx, pIdx)}
-                                className="p-1 text-gray-500 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors"
+                                className="p-1.5 text-gray-500 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors"
                                 title="Split Section Here"
                               >
+                                {/* Scissor Icon */}
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758L5 19m0-14l4.121 4.121" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14L21 3m0 0l-6.146 6.146M21 3l-6.262 6.262M19 12a2 2 0 11-4 0 2 2 0 014 0zm-7 7a2 2 0 11-4 0 2 2 0 014 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.293 15.707a1 1 0 010-1.414l3-3a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0z" />
                                 </svg>
                               </button>
                             )}
                             <button 
                               onClick={(e) => onPointRemove(sIdx, pIdx, e)}
-                              className="p-1 text-gray-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                              className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
                               title="Remove Point"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                               </svg>
                             </button>
                           </div>
