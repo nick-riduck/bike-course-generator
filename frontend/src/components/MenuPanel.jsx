@@ -154,41 +154,51 @@ const MenuPanel = ({
                   
                   {/* Points inside section */}
                   <div className="flex flex-col gap-2 pl-2 border-l-2 border-gray-800/50 ml-1.5 mt-2">
-                    {section.points.map((p, pIdx) => (
-                      <div key={p.id} className="group flex items-center gap-3 bg-gray-800/20 p-2.5 rounded-xl border border-transparent hover:border-gray-700 hover:bg-gray-800/40 transition-all">
-                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white shadow-sm`} style={{ backgroundColor: section.color }}>
-                          {pIdx + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[10px] text-gray-500 font-mono truncate group-hover:text-gray-300 transition-colors">
-                            {p.lat.toFixed(4)}, {p.lng.toFixed(4)}
-                          </p>
-                        </div>
-                        
-                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
-                          {pIdx > 0 && (
+                    {section.points.map((p, pIdx) => {
+                      const isFirst = sIdx === 0 && pIdx === 0;
+                      const isLast = sIdx === sections.length - 1 && pIdx === section.points.length - 1;
+                      const bgColor = isFirst ? '#10B981' : (isLast ? '#EF4444' : section.color);
+
+                      return (
+                        <div key={p.id} className="group flex items-center gap-3 bg-gray-800/20 p-2.5 rounded-xl border border-transparent hover:border-gray-700 hover:bg-gray-800/40 transition-all">
+                          <div 
+                            className="w-6 h-6 rounded-full border-2 border-white shadow-sm flex items-center justify-center text-[9px] font-black text-white shrink-0" 
+                            style={{ backgroundColor: bgColor }}
+                          >
+                            {pIdx + 1}
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] text-gray-500 font-mono truncate group-hover:text-gray-300 transition-colors">
+                              {p.lat.toFixed(4)}, {p.lng.toFixed(4)}
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                            {pIdx > 0 && (
+                              <button 
+                                onClick={() => onSplitSection(sIdx, pIdx)}
+                                className="p-1 text-gray-500 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors"
+                                title="Split Section Here"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758L5 19m0-14l4.121 4.121" />
+                                </svg>
+                              </button>
+                            )}
                             <button 
-                              onClick={() => onSplitSection(sIdx, pIdx)}
-                              className="p-1 text-gray-500 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors"
-                              title="Split Section Here"
+                              onClick={(e) => onPointRemove(sIdx, pIdx, e)}
+                              className="p-1 text-gray-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                              title="Remove Point"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758L5 19m0-14l4.121 4.121" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                               </svg>
                             </button>
-                          )}
-                          <button 
-                            onClick={(e) => onPointRemove(sIdx, pIdx, e)}
-                            className="p-1 text-gray-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
-                            title="Remove Point"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               );

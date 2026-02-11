@@ -16,6 +16,91 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 
 const SECTION_COLORS = ['#2a9e92', '#4CAF50', '#FF9800', '#E91E63', '#9C27B0', '#3F51B5'];
 
+const getDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Radius of the earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+        Math.sin(dLon/2) * Math.sin(dLon/2); 
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+    return R * c; // Distance in km
+};
+
+const getProjectedDistance = (segmentCoords, targetLng, targetLat) => {
+    // Handle potential nested coordinates (MultiLineString vs LineString)
+    // Flatten if necessary, but usually segments are simple LineStrings [ [lon, lat], ... ]
+    if (!segmentCoords || !Array.isArray(segmentCoords) || segmentCoords.length < 2) return 0;
+    
+    // Check if first element is number (invalid) or array (valid point)
+    if (typeof segmentCoords[0] === 'number') return 0; 
+
+    let minDistance = Infinity;
+    let accumulatedDistance = 0;
+    let closestPointDistance = 0;
+
+    for (let i = 0; i < segmentCoords.length - 1; i++) {
+        const pt1 = segmentCoords[i];
+        const pt2 = segmentCoords[i+1];
+        
+        // Ensure points are arrays [lon, lat]
+        if (!Array.isArray(pt1) || !Array.isArray(pt2)) continue;
+        
+        const [lon1, lat1] = pt1;
+        const [lon2, lat2] = pt2;
+        
+        const segLen = getDistance(lat1, lon1, lat2, lon2);
+        
+        // Simple projection onto line segment (approximation)
+        // Find t (0 to 1) that minimizes distance from point to line segment
+        // Or just check distance to start and end points for simplicity if segLen is small
+        // For better UX, let's just find the closest vertex index and use its accumulated distance.
+        // Or better: Projection.
+        
+        // Let's use simple vertex matching for now as segments are usually dense.
+        // Or simple projection:
+        const x = targetLng, y = targetLat;
+        const x1 = lon1, y1 = lat1;
+        const x2 = lon2, y2 = lat2;
+        
+        const A = x - x1;
+        const B = y - y1;
+        const C = x2 - x1;
+        const D = y2 - y1;
+        
+        const dot = A * C + B * D;
+        const lenSq = C * C + D * D;
+        let param = -1;
+        if (lenSq !== 0) param = dot / lenSq;
+        
+        let xx, yy;
+        let portion = 0; // 0 to 1 of this segment
+        
+        if (param < 0) {
+            xx = x1; yy = y1;
+            portion = 0;
+        } else if (param > 1) {
+            xx = x2; yy = y2;
+            portion = 1;
+        } else {
+            xx = x1 + param * C;
+            yy = y1 + param * D;
+            portion = param;
+        }
+        
+        const distToLine = getDistance(targetLat, targetLng, yy, xx);
+        
+        if (distToLine < minDistance) {
+            minDistance = distToLine;
+            closestPointDistance = accumulatedDistance + (segLen * portion);
+        }
+        
+        accumulatedDistance += segLen;
+    }
+    return closestPointDistance;
+};
+
 const generateGPX = (sections) => {
   const flatSegments = sections.flatMap(s => s.segments);
   if (flatSegments.length === 0) return null;
@@ -92,27 +177,38 @@ const BikeRoutePlanner = () => {
         return;
     }
 
-    if (hoveredFeature && hoveredFeature.layer.id === 'route-layer') {
-        const secIdx = hoveredFeature.properties.sectionIndex;
-        const segIdx = hoveredFeature.properties.segmentIndex;
+    const routeFeatures = features ? features.filter(f => f.layer.id === 'route-layer') : [];
 
-        if (secIdx !== undefined && segIdx !== undefined) {
+    if (routeFeatures.length > 0) {
+        const candidates = routeFeatures.map(f => ({
+            sectionIdx: f.properties.sectionIndex,
+            segmentIdx: f.properties.segmentIndex
+        })).filter(c => c.sectionIdx !== undefined && c.segmentIdx !== undefined);
+
+        if (candidates.length > 0) {
+            // Deduplicate if needed, but typically distinct segments
             setInsertCandidate({
                 lng: lngLat.lng,
                 lat: lngLat.lat,
-                sectionIdx: secIdx,
-                segmentIdx: segIdx
+                candidates: candidates,
+                // Primary candidate (top-most)
+                sectionIdx: candidates[0].sectionIdx,
+                segmentIdx: candidates[0].segmentIdx
             });
             return;
         }
     }
     setInsertCandidate(null);
-  }, [dragState]);
+  }, []);
 
   const performInsertPoint = async (candidate, lng, lat) => {
-      if (!candidate) return;
+      // Handle candidate object structure difference (direct vs via popup)
+      const sectionIdx = candidate.sectionIdx ?? candidate.sectionIndex;
+      const segmentIdx = candidate.segmentIdx ?? candidate.segmentIndex;
+
+      if (sectionIdx === undefined || segmentIdx === undefined) return;
+
       setAmbiguityPopup(null);
-      const { sectionIdx, segmentIdx } = candidate;
       const newPointId = generateId();
       const newPoint = { id: newPointId, lng, lat, type: 'via', name: '' };
 
@@ -276,16 +372,72 @@ const BikeRoutePlanner = () => {
       }
   };
 
+  const getEnrichedCandidateInfo = useCallback((sectionIdx, segmentIdx, clickLng, clickLat) => {
+      const section = sections[sectionIdx];
+      if (!section) return null;
+
+      const segment = section.segments[segmentIdx];
+      if (!segment) return null;
+
+      const startPoint = section.points.find(p => p.id === segment.startPointId);
+      const endPoint = section.points.find(p => p.id === segment.endPointId);
+      
+      // Calculate accumulated distance up to this segment start
+      let startDist = 0;
+      for (let i = 0; i < sectionIdx; i++) {
+          startDist += sections[i].segments.reduce((acc, s) => acc + (s.distance || 0), 0);
+      }
+      for (let j = 0; j < segmentIdx; j++) {
+          startDist += section.segments[j].distance || 0;
+      }
+      
+      // Calculate partial distance within segment
+      const partialDist = getProjectedDistance(segment.geometry?.coordinates, clickLng, clickLat);
+      const totalDist = startDist + partialDist;
+      
+      // Improve names: use index if name is empty
+      const sIdx = section.points.findIndex(p => p.id === segment.startPointId);
+      const eIdx = section.points.findIndex(p => p.id === segment.endPointId);
+      
+      const sName = startPoint?.name ? startPoint.name : `Point ${sIdx + 1}`;
+      const eName = endPoint?.name ? endPoint.name : `Point ${eIdx + 1}`;
+
+      return {
+          sectionName: section.name,
+          startPointName: sName,
+          endPointName: eName,
+          totalDistance: totalDist,
+          sectionIdx,
+          segmentIdx,
+          sectionColor: section.color
+      };
+  }, [sections]);
+
   const handleDragEnd = useCallback((e) => {
     if (dragStateRef.current) {
         const { candidate, lng, lat } = dragStateRef.current;
-        if (candidate && candidate.sectionIdx !== undefined) {
-            performInsertPoint(candidate, lng, lat);
+        
+        if (candidate) {
+            if (candidate.candidates && candidate.candidates.length > 1) {
+                // Enrich candidates with readable info & Sort by distance
+                const enrichedCandidates = candidate.candidates.map(c => 
+                    getEnrichedCandidateInfo(c.sectionIdx, c.segmentIdx, lng, lat)
+                ).filter(c => c !== null).sort((a, b) => a.totalDistance - b.totalDistance);
+
+                setAmbiguityPopup({
+                    lng: lng,
+                    lat: lat,
+                    candidates: enrichedCandidates
+                });
+            } else if (candidate.sectionIdx !== undefined) {
+                performInsertPoint(candidate, lng, lat);
+            }
         }
+        
         setDragState(null);
         dragStateRef.current = null;
     }
-  }, [performInsertPoint]);
+  }, [performInsertPoint, getEnrichedCandidateInfo]);
 
   // Attach global mouseup listener when dragging
   React.useEffect(() => {
@@ -963,23 +1115,54 @@ const BikeRoutePlanner = () => {
                         latitude={ambiguityPopup.lat}
                         anchor="bottom"
                         onClose={() => setAmbiguityPopup(null)}
-                        closeButton={true}
+                        closeButton={false}
                         closeOnClick={false}
-                        maxWidth="300px"
+                        maxWidth="360px"
                     >
-                        <div className="p-2 bg-gray-900 text-white rounded-lg">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 px-1">Select Section to Insert</p>
-                            <div className="flex flex-col gap-1.5">
+                        <div className="bg-gray-900 text-white rounded-xl shadow-2xl border border-gray-700 overflow-hidden ring-1 ring-white/10 w-full">
+                            {/* Custom Close Button */}
+                            <button 
+                                onClick={() => setAmbiguityPopup(null)}
+                                className="absolute top-2 right-2 text-gray-500 hover:text-white hover:bg-white/10 rounded-full p-1 transition-all z-10"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+
+                            <div className="bg-gray-800 px-4 py-3 border-b border-gray-700 flex justify-between items-center">
+                                <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">Select Route Segment</span>
+                            </div>
+                            <div className="flex flex-col gap-1 p-2 max-h-[280px] overflow-y-auto custom-scrollbar bg-gray-900/95">
                                 {ambiguityPopup.candidates.map((cand, idx) => (
                                     <button
                                         key={idx}
-                                        className="flex items-center gap-3 w-full p-2.5 rounded-xl bg-gray-800 hover:bg-riduck-primary transition-all text-left group"
+                                        className="w-full relative overflow-hidden p-3 rounded-lg bg-gray-800/50 hover:bg-riduck-primary/10 border border-gray-700/50 hover:border-riduck-primary/50 transition-all text-left group flex items-center gap-3"
                                         onClick={() => performInsertPoint(cand, ambiguityPopup.lng, ambiguityPopup.lat)}
                                     >
-                                        <div className="w-3 h-3 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: sections[cand.sectionIdx]?.color }}></div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-bold truncate">{sections[cand.sectionIdx]?.name || `Section ${cand.sectionIdx + 1}`}</p>
-                                            <p className="text-[9px] text-gray-400 group-hover:text-white/80">Segment #{cand.segmentIdx + 1}</p>
+                                        {/* Color Indicator Bar */}
+                                        <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: cand.sectionColor }}></div>
+                                        
+                                        <div className="flex-1 min-w-0 pl-1">
+                                            {/* Top: Distance (Primary Info) */}
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                <span className="text-sm font-black text-white group-hover:text-riduck-primary transition-colors font-mono tracking-tight">
+                                                    {cand.totalDistance.toFixed(1)} km
+                                                </span>
+                                                <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider bg-gray-800 px-1.5 py-0.5 rounded">Point</span>
+                                            </div>
+                                            
+                                            {/* Bottom: Context (Waypoints) - Improved Layout */}
+                                            <div className="flex items-center gap-2 text-xs text-gray-400 w-full mt-1">
+                                                <div className="flex-1 min-w-0 flex items-center gap-1.5 overflow-hidden">
+                                                    <span className="font-bold text-gray-200 truncate">{cand.startPointName}</span>
+                                                    <span className="text-gray-600 shrink-0">➔</span>
+                                                    <span className="font-bold text-gray-200 truncate">{cand.endPointName}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Right: Section Badge */}
+                                        <div className="shrink-0 px-2 py-1 bg-gray-900/80 rounded text-[10px] font-bold text-gray-500 border border-gray-700 group-hover:text-riduck-primary/80 group-hover:border-riduck-primary/30 transition-colors">
+                                            {cand.sectionName}
                                         </div>
                                     </button>
                                 ))}
