@@ -121,16 +121,12 @@ const ElevationChart = ({ segments, onHoverPoint }) => {
   }, [segments]);
 
   const chartData = useMemo(() => {
-    const labels = flatData.map(p => p.dist_km.toFixed(2));
-    const elevations = flatData.map(p => p.ele);
-
     return {
-      labels,
       datasets: [
         {
           fill: true,
           label: 'Elevation',
-          data: elevations,
+          data: flatData.map(p => ({ x: p.dist_km, y: p.ele })),
           borderColor: '#2a9e92',
           backgroundColor: 'rgba(42, 158, 146, 0.2)',
           tension: 0.4,
@@ -155,16 +151,9 @@ const ElevationChart = ({ segments, onHoverPoint }) => {
         ctx.setLineDash([5, 5]); // Dashed line
 
         checkpointDistances.forEach((cpDist, index) => {
-            // Find the closest x-axis index for this distance
-            // Since labels are strings "0.00", "0.01", we need to match appropriately
-            // or rely on the fact that flatData corresponds to labels 1:1
+            const xPos = x.getPixelForValue(cpDist);
             
-            // Find closest data point index
-            const closestIdx = flatData.findIndex(p => p.dist_km >= cpDist);
-            
-            if (closestIdx !== -1) {
-                const xPos = x.getPixelForValue(closestIdx);
-                
+            if (xPos >= 0 && xPos <= chart.width) {
                 // Draw Line
                 ctx.moveTo(xPos, top);
                 ctx.lineTo(xPos, bottom);
@@ -212,12 +201,15 @@ const ElevationChart = ({ segments, onHoverPoint }) => {
         padding: 10,
         callbacks: {
           label: (context) => ` Ele: ${Math.round(context.parsed.y)}m`,
-          title: (items) => `Dist: ${items[0].label}km`,
+          title: (items) => `Dist: ${items[0].parsed.x.toFixed(2)}km`,
         }
       },
     },
     scales: {
       x: {
+        type: 'linear',
+        min: 0,
+        max: flatData.length > 0 ? flatData[flatData.length - 1].dist_km : 10,
         grid: { display: false, drawBorder: false },
         ticks: { 
             color: '#9CA3AF',
@@ -226,8 +218,25 @@ const ElevationChart = ({ segments, onHoverPoint }) => {
             maxTicksLimit: 10,
             padding: 4,
             includeBounds: true,
-            align: 'start',
-            crossAlign: 'near'
+            align: 'inner',
+            callback: function(value, index, ticks) {
+                // Last Tick: Always show with decimals
+                if (index === ticks.length - 1) return `${parseFloat(value.toFixed(2))}km`;
+                
+                // Other Ticks: Only show if it's an integer
+                // Using a small epsilon to handle floating point precision
+                if (Math.abs(value - Math.round(value)) < 0.01) {
+                    return `${Math.round(value)}km`;
+                }
+                return '';
+            }
+        },
+        afterBuildTicks: (axis) => {
+            const ticks = axis.ticks;
+            // Force include the exact max value as the last tick
+            if (ticks.length > 0 && ticks[ticks.length - 1].value !== axis.max) {
+                ticks.push({ value: axis.max });
+            }
         },
         border: { display: false }
       },
@@ -235,6 +244,7 @@ const ElevationChart = ({ segments, onHoverPoint }) => {
         grid: { color: '#374151' },
         ticks: { 
             color: '#9CA3AF',
+            callback: (value) => `${Math.round(value)}m`,
             padding: 4
         },
         beginAtZero: false,
