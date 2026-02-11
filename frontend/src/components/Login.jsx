@@ -30,11 +30,11 @@ const Login = () => {
   return (
     <button
       onClick={loginWithGoogle}
-      className="px-4 py-2 bg-white text-black font-bold rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+      className="p-2 md:px-4 md:py-2 bg-white text-black font-bold rounded-full md:rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 shadow-lg"
+      aria-label="Login with Google"
     >
-      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" className="w-4 h-4" />
-      <span className="hidden md:inline">Google Login</span>
-      <span className="md:hidden">Login</span>
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" className="w-5 h-5" />
+      <span className="hidden md:inline">Sign in with Google</span>
     </button>
   );
 };

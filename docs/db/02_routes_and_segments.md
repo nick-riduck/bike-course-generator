@@ -140,3 +140,68 @@ CREATE TABLE route_tags (
     PRIMARY KEY (route_id, tag_id)
 );
 ```
+
+---
+
+## 4. Route Data JSON Format (JSON 상세 스펙)
+> **[CRITICAL WARNING]** 이 JSON 구조는 프론트엔드 렌더링, 고도 차트 생성, 그리고 **물리 엔진 시뮬레이터**의 핵심 입력 데이터입니다. 
+> 백엔드 및 시뮬레이터 개발 시 이 형식을 엄격히 준수해야 하며, **절대로 이 섹션을 삭제하거나 임의로 변경하지 마십시오.**
+
+이 데이터는 `routes.data_file_path`에 저장되는 상세 JSON의 표준 포맷입니다.
+
+```json
+{
+  "version": "1.0",
+  "meta": {
+    "creator": "Riduck Engine",
+    "surface_map": {
+      "0": "unknown", "1": "asphalt", "2": "concrete", 
+      "3": "wood_metal", "4": "paving_stones", "5": "cycleway", 
+      "6": "compacted", "7": "gravel_dirt"
+    }
+  },
+  "stats": {
+    "distance": 2500.5,      // 총 거리 (m)
+    "ascent": 152,           // 총 획득고도 (m)
+    "descent": 10,           // 총 하강고도 (m)
+    "points_count": 1250,    // 전체 포인트 수
+    "segments_count": 45     // 생성된 세그먼트 수
+  },
+  
+  // 1. 점 데이터 (지도 렌더링 & 고해상도 차트용)
+  // Columnar 포맷으로 용량 최적화 및 프론트엔드 연산 부하 감소
+  "points": {
+    "lat": [37.123456, ...],  // 위도
+    "lon": [127.123456, ...], // 경도
+    "ele": [50.5, ...],       // 고도 (m)
+    "dist": [0.0, 15.2, ...], // 누적 거리 (m)
+    "grade": [0.5, 0.5, ...], // 순간 경사도 (지도 색상용)
+    "surf": [1, 1, ...]       // 노면 ID (meta.surface_map 참조)
+  },
+
+  // 2. 물리 엔진용 요약 구간 (Simulation Atomic Segments)
+  // 시뮬레이터는 points를 순회하지 않고 이 segments 데이터만 보고 즉시 계산 수행
+  "segments": {
+    "p_start": [0, 15, ...],   // points 리스트 내 시작 인덱스
+    "p_end": [15, 32, ...],    // points 리스트 내 끝 인덱스
+    "length": [240.5, 120.0, ...], // 구간 길이 (m)
+    "avg_grade": [0.052, ...], // 구간 평균 경사도 (소수점)
+    "surf_id": [1, 5, ...],    // 구간 노면 ID
+    "avg_head": [180.5, ...]   // 구간 평균 방위각 (degrees)
+  },
+  
+  // 3. 코스 생성기 편집용 데이터 (Waypoints)
+  "control_points": [
+    {"lat": 37.5, "lon": 127.0, "type": "start"},
+    {"lat": 37.6, "lon": 127.1, "type": "end"}
+  ]
+}
+```
+
+### 💡 데이터 생성 규칙 (Generation Rules)
+*   **자동 경로 탐색 모드:** Valhalla의 `trace_attributes` API를 사용하여 포인트별 고도 및 노면 정보를 획득합니다.
+*   **수동 그리기 모드 (직선):** 
+    *   두 점 사이를 일정 간격으로 보간(Interpolation)하여 포인트를 생성합니다.
+    *   **고도:** Valhalla `/height` API를 통해 각 보간 지점의 지형 고도를 채웁니다.
+    *   **노면:** 도로 매칭이 불가능한 구간이므로 기본적으로 `0 (unknown)`을 할당합니다.
+

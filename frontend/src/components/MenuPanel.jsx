@@ -15,9 +15,7 @@ const MenuPanel = ({
   onSectionDelete,
   onSectionMerge,
   onSectionRename,
-  onSectionDownload,
-  isMockMode,
-  setIsMockMode
+  onSectionDownload
 }) => {
   // Section Rename State
   const [editingSectionId, setEditingSectionId] = useState(null);
@@ -55,25 +53,11 @@ const MenuPanel = ({
     <div className="w-80 h-full bg-gray-900 border-r border-gray-800 flex flex-col animate-fadeIn shadow-xl z-40">
       {/* 1. Header */}
       <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/50 backdrop-blur-md">
-        <h2 className="font-bold text-white text-lg tracking-tight">Route Planner</h2>
+        <h2 className="font-bold text-white text-lg tracking-tight">Course Detail</h2>
       </div>
 
       {/* 2. Scrollable Content */}
       <div className="flex-1 overflow-y-auto p-4 custom-scrollbar flex flex-col gap-6">
-        {/* Mock Mode Toggle */}
-        <div className="flex items-center justify-between bg-gray-800/30 p-4 rounded-2xl border border-gray-800 shadow-inner">
-          <div>
-              <p className="text-sm font-bold text-gray-200">Mock Mode</p>
-              <p className="text-[10px] text-gray-500 font-medium">Fast straight lines for testing</p>
-          </div>
-          <button 
-            onClick={() => setIsMockMode(!isMockMode)} 
-            className={`w-11 h-6 rounded-full relative transition-all duration-300 ${isMockMode ? 'bg-riduck-primary' : 'bg-gray-700'}`}
-          >
-            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-lg transition-all duration-300 transform ${isMockMode ? 'translate-x-6' : 'translate-x-1'}`} />
-          </button>
-        </div>
-
         {/* Sections & Points List */}
         <div className="space-y-8">
             {sections.map((section, sIdx) => {

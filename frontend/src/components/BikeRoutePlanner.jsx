@@ -151,6 +151,10 @@ const BikeRoutePlanner = () => {
   const [hoveredSectionIndex, setHoveredSectionIndex] = useState(null);
   const [ambiguityPopup, setAmbiguityPopup] = useState(null);
 
+  // Route Metadata
+  const [routeName, setRouteName] = useState('Untitled Route');
+  const [isEditingName, setIsEditingName] = useState(false);
+
   const handleHoverPoint = useCallback((coord) => setHoveredCoord(coord), []);
 
   const handleSectionHover = useCallback((index) => {
@@ -449,6 +453,13 @@ const BikeRoutePlanner = () => {
   }, [!!dragState, handleDragEnd]);
 
   const handleMapClick = async (e) => {
+    // If panels are open on mobile, close them and do nothing else
+    if (window.innerWidth < 768 && (isMenuOpen || isSearchOpen)) {
+        setIsMenuOpen(false);
+        setIsSearchOpen(false);
+        return;
+    }
+
     if (e.originalEvent.target.closest('.mapboxgl-marker')) return;
     
     // If we were dragging, click might fire? Usually drag prevents click.
@@ -794,6 +805,10 @@ const BikeRoutePlanner = () => {
 
     // 3. SPECIAL: Previous Section's Last Segment (Leading into this Header)
     // If this point is the FIRST point of a section (and not the first section of all)
+
+  // Route Metadata
+  const [routeName, setRouteName] = useState('Untitled Route');
+  const [isEditingName, setIsEditingName] = useState(false);
     if (pointIdx === 0 && sectionIdx > 0) {
         const prevSection = updatedSections[sectionIdx - 1];
         const lastPointOfPrevSection = prevSection.points[prevSection.points.length - 1];
@@ -934,11 +949,19 @@ const BikeRoutePlanner = () => {
 
   // Toggle handlers for SidebarNav
   const toggleMenu = () => {
-    setIsMenuOpen(prev => !prev);
+    setIsMenuOpen(prev => {
+        const newState = !prev;
+        if (newState) setIsSearchOpen(false); // Close search if menu opens
+        return newState;
+    });
   };
 
   const toggleSearch = () => {
-    setIsSearchOpen(prev => !prev);
+    setIsSearchOpen(prev => {
+        const newState = !prev;
+        if (newState) setIsMenuOpen(false); // Close menu if search opens
+        return newState;
+    });
   };
 
   return (
@@ -952,10 +975,10 @@ const BikeRoutePlanner = () => {
       />
 
       {/* 2. Panels Container (Stackable) */}
-      <div className="flex shrink-0 h-full relative z-40">
+      <div className="absolute top-0 left-0 h-full z-40 pointer-events-none flex md:relative md:shrink-0 md:pointer-events-auto">
         {/* Menu Panel */}
         <div className={`
-            ${isMenuOpen ? 'w-80 border-r border-gray-800' : 'w-0'} 
+            ${isMenuOpen ? 'w-80 border-r border-gray-800 pointer-events-auto shadow-2xl' : 'w-0'} 
             h-full bg-gray-900 overflow-hidden transition-all duration-300 ease-in-out
         `}>
             <div className="w-80 h-full"> {/* Inner Fixed Width Container */}
@@ -983,7 +1006,7 @@ const BikeRoutePlanner = () => {
 
         {/* Search Panel */}
         <div className={`
-            ${isSearchOpen ? 'w-80 border-r border-gray-800' : 'w-0'} 
+            ${isSearchOpen ? 'w-80 border-r border-gray-800 pointer-events-auto shadow-2xl' : 'w-0'} 
             h-full bg-gray-900 overflow-hidden transition-all duration-300 ease-in-out
         `}>
              <div className="w-80 h-full"> {/* Inner Fixed Width Container */}
@@ -998,17 +1021,64 @@ const BikeRoutePlanner = () => {
         
         {/* Map Area */}
         <div className="flex-1 relative">
+                        {/* Top Right: Straight Line Mode Toggle */}
+            <div className="absolute top-4 right-4 md:top-6 md:right-6 z-10">
+                <button 
+                    onClick={() => setIsMockMode(!isMockMode)}
+                    className={`flex items-center justify-between gap-2 md:gap-4 px-3 py-2 md:px-5 md:py-3 rounded-2xl border shadow-xl backdrop-blur-md transition-all duration-300 ${
+                        isMockMode 
+                        ? 'bg-riduck-primary/90 border-riduck-primary text-white shadow-riduck-primary/20' 
+                        : 'bg-gray-900/90 border-gray-700 text-gray-400 hover:text-white hover:border-gray-500'
+                    }`}
+                >
+                    <div className="flex flex-col items-start text-left mr-1 md:mr-2 leading-tight">
+                        {/* Mobile: Stacked Text */}
+                        <span className="text-[10px] font-bold md:hidden">Direct</span>
+                        <span className="text-[10px] font-bold md:hidden">Mode</span>
+                        
+                        {/* Desktop: Full Title & Desc */}
+                        <span className="hidden md:inline text-sm font-bold whitespace-nowrap">Direct Mode</span>
+                        <span className="text-[10px] opacity-70 font-medium hidden md:block">Draw direct lines</span>
+                    </div>
+                    
+                    {/* Switch Indicator */}
+                    <div className={`w-8 h-4 md:w-10 md:h-5 rounded-full relative transition-colors flex-shrink-0 ${isMockMode ? 'bg-black/20' : 'bg-gray-700'}`}>
+                        <div className={`absolute top-0.5 left-0.5 w-3 h-3 md:w-4 md:h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${isMockMode ? 'translate-x-4 md:translate-x-5' : 'translate-x-0'}`} />
+                    </div>
+                </button>
+            </div>
+
             {/* Stats Overlay */}
-            <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-10 bg-gray-900/90 backdrop-blur-md px-8 py-3 rounded-full border border-gray-700 shadow-2xl flex gap-8 items-center pointer-events-none">
+            <div className="absolute top-4 left-4 md:top-6 md:left-6 z-10 bg-gray-900/90 backdrop-blur-md px-5 py-2 md:px-8 md:py-3 rounded-2xl border border-gray-700 shadow-2xl flex gap-4 md:gap-8 items-center pointer-events-none transition-all">
                 <div className="text-center">
-                    <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Distance</p>
-                    <p className="text-2xl font-mono text-white font-bold">{totalDist.toFixed(1)}<span className="text-sm text-gray-500 ml-1">km</span></p>
+                    <p className="text-[8px] md:text-[10px] text-gray-400 uppercase font-bold tracking-wider">Distance</p>
+                    <p className="text-lg md:text-2xl font-mono text-white font-bold">{totalDist.toFixed(1)}<span className="text-xs md:text-sm text-gray-500 ml-0.5 font-sans">km</span></p>
                 </div>
-                <div className="w-px h-8 bg-gray-700"></div>
+                <div className="w-px h-6 md:h-8 bg-gray-700"></div>
                 <div className="text-center">
-                    <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Ascent</p>
-                    <p className="text-2xl font-mono text-white font-bold">{Math.round(totalAscent)}<span className="text-sm text-gray-500 ml-1">m</span></p>
+                    <p className="text-[8px] md:text-[10px] text-gray-400 uppercase font-bold tracking-wider">Ascent</p>
+                    <p className="text-lg md:text-2xl font-mono text-white font-bold">{Math.round(totalAscent)}<span className="text-xs md:text-sm text-gray-500 ml-0.5 font-sans">m</span></p>
                 </div>
+            </div>
+
+            {/* Mobile Only: Sidebar Toggles (Below Stats) */}
+            <div className="absolute top-[80px] left-4 z-10 flex gap-2 md:hidden">
+                <button 
+                    onClick={toggleMenu}
+                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isMenuOpen ? 'bg-riduck-primary border-riduck-primary text-white shadow-riduck-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                </button>
+                <button 
+                    onClick={toggleSearch}
+                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isSearchOpen ? 'bg-riduck-primary border-riduck-primary text-white shadow-riduck-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.58 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.58 4 8 4s8-1.79 8-4M4 7c0-2.21 3.58-4 8-4s8 1.79 8 4" />
+                    </svg>
+                </button>
             </div>
 
             <Map 
