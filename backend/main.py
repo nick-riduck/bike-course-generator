@@ -11,6 +11,7 @@ import uuid
 import io
 from PIL import Image, ImageDraw
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import Response
 import firebase_admin
 from firebase_admin import auth, credentials
 from dotenv import load_dotenv
@@ -39,15 +40,10 @@ except Exception as e:
 
 app = FastAPI()
 
-# Serve static thumbnails locally under /api
-if STORAGE_TYPE == "LOCAL":
-    os.makedirs(f"{STORAGE_BASE_DIR}/thumbnails", exist_ok=True)
-    app.mount("/api/thumbnails", StaticFiles(directory=f"{STORAGE_BASE_DIR}/thumbnails"), name="thumbnails")
-
 # DB 연결 설정
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
-    "port": os.getenv("DB_PORT", "5433"),
+    "port": os.getenv("DB_PORT", "5432"), # Use standard 5432 for VM
     "user": os.getenv("DB_USER", "postgres"),
     "password": os.getenv("DB_PASSWORD", "password"),
     "dbname": os.getenv("DB_NAME", "postgres")
@@ -55,6 +51,37 @@ DB_CONFIG = {
 
 def get_db_conn():
     return psycopg2.connect(**DB_CONFIG, cursor_factory=RealDictCursor)
+
+@app.get("/api/thumbnails/{filename}")
+async def get_thumbnail_proxy(filename: str):
+    """
+    Proxy endpoint to serve thumbnails from GCS or Local storage.
+    Ensures images are visible even if GCS bucket is private.
+    """
+    if STORAGE_TYPE == "GCS":
+        try:
+            bucket_name = os.getenv("GCS_BUCKET_NAME", "riduck-course-data")
+            client = storage.Client()
+            bucket = client.bucket(bucket_name)
+            blob = bucket.blob(f"thumbnails/{filename}")
+            
+            if not blob.exists():
+                raise HTTPException(status_code=404, detail="Thumbnail not found in GCS")
+            
+            content = blob.download_as_bytes()
+            return Response(content=content, media_type="image/png")
+        except Exception as e:
+            print(f"GCS Proxy Error: {e}")
+            raise HTTPException(status_code=500, detail="Error fetching image from GCS")
+    
+    else: # LOCAL
+        file_path = os.path.join(STORAGE_BASE_DIR, "thumbnails", filename)
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="Thumbnail not found locally")
+        
+        with open(file_path, "rb") as f:
+            content = f.read()
+        return Response(content=content, media_type="image/png")
 
 def save_to_storage(content: bytes, folder: str, filename: str):
     """
@@ -85,12 +112,14 @@ def save_to_storage(content: bytes, folder: str, filename: str):
             
             blob.upload_from_string(content, content_type=content_type)
             
-            # Return the public URL or gs path depending on frontend needs.
-            # Using public URL for now assuming the bucket is public or signed URLs are used (but simple public read is easiest for MVP)
-            return f"https://storage.googleapis.com/{bucket_name}/{folder}/{filename}"
+            # Use relative proxy path for thumbnails so they are served via /api/thumbnails
+            if folder == "thumbnails":
+                return f"/api/thumbnails/{filename}"
+            
+            # For JSON, return GCS identifier or relative path
+            return f"{folder}/{filename}"
         except Exception as e:
             print(f"GCS Upload Error: {e}")
-            # Fallback to local or re-raise?
             raise e
     
     return None
