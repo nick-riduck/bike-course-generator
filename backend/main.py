@@ -464,7 +464,10 @@ async def create_route(route: RouteCreateRequest, authorization: str = Header(No
 async def search_routes(
     authorization: str = Header(None),
     scope: str = "my",  # 'my', 'public'
-    q: Optional[str] = None
+    q: Optional[str] = None,
+    page: int = 1,
+    limit: int = 10,
+    sort: str = 'latest' # latest, updated, popular, distance, elevation
 ):
     user_id = None
     if authorization:
@@ -481,14 +484,17 @@ async def search_routes(
         query = """
             SELECT 
                 r.id, r.route_num, r.uuid, r.title, r.distance, r.elevation_gain, 
-                r.created_at, r.updated_at, r.thumbnail_url, r.status,
+                r.created_at, r.updated_at, r.thumbnail_url, r.status, r.user_id,
                 u.username as author_name, u.profile_image_url as author_image,
-                COALESCE(ARRAY_AGG(t.slug) FILTER (WHERE t.slug IS NOT NULL), '{}') as tags
+                COALESCE(ARRAY_AGG(t.slug) FILTER (WHERE t.slug IS NOT NULL), '{}') as tags,
+                COALESCE(rs.view_count, 0) as view_count,
+                COALESCE(rs.download_count, 0) as download_count
             FROM routes r
             LEFT JOIN users u ON r.user_id = u.id
             LEFT JOIN route_tags rt ON r.id = rt.route_id
             LEFT JOIN tags t ON rt.tag_id = t.id
-            WHERE 1=1
+            LEFT JOIN route_stats rs ON r.id = rs.route_id
+            WHERE r.status != 'DELETED'
         """
         params = []
 
@@ -508,14 +514,92 @@ async def search_routes(
             params.append(search_term)
             params.append(search_term)
 
-        query += " GROUP BY r.id, u.id ORDER BY r.updated_at DESC LIMIT 50"
+        # Group By
+        query += " GROUP BY r.id, u.id, rs.view_count, rs.download_count"
+        
+        # Order By Logic
+        if sort == 'updated':
+            query += " ORDER BY r.updated_at DESC"
+        elif sort == 'popular':
+            query += " ORDER BY download_count DESC, r.created_at DESC"
+        elif sort == 'distance':
+            query += " ORDER BY r.distance DESC"
+        elif sort == 'elevation':
+            query += " ORDER BY r.elevation_gain DESC"
+        else: # latest default
+            query += " ORDER BY r.created_at DESC"
+        
+        # Pagination
+        query += " LIMIT %s OFFSET %s"
+        params.append(limit)
+        params.append((page - 1) * limit)
 
         cur.execute(query, tuple(params))
-        routes = cur.fetchall()
+        rows = cur.fetchall()
         
-        return {"routes": routes}
+        routes = []
+        for row in rows:
+            routes.append({
+                "id": row['id'],
+                "route_num": row['route_num'],
+                "uuid": row['uuid'],
+                "title": row['title'],
+                "distance": row['distance'],
+                "elevation_gain": row['elevation_gain'],
+                "created_at": row['created_at'],
+                "updated_at": row['updated_at'],
+                "thumbnail_url": row['thumbnail_url'],
+                "status": row['status'],
+                "user_id": row['user_id'],
+                "author_name": row['author_name'],
+                "author_image": row['author_image'],
+                "tags": row['tags'],
+                "view_count": row['view_count'],
+                "download_count": row['download_count']
+            })
+            
+        return {"routes": routes, "page": page, "limit": limit, "sort": sort}
+
     except Exception as e:
         print(f"Search Routes Error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+
+@app.delete("/api/routes/{route_id}")
+async def delete_route(route_id: int, authorization: str = Header(None)):
+    user_id = await get_current_user(authorization)
+    
+    conn = get_db_conn()
+    cur = conn.cursor()
+    
+    try:
+        # Check ownership
+        cur.execute("SELECT user_id FROM routes WHERE id = %s", (route_id,))
+        row = cur.fetchone()
+        
+        if not row:
+            raise HTTPException(status_code=404, detail="Route not found")
+        
+        if row['user_id'] != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized to delete this route")
+            
+        # Soft Delete
+        cur.execute(
+            "UPDATE routes SET status = 'DELETED', updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+            (route_id,)
+        )
+        conn.commit()
+        
+        return {"status": "success"}
+        
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"Delete Route Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         cur.close()
@@ -536,7 +620,7 @@ async def get_route_detail(route_id: int, authorization: str = Header(None)):
         cur = conn.cursor()
         
         cur.execute(
-            "SELECT id, user_id, title, description, status, data_file_path FROM routes WHERE id = %s",
+            "SELECT id, user_id, title, description, status, data_file_path FROM routes WHERE id = %s AND status != 'DELETED'",
             (route_id,)
         )
         row = cur.fetchone()

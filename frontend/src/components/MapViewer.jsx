@@ -92,7 +92,7 @@ const MapViewer = () => {
         />
       </Map>
       
-      {/* Overlay UI }
+      {/* Overlay UI */}
     </div>
   );
 };

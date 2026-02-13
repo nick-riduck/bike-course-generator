@@ -22,7 +22,7 @@ const SaveRouteModal = ({
             setStatus(initialData.status || 'PUBLIC');
             setTags(initialData.tags || []);
         }
-    }, [isOpen, initialData]);
+    }, [isOpen, initialData.id, initialData.updated_at]);
 
     // Check for changes to prevent unnecessary updates
     const hasChanges = React.useMemo(() => {

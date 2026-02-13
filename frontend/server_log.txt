@@ -1,9 +1,46 @@
 
 > frontend@0.0.0 dev
-> vite --port 5188
+> vite --port 5230
 
 
-  VITE v7.3.1  ready in 135 ms
+  VITE v7.3.1  ready in 469 ms
 
-  ➜  Local:   http://localhost:5188/
+  ➜  Local:   http://localhost:5230/
   ➜  Network: use --host to expose
+3:24:18 PM [vite] (client) hmr update /src/AuthContext.jsx, /src/components/BikeRoutePlanner.jsx, /src/components/SearchPanel.jsx, /src/index.css
+3:24:18 PM [vite] (client) hmr invalidate /src/AuthContext.jsx Could not Fast Refresh ("useAuth" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:24:18 PM [vite] (client) page reload src/AuthContext.jsx
+3:34:42 PM [vite] (client) hmr update /src/index.css, /src/components/MenuPanel.jsx
+3:34:42 PM [vite] (client) hmr update /src/index.css, /src/components/SaveRouteModal.jsx
+3:34:42 PM [vite] (client) hmr update /src/index.css, /src/components/SearchPanel.jsx
+3:34:42 PM [vite] (client) hmr update /src/index.css, /src/components/SidebarNav.jsx
+3:34:42 PM [vite] (client) hmr update /src/index.css
+3:34:42 PM [vite] (client) hmr update /src/App.jsx, /src/index.css
+3:34:42 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+3:34:42 PM [vite] (client) hmr update /src/index.css, /src/components/ElevationChart.jsx
+3:34:42 PM [vite] (client) hmr update /src/components/Login.jsx, /src/index.css
+3:34:42 PM [vite] (client) hmr update /src/AuthContext.jsx, /src/components/BikeRoutePlanner.jsx, /src/index.css
+3:34:42 PM [vite] (client) hmr update /src/index.css
+3:34:42 PM [vite] (client) page reload src/main.jsx
+3:34:42 PM [vite] (client) hmr update /src/index.css
+3:34:42 PM [vite] (client) hmr update /src/App.jsx, /src/index.css
+3:34:42 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+3:34:42 PM [vite] (client) hmr update /src/index.css, /src/components/ElevationChart.jsx
+3:34:42 PM [vite] (client) hmr update /src/components/Login.jsx, /src/index.css
+3:34:42 PM [vite] (client) page reload src/components/MenuPanel.jsx
+3:34:42 PM [vite] (client) page reload src/components/SaveRouteModal.jsx
+3:34:42 PM [vite] (client) page reload src/components/SearchPanel.jsx
+3:34:42 PM [vite] (client) page reload src/components/SidebarNav.jsx
+3:34:42 PM [vite] (client) hmr update /src/AuthContext.jsx, /src/index.css
+3:34:42 PM [vite] (client) hmr update /src/index.css
+3:34:42 PM [vite] (client) page reload src/main.jsx
+3:39:36 PM [vite] (client) hmr update /src/index.css, /src/components/SearchPanel.jsx
+3:44:36 PM [vite] (client) hmr update /src/index.css
+3:44:36 PM [vite] (client) hmr update /src/index.css, /src/components/SaveRouteModal.jsx
+3:47:55 PM [vite] (client) hmr update /src/index.css, /src/components/SearchPanel.jsx
+3:48:49 PM [vite] (client) hmr update /src/index.css, /src/components/SearchPanel.jsx
+3:55:21 PM [vite] (client) hmr update /src/index.css, /src/components/SearchPanel.jsx
+4:04:10 PM [vite] (client) hmr update /src/index.css, /src/components/SearchPanel.jsx
+4:07:40 PM [vite] (client) hmr update /src/index.css, /src/components/SearchPanel.jsx
+4:20:59 PM [vite] (client) hmr update /src/index.css, /src/components/SearchPanel.jsx
+4:22:04 PM [vite] (client) hmr update /src/index.css, /src/components/SearchPanel.jsx
