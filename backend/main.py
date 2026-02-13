@@ -16,6 +16,7 @@ from firebase_admin import auth, credentials
 from dotenv import load_dotenv
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from google.cloud import storage
 
 from valhalla import ValhallaClient
 
@@ -57,7 +58,7 @@ def get_db_conn():
 
 def save_to_storage(content: bytes, folder: str, filename: str):
     """
-    Abstracted file saving logic. Supports LOCAL and GCS (placeholder).
+    Abstracted file saving logic. Supports LOCAL and GCS.
     Returns the relative path or URL for DB storage.
     """
     if STORAGE_TYPE == "LOCAL":
@@ -70,8 +71,27 @@ def save_to_storage(content: bytes, folder: str, filename: str):
         return os.path.join(folder, filename)
     
     elif STORAGE_TYPE == "GCS":
-        # TODO: Implement GCS upload logic here
-        return f"gcs://{folder}/{filename}"
+        try:
+            bucket_name = os.getenv("GCS_BUCKET_NAME", "riduck-course-data")
+            client = storage.Client()
+            bucket = client.bucket(bucket_name)
+            blob = bucket.blob(f"{folder}/{filename}")
+            
+            content_type = "application/octet-stream"
+            if filename.endswith(".png"):
+                content_type = "image/png"
+            elif filename.endswith(".json"):
+                content_type = "application/json"
+            
+            blob.upload_from_string(content, content_type=content_type)
+            
+            # Return the public URL or gs path depending on frontend needs.
+            # Using public URL for now assuming the bucket is public or signed URLs are used (but simple public read is easiest for MVP)
+            return f"https://storage.googleapis.com/{bucket_name}/{folder}/{filename}"
+        except Exception as e:
+            print(f"GCS Upload Error: {e}")
+            # Fallback to local or re-raise?
+            raise e
     
     return None
 

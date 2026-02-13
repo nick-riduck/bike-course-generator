@@ -1,0 +1,17 @@
+.git
+.gitignore
+node_modules
+valhalla_data
+storage
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+env
+venv
+tests
+docs
+frontend
+EOF
