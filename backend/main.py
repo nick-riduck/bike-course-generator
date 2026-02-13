@@ -559,18 +559,46 @@ async def get_route_detail(route_id: int, authorization: str = Header(None)):
         cur.close()
         conn.close()
         
-        # Resolve full path for reading
-        file_path = os.path.join(STORAGE_BASE_DIR, file_rel_path)
+        # Resolve full path for reading (Local) or Blob path (GCS)
+        file_rel_path = row['data_file_path']
+        conn.commit()
+        cur.close()
+        conn.close()
         
-        if not os.path.exists(file_path):
-             # Fallback check (if relative path in DB includes 'storage/')
-             if os.path.exists(file_rel_path):
-                 file_path = file_rel_path
-             else:
-                 raise HTTPException(status_code=404, detail=f"Route data file missing: {file_rel_path}")
+        full_data = {}
+        
+        if STORAGE_TYPE == "GCS":
+            try:
+                print(f"[DEBUG] Fetching JSON from GCS: {file_rel_path}")
+                bucket_name = os.getenv("GCS_BUCKET_NAME", "riduck-course-data")
+                client = storage.Client()
+                bucket = client.bucket(bucket_name)
+                # Ensure path is correct (remove leading slash if any)
+                blob_path = file_rel_path if not file_rel_path.startswith("/") else file_rel_path[1:]
+                blob = bucket.blob(blob_path)
+                
+                if not blob.exists():
+                    print(f"[ERROR] GCS Blob not found: {blob_path}")
+                    raise HTTPException(status_code=404, detail="Route data file missing in GCS")
+                    
+                json_content = blob.download_as_string()
+                full_data = json.loads(json_content)
+            except Exception as e:
+                print(f"[ERROR] GCS Read Error: {e}")
+                raise HTTPException(status_code=500, detail=f"Failed to load route data from GCS: {str(e)}")
+        
+        else: # LOCAL
+            file_path = os.path.join(STORAGE_BASE_DIR, file_rel_path)
             
-        with open(file_path, "r", encoding="utf-8") as f:
-            full_data = json.load(f)
+            if not os.path.exists(file_path):
+                 # Fallback check
+                 if os.path.exists(file_rel_path):
+                     file_path = file_rel_path
+                 else:
+                     raise HTTPException(status_code=404, detail=f"Route data file missing: {file_rel_path}")
+                
+            with open(file_path, "r", encoding="utf-8") as f:
+                full_data = json.load(f)
             
         # Re-fetch tags and stats
         conn = get_db_conn()
