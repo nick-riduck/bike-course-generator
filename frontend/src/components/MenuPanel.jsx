@@ -313,13 +313,7 @@ const MenuPanel = ({
                 >
                     SAVE TO CLOUD
                 </button>
-                <button 
-                    onClick={onDownloadGPX}
-                    disabled={!hasSegments}
-                    className="bg-gray-800 hover:bg-gray-700 text-white py-3 rounded-2xl font-bold text-[11px] transition-all border border-gray-700/50 active:scale-[0.98]"
-                >
-                    DOWNLOAD ENTIRE GPX
-                </button>
+
 
                 {currentRouteId && (
                   <button 

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -9,6 +9,7 @@ import os
 import json
 import uuid
 import io
+import tempfile
 from PIL import Image, ImageDraw
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import Response
@@ -20,6 +21,7 @@ from psycopg2.extras import RealDictCursor
 from google.cloud import storage
 
 from valhalla import ValhallaClient
+from gpx_loader import GpxLoader
 
 # .env 로드
 load_dotenv()
@@ -485,7 +487,7 @@ async def search_routes(
             SELECT 
                 r.id, r.route_num, r.uuid, r.title, r.distance, r.elevation_gain, 
                 r.created_at, r.updated_at, r.thumbnail_url, r.status, r.user_id,
-                u.username as author_name, u.profile_image_url as author_image,
+                u.username as author_name, u.profile_image_url as author_image, u.email as author_email,
                 COALESCE(ARRAY_AGG(t.slug) FILTER (WHERE t.slug IS NOT NULL), '{}') as tags,
                 COALESCE(rs.view_count, 0) as view_count,
                 COALESCE(rs.download_count, 0) as download_count
@@ -539,6 +541,12 @@ async def search_routes(
         
         routes = []
         for row in rows:
+            # Masking Logic
+            author_name = row['author_name']
+            email = row.get('author_email')
+            if email and not email.endswith('@riduck.com'):
+                author_name = "손익준"
+
             routes.append({
                 "id": row['id'],
                 "route_num": row['route_num'],
@@ -551,7 +559,7 @@ async def search_routes(
                 "thumbnail_url": row['thumbnail_url'],
                 "status": row['status'],
                 "user_id": row['user_id'],
-                "author_name": row['author_name'],
+                "author_name": author_name,
                 "author_image": row['author_image'],
                 "tags": row['tags'],
                 "view_count": row['view_count'],
@@ -619,8 +627,15 @@ async def get_route_detail(route_id: int, authorization: str = Header(None)):
         conn = get_db_conn()
         cur = conn.cursor()
         
+        # Join with users to get author info for masking
         cur.execute(
-            "SELECT id, user_id, title, description, status, data_file_path FROM routes WHERE id = %s AND status != 'DELETED'",
+            """
+            SELECT r.id, r.user_id, r.title, r.description, r.status, r.data_file_path, 
+                   u.username as author_name, u.email as author_email
+            FROM routes r
+            LEFT JOIN users u ON r.user_id = u.id
+            WHERE r.id = %s AND r.status != 'DELETED'
+            """,
             (route_id,)
         )
         row = cur.fetchone()
@@ -686,10 +701,17 @@ async def get_route_detail(route_id: int, authorization: str = Header(None)):
         cur.execute("SELECT view_count, download_count FROM route_stats WHERE route_id = %s", (route_id,))
         stats = cur.fetchone()
         
+        # Masking Logic
+        author_name = row['author_name']
+        email = row.get('author_email')
+        if email and not email.endswith('@riduck.com'):
+            author_name = "손익준"
+        
         # Merge DB Metadata
         full_data.update({
             "route_id": row['id'],
             "owner_id": row['user_id'],
+            "author_name": author_name,
             "title": row['title'],
             "description": row['description'],
             "status": row['status'],
@@ -713,72 +735,88 @@ async def get_route_detail(route_id: int, authorization: str = Header(None)):
         if conn:
             conn.close()
 
-
-@app.post("/api/routes/{route_id}/download")
-async def record_download(route_id: int):
+@app.post("/api/routes/import")
+async def import_gpx(file: UploadFile = File(...)):
     try:
-        conn = get_db_conn()
-        cur = conn.cursor()
-        cur.execute(
-            "UPDATE route_stats SET download_count = download_count + 1, updated_at = CURRENT_TIMESTAMP WHERE route_id = %s",
-            (route_id,)
-        )
-        if cur.rowcount == 0:
-            # If stats row doesn't exist for some reason, create it
-            cur.execute("INSERT INTO route_stats (route_id, download_count) VALUES (%s, 1)", (route_id,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return {"status": "success"}
+        content = await file.read()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".gpx") as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
+        
+        loader = GpxLoader(tmp_path)
+        loader.load()
+        os.unlink(tmp_path)
+        
+        if not loader.points:
+            raise HTTPException(status_code=400, detail="Invalid GPX file: No track points found.")
+        
+        shape_points = [{"lat": p.lat, "lon": p.lon} for p in loader.points]
+        standard_data = valhalla_client.get_standard_course(shape_points)
+        
+        features = []
+        lats = standard_data['points']['lat']
+        lons = standard_data['points']['lon']
+        eles = standard_data['points']['ele']
+        segs = standard_data['segments']
+        
+        surface_info = {
+            1: ("Asphalt", "Smooth paved road.", "#2979FF"),
+            2: ("Concrete", "Concrete surface.", "#2979FF"),
+            3: ("Special", "Wood or metal surface. Caution!", "#9E9E9E"),
+            4: ("Paving Stones", "Paving stones or cobblestones.", "#FFC400"),
+            5: ("Cycleway", "Dedicated bicycle path.", "#00E676"),
+            6: ("Compacted", "Compacted fine gravel.", "#8D6E63"),
+            7: ("Unpaved", "Gravel or dirt road. Rough terrain.", "#8D6E63"),
+            0: ("Unknown", "Unknown surface type.", "#9E9E9E")
+        }
+        
+        for i in range(len(segs['p_start'])):
+            s_idx = segs['p_start'][i]
+            e_idx = segs['p_end'][i]
+            surf_id = segs['surf_id'][i]
+            label, description, color = surface_info.get(surf_id, surface_info[0])
+            
+            seg_coords = [[lons[k], lats[k]] for k in range(s_idx, e_idx + 1)]
+            if len(seg_coords) >= 2:
+                features.append({
+                    "type": "Feature",
+                    "geometry": {"type": "LineString", "coordinates": seg_coords},
+                    "properties": {"color": color, "surface": label, "description": description}
+                })
+        
+        return {
+            "summary": {
+                "distance": standard_data['stats']['distance'] / 1000.0,
+                "ascent": standard_data['stats']['ascent']
+            },
+            "full_geometry": {
+                "type": "LineString",
+                "coordinates": [[float(lons[i]), float(lats[i]), float(eles[i])] for i in range(len(lats))]
+            },
+            "display_geojson": {"type": "FeatureCollection", "features": features}
+        }
     except Exception as e:
-        print(f"Record Download Error: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# Get Valhalla URL from environment variable, default to localhost for local dev
 VALHALLA_URL = os.getenv("VALHALLA_URL", "http://localhost:8002")
 
 def get_segment_style(edge: dict):
     surf = str(edge.get("surface", "paved")).lower()
     use = str(edge.get("use", "road")).lower()
     density = edge.get("density", 0)
-    
-    # 1. 비포장 / 산악 / 험로 (Brown)
     rough_uses = ["track", "path", "bridleway", "steps", "mountain_bike"]
     unpaved_surfaces = ["gravel", "dirt", "earth", "sand", "unpaved", "cobblestone", "grass", "compacted", "fine_gravel", "pebbles", "wood"]
-    
     if any(s in surf for s in unpaved_surfaces) or use in rough_uses:
-        material = use if use in rough_uses else surf
-        return "#8D6E63", f"Rough ({material})", "Rough road. You may need to walk your bike."
-
-    # 2. 자전거 전용 (Green)
-    if use in ["cycleway", "bicycle"]: 
-        return "#00E676", "Cycleway", "Bicycle only road. Safe and smooth."
-
-    # 3. 위험 / 합류 주의 (Red)
-    if use in ["ramp"]:
-        return "#FF5252", "Ramp", "High traffic risk - Proceed with caution!"
-
-    # 4. 생활 도로 / 보행자 우선 / 주차장 (Yellow)
-    yellow_uses = [
-        "service", "residential", "living_street", "pedestrian", "sidewalk", "footway", 
-        "crossing", "pedestrian_crossing", "parking_aisle", "alley", "emergency_access", 
-        "driveway", "service_road"
-    ]
-    if use in yellow_uses:
-        return "#FFC400", "Residence", "Pedestrians / Shared road. Please slow down."
-
-    # 5. 일반 포장 공도 (Blue)
+        return "#8D6E63", f"Rough ({use if use in rough_uses else surf})", "Rough road. Walk may be needed."
+    if use in ["cycleway", "bicycle"]: return "#00E676", "Cycleway", "Safe and smooth."
+    if use in ["ramp"]: return "#FF5252", "Ramp", "High traffic risk!"
+    yellow_uses = ["service", "residential", "living_street", "pedestrian", "sidewalk", "footway", "crossing", "pedestrian_crossing", "parking_aisle", "alley", "emergency_access", "driveway", "service_road"]
+    if use in yellow_uses: return "#FFC400", "Residence", "Pedestrians / Shared road."
     blue_uses = ["road", "primary", "secondary", "tertiary", "trunk", "unclassified", "turn_channel", "drive_through", "culdesac"]
-    if use in blue_uses:
-        desc = "City Area (Traffic Lights Expected)" if density >= 6 else "Open Road (Low Traffic)"
-        return "#2979FF", "Paved", desc
-
-    # 6. 페리 (Grey)
-    if use == "ferry":
-        return "#9E9E9E", "Ferry", "Ferry crossing section."
-
-    # 7. 기타 (Grey)
+    if use in blue_uses: return "#2979FF", "Paved", "City Area" if density >= 6 else "Open Road"
+    if use == "ferry": return "#9E9E9E", "Ferry", "Ferry crossing."
     return "#9E9E9E", "Other", ""
 
 class RouteRequest(BaseModel):
@@ -791,192 +829,92 @@ def decode_valhalla_shape(shape_str):
     try:
         decoded = polyline.decode(shape_str, 6)
         return [[float(lon), float(lat)] for lat, lon in decoded]
-    except Exception:
-        return []
+    except: return []
 
 @app.post("/api/route_v2")
 async def get_route_v2(request: RouteRequest):
-    # [방어 로직] 800km 초과 경로 차단 (직선거리 기준)
     if len(request.locations) >= 2:
         from math import radians, cos, sin, asin, sqrt
-        
         def haversine(lon1, lat1, lon2, lat2):
             lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-            dlon = lon2 - lon1 
-            dlat = lat2 - lat1 
+            dlon, dlat = lon2 - lon1, lat2 - lat1 
             a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-            c = 2 * asin(sqrt(a)) 
-            r = 6371 # 지구 반지름 (km)
-            return c * r
-
-        # 첫 번째 점과 마지막 점 사이의 직선거리 체크
-        total_direct_dist = haversine(
-            request.locations[0].lon, request.locations[0].lat,
-            request.locations[-1].lon, request.locations[-1].lat
-        )
-        
-        if total_direct_dist > 800:
-            raise HTTPException(
-                status_code=400, 
-                detail="Course is too long! Please keep the distance within 800km."
-            )
-
+            return 2 * asin(sqrt(a)) * 6371
+        if haversine(request.locations[0].lon, request.locations[0].lat, request.locations[-1].lon, request.locations[-1].lat) > 800:
+            raise HTTPException(status_code=400, detail="Course is too long! Max 800km.")
     valhalla_payload = {
         "locations": [{"lat": loc.lat, "lon": loc.lon} for loc in request.locations],
         "costing": "bicycle",
-        "costing_options": {
-            "bicycle": {
-                "bicycle_type": request.bicycle_type,
-                "use_ferry": 0.1 # 페리 이용 최소화 (기본값 0.5)
-            }
-        },
+        "costing_options": {"bicycle": {"bicycle_type": request.bicycle_type, "use_ferry": 0.1}},
         "directions_options": {"units": "km"}
     }
-    
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(f"{VALHALLA_URL}/route", json=valhalla_payload, timeout=30.0)
             if resp.status_code != 200: raise HTTPException(status_code=resp.status_code, detail=resp.text)
-            
             data = resp.json()
             legs = data.get("trip", {}).get("legs", [])
-            if not legs: raise HTTPException(status_code=404, detail="No legs found")
-            
             route_coords = []
             for leg in legs:
                 if leg.get("shape"): route_coords.extend(decode_valhalla_shape(leg["shape"]))
-            
             if not route_coords: raise HTTPException(status_code=500, detail="Empty shape")
-
-            display_features = []
-            matched_coords = route_coords
-            
+            display_features, matched_coords = [], route_coords
             try:
                 trace_payload = {
                     "shape": [{"lat": c[1], "lon": c[0]} for c in route_coords],
-                    "costing": "bicycle",
-                    "shape_match": "map_snap",
-                    "filters": {
-                        # CRITICAL FIX: Explicitly include indices!
-                        "attributes": ["edge.use", "edge.surface", "edge.begin_shape_index", "edge.end_shape_index", "edge.density"], 
-                        "action": "include"
-                    }
+                    "costing": "bicycle", "shape_match": "map_snap",
+                    "filters": {"attributes": ["edge.use", "edge.surface", "edge.begin_shape_index", "edge.end_shape_index", "edge.density"], "action": "include"}
                 }
                 t_resp = await client.post(f"{VALHALLA_URL}/trace_attributes", json=trace_payload, timeout=30.0)
-                
-                if t_resp.status_code != 200:
-                    print(f"TRACE ERROR: {t_resp.status_code} - {t_resp.text}", flush=True)
-
                 if t_resp.status_code == 200:
                     t_data = t_resp.json()
                     edges = t_data.get("edges", [])
-                    if not edges:
-                        print("TRACE SUCCESS BUT NO EDGES FOUND!", flush=True)
-                    
-                    # If we get shape back, use it
                     if t_data.get("shape"): matched_coords = decode_valhalla_shape(t_data["shape"])
-                    
                     if edges:
                         current_color, current_label, current_desc = get_segment_style(edges[0])
                         current_coords = []
-                        
-                        for i, edge in enumerate(edges):
+                        for edge in edges:
                             color, label, desc = get_segment_style(edge)
-                            start_idx = edge.get("begin_shape_index", 0)
-                            end_idx = edge.get("end_shape_index", 0)
-                            
-                            if start_idx is None: start_idx = 0
-                            if end_idx is None: end_idx = 0
-                            
+                            start_idx, end_idx = edge.get("begin_shape_index", 0) or 0, edge.get("end_shape_index", 0) or 0
                             if start_idx >= len(matched_coords): continue
-                            if end_idx >= len(matched_coords): end_idx = len(matched_coords) - 1
+                            end_idx = min(len(matched_coords)-1, end_idx)
                             if start_idx == end_idx: end_idx = min(len(matched_coords)-1, end_idx + 1)
-                            
                             edge_coords = matched_coords[start_idx : end_idx + 1]
-                            
                             if (color != current_color or label != current_label) and current_coords:
                                 if len(current_coords) >= 2:
-                                    display_features.append({
-                                        "type": "Feature",
-                                        "geometry": {"type": "LineString", "coordinates": [[float(pt[0]), float(pt[1])] for pt in current_coords]},
-                                        "properties": {"color": current_color, "surface": current_label, "description": current_desc}
-                                    })
-                                current_coords = []
-                                current_color, current_label, current_desc = color, label, desc
-                            
-                            if not current_coords:
-                                current_coords.extend(edge_coords)
-                            else:
-                                if current_coords[-1] == edge_coords[0]:
-                                    current_coords.extend(edge_coords[1:])
-                                else:
-                                    current_coords.extend(edge_coords)
-                        
+                                    display_features.append({"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[float(pt[0]), float(pt[1])] for pt in current_coords]}, "properties": {"color": current_color, "surface": current_label, "description": current_desc}})
+                                current_coords, current_color, current_label, current_desc = [], color, label, desc
+                            if not current_coords: current_coords.extend(edge_coords)
+                            else: current_coords.extend(edge_coords[1:] if current_coords[-1] == edge_coords[0] else edge_coords)
                         if current_coords and len(current_coords) >= 2:
-                            display_features.append({
-                                "type": "Feature",
-                                "geometry": {"type": "LineString", "coordinates": [[float(pt[0]), float(pt[1])] for pt in current_coords]},
-                                "properties": {"color": current_color, "surface": current_label, "description": current_desc}
-                            })
-            except Exception as e:
-                print(f"TRACE FAILED: {e}", flush=True)
-
+                            display_features.append({"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[float(pt[0]), float(pt[1])] for pt in current_coords]}, "properties": {"color": current_color, "surface": current_label, "description": current_desc}})
+            except Exception as e: print(f"TRACE FAILED: {e}")
             if not display_features:
-                coords_2d = [[float(c[0]), float(c[1])] for c in matched_coords]
-                display_features = [{"type": "Feature", "geometry": {"type": "LineString", "coordinates": coords_2d}, "properties": {"color": "#2a9e92", "surface": "paved"}}]
-
-            # Elevation
-            ascent = 0
-            full_3d = copy.deepcopy(matched_coords)
-            elevation_payload = {"range_candidates": False, "shape": [{"lat": c[1], "lon": c[0]} for c in matched_coords]}
-            
+                display_features = [{"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[float(c[0]), float(c[1])] for c in matched_coords]}, "properties": {"color": "#2a9e92", "surface": "paved"}}]
+            ascent, full_3d = 0, copy.deepcopy(matched_coords)
             try:
-                h_resp = await client.post(f"{VALHALLA_URL}/height", json=elevation_payload, timeout=10.0)
+                h_resp = await client.post(f"{VALHALLA_URL}/height", json={"range_candidates": False, "shape": [{"lat": c[1], "lon": c[0]} for c in matched_coords]}, timeout=10.0)
                 if h_resp.status_code == 200:
                     elevs = h_resp.json().get("height", [])
-                    
-                    # 1. 기본 고도 매핑
                     for i, ele in enumerate(elevs):
                         if i < len(full_3d):
                             val = float(ele) if ele is not None else 0.0
                             if len(full_3d[i]) < 3: full_3d[i].append(val)
                             else: full_3d[i][2] = val
-                            
-                    # 2. Ferry 구간 평탄화 (Flatlining)
-                    # Trace 결과(edges)가 있다면 활용
                     if 'edges' in locals() and edges:
                         for edge in edges:
                             if edge.get("use") == "ferry":
-                                start_idx = edge.get("begin_shape_index", 0)
-                                end_idx = edge.get("end_shape_index", 0)
-                                
-                                # 시작점 고도로 끝까지 덮어쓰기 (바다 위니까 평평하게)
+                                start_idx, end_idx = edge.get("begin_shape_index", 0) or 0, edge.get("end_shape_index", 0) or 0
                                 if start_idx < len(full_3d):
                                     base_elev = full_3d[start_idx][2] if len(full_3d[start_idx]) > 2 else 0.0
-                                    
                                     for k in range(start_idx, min(end_idx + 1, len(full_3d))):
-                                        if len(full_3d[k]) > 2:
-                                            full_3d[k][2] = base_elev
-                                            # elevs 배열도 같이 수정해야 ascent 계산 시 튀지 않음
-                                            if k < len(elevs): elevs[k] = base_elev
-
-                    # 3. 획고(Ascent) 계산 (보정된 데이터 기반)
+                                        if len(full_3d[k]) > 2: full_3d[k][2] = base_elev
+                                        if k < len(elevs): elevs[k] = base_elev
                     for i in range(1, len(elevs)):
                         diff = elevs[i] - elevs[i-1]
                         if diff > 0.5: ascent += diff
-            except Exception as e: 
-                print(f"Elevation Error: {e}")
-                pass
-
-            return {
-                "summary": {
-                    "distance": data.get("trip", {}).get("summary", {}).get("length", 0),
-                    "time": data.get("trip", {}).get("summary", {}).get("time", 0),
-                    "ascent": round(ascent)
-                },
-                "full_geometry": {"type": "LineString", "coordinates": full_3d},
-                "display_geojson": {"type": "FeatureCollection", "features": display_features}
-            }
+            except: pass
+            return {"summary": {"distance": data.get("trip", {}).get("summary", {}).get("length", 0), "time": data.get("trip", {}).get("summary", {}).get("time", 0), "ascent": round(ascent)}, "full_geometry": {"type": "LineString", "coordinates": full_3d}, "display_geojson": {"type": "FeatureCollection", "features": display_features}}
         except Exception as e:
             import traceback
             traceback.print_exc()
