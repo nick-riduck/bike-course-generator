@@ -404,7 +404,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             distance: 0, ascent: 0, type: 'mock', surfaceSegments: [] 
         };
     }
-    setLoadingMsg('Finding Route...');
+    
     try {
       const response = await fetch(`/api/route_v2`, {
           method: 'POST',
@@ -446,7 +446,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           geometry: { type: 'LineString', coordinates: [[start.lng, start.lat], [end.lng, end.lat]] }, 
           distance: 0, ascent: 0, type: 'error', surfaceSegments: [] 
       };
-    } finally { setIsLoading(false); setLoadingMsg(''); }
+    }
   };
 
   const handleDragStart = (e) => {
@@ -591,7 +591,11 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
       activeSection.segments = [...activeSection.segments, loadingSegment];
       setSections([...updatedSections]);
 
-      setIsLoading(true);
+      if (!isMockMode) {
+          setIsLoading(true);
+          setLoadingMsg('Finding Route...');
+      }
+
       try {
           const realData = await fetchSegmentData(lastPoint, newPoint, isMockMode ? 'mock' : 'real');
           if (realData) {
@@ -601,7 +605,12 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
               activeSection.points = activeSection.points.slice(0, -1);
           }
           setSections([...updatedSections]);
-      } catch(e) { }
+      } catch(e) { 
+          console.error(e);
+      } finally {
+          setIsLoading(false);
+          setLoadingMsg('');
+      }
     }
   };
 
@@ -1092,13 +1101,88 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
       }
   };
 
+  const handleImportGPX = async (file) => {
+      setIsLoading(true);
+      setLoadingMsg('Importing GPX...');
+      try {
+          const formData = new FormData();
+          formData.append('file', file);
+
+          const res = await fetch('/api/routes/import', {
+              method: 'POST',
+              body: formData
+          });
+
+          if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.detail || 'Failed to import GPX');
+          }
+
+          const data = await res.json();
+          
+          const coords = data.full_geometry.coordinates;
+          if (!coords || coords.length < 2) throw new Error("GPX file has insufficient coordinates.");
+
+          const startCoord = coords[0];
+          const endCoord = coords[coords.length - 1];
+
+          // Use numbering 1 and 2 for points
+          const startPoint = { id: generateId(), lng: startCoord[0], lat: startCoord[1], type: 'via', name: 'Start' };
+          const endPoint = { id: generateId(), lng: endCoord[0], lat: endCoord[1], type: 'via', name: 'End' };
+
+          const newSegment = {
+              geometry: data.full_geometry,
+              distance: data.summary.distance,
+              ascent: data.summary.ascent,
+              type: 'api',
+              surfaceSegments: data.display_geojson.features
+          };
+
+          const importedSection = {
+              id: generateId(),
+              name: 'Imported Route',
+              points: [startPoint, endPoint],
+              segments: [newSegment],
+              color: SECTION_COLORS[0]
+          };
+
+          saveToHistory(sections);
+          setSections([importedSection]);
+          
+          setCurrentRouteId(null);
+          setRouteName('Imported GPX');
+          setRouteDescription('Imported from GPX file');
+          setRouteStatus('PUBLIC');
+          setRouteTags([]);
+          setRouteOwnerId(null);
+          setRouteStats({ views: 0, downloads: 0 });
+
+          // Focus map
+          if (mapRef.current) {
+              const lons = coords.map(c => c[0]);
+              const lats = coords.map(c => c[1]);
+              mapRef.current.fitBounds([
+                  [Math.min(...lons), Math.min(...lats)],
+                  [Math.max(...lons), Math.max(...lats)]
+              ], { padding: 50, duration: 1000 });
+          }
+
+          setIsMenuOpen(false);
+          alert("GPX imported successfully!");
+
+      } catch (err) {
+          console.error(err);
+          alert("Error importing GPX: " + err.message);
+      } finally {
+          setIsLoading(false);
+          setLoadingMsg('');
+      }
+  };
+
   const handleLoadRoute = async (routeId, skipConfirm = false) => {
-      // Allow loading public routes without login
-      
       if (!skipConfirm && sections.some(s => s.points.length > 0)) {
           if (!confirm("Current route will be discarded. Load new route?")) return;
       }
-
       setIsLoading(true);
       setLoadingMsg('Loading Route...');
 
@@ -1197,6 +1281,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         onToggleMenu={toggleMenu} 
         onToggleSearch={toggleSearch} 
         onNewRoute={handleNewRoute}
+        onImportGPX={handleImportGPX}
+        onExportGPX={handleDownloadGPX}
         isClean={isClean}
       />
 
@@ -1226,6 +1312,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     onSectionMerge={handleSectionMerge}
                     onSectionRename={handleSectionRename}
                     onSectionDownload={handleSectionDownload}
+                    onImportGPX={handleImportGPX}
                     isMockMode={isMockMode}
                     setIsMockMode={setIsMockMode}
                 />
@@ -1346,6 +1433,27 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.58 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.58 4 8 4s8-1.79 8-4M4 7c0-2.21 3.58-4 8-4s8 1.79 8 4" />
+                    </svg>
+                </button>
+                <label className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all bg-gray-900/90 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800 cursor-pointer flex items-center justify-center`}>
+                    <input type="file" accept=".gpx" className="hidden" onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                            handleImportGPX(file);
+                            e.target.value = '';
+                        }
+                    }} />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                </label>
+                <button 
+                    onClick={handleDownloadGPX}
+                    disabled={isClean}
+                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isClean ? 'bg-gray-800/50 border-gray-800 text-gray-600 opacity-50 cursor-not-allowed' : 'bg-gray-900/90 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
                 </button>
             </div>

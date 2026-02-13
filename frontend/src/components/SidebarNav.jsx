@@ -1,6 +1,23 @@
 import React from 'react';
 
-const SidebarNav = ({ isMenuOpen, isSearchOpen, onToggleMenu, onToggleSearch, onNewRoute, isClean }) => {
+const SidebarNav = ({ 
+  isMenuOpen, 
+  isSearchOpen, 
+  onToggleMenu, 
+  onToggleSearch, 
+  onNewRoute, 
+  isClean,
+  onImportGPX,
+  onExportGPX
+}) => {
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      onImportGPX(file);
+      e.target.value = '';
+    }
+  };
+
   return (
     <div className="hidden md:flex w-16 h-full bg-gray-900 border-r border-gray-800 flex-col items-center py-6 shrink-0 z-50 gap-2">
       {/* New Route Button */}
@@ -34,6 +51,29 @@ const SidebarNav = ({ isMenuOpen, isSearchOpen, onToggleMenu, onToggleSearch, on
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.58 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.58 4 8 4s8-1.79 8-4M4 7c0-2.21 3.58-4 8-4s8 1.79 8 4" />
+        </svg>
+      </button>
+
+      {/* Divider */}
+      <div className="w-8 h-px bg-gray-800 my-2"></div>
+
+      {/* Import GPX */}
+      <label className="flex items-center justify-center cursor-pointer p-3 rounded-xl text-gray-400 hover:text-white hover:bg-gray-800 transition-colors" title="Import GPX">
+        <input type="file" accept=".gpx" className="hidden" onChange={handleFileChange} />
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+        </svg>
+      </label>
+
+      {/* Export GPX */}
+      <button 
+        onClick={onExportGPX}
+        disabled={isClean}
+        className={`flex items-center justify-center p-3 rounded-xl transition-colors ${isClean ? 'text-gray-700 cursor-not-allowed opacity-50' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+        title="Export GPX"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
         </svg>
       </button>
     </div>
