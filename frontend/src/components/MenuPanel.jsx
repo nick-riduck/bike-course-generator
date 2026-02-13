@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 
 const MenuPanel = ({ 
+  currentRouteId,
+  routeStats,
   history, 
   onUndo, 
   onRedo, 
@@ -17,6 +19,23 @@ const MenuPanel = ({
   onSectionRename,
   onSectionDownload
 }) => {
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopyLink = () => {
+    if (!currentRouteId) return;
+    
+    // In the future, this will be /route/:id
+    // For now, let's just prepare the URL format
+    const shareUrl = `${window.location.origin}/route/${currentRouteId}`;
+    
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    }).catch(err => {
+      console.error('Failed to copy: ', err);
+      alert("Failed to copy link. Please copy it manually.");
+    });
+  };
   // Section Rename State
   const [editingSectionId, setEditingSectionId] = useState(null);
   const [sectionTempName, setSectionTempName] = useState('');
@@ -54,6 +73,23 @@ const MenuPanel = ({
       {/* 1. Header */}
       <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/50 backdrop-blur-md">
         <h2 className="font-bold text-white text-lg tracking-tight">Course Detail</h2>
+        {currentRouteId && routeStats && (
+          <div className="flex gap-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+            <div className="flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              {routeStats.views}
+            </div>
+            <div className="flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              {routeStats.downloads}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 2. Scrollable Content */}
@@ -61,6 +97,9 @@ const MenuPanel = ({
         {/* Sections & Points List */}
         <div className="space-y-8">
             {sections.map((section, sIdx) => {
+              // Hide section header if it's the only one and empty (Initial State)
+              if (sections.length === 1 && section.points.length === 0) return null;
+
               const secDist = section.segments.reduce((a, b) => a + (b.distance || 0), 0);
               const secAsc = section.segments.reduce((a, b) => a + (b.ascent || 0), 0);
               
@@ -281,6 +320,34 @@ const MenuPanel = ({
                 >
                     DOWNLOAD ENTIRE GPX
                 </button>
+
+                {currentRouteId && (
+                  <button 
+                      onClick={handleCopyLink}
+                      className={`
+                        w-full py-3 rounded-2xl font-bold text-[11px] transition-all border flex items-center justify-center gap-2 active:scale-[0.98]
+                        ${isCopied 
+                          ? 'bg-green-500/20 border-green-500/50 text-green-400' 
+                          : 'bg-riduck-primary/10 border-riduck-primary/30 text-riduck-primary hover:bg-riduck-primary/20'}
+                      `}
+                  >
+                      {isCopied ? (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          COPIED!
+                        </>
+                      ) : (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                          </svg>
+                          COPY SHARE LINK
+                        </>
+                      )}
+                  </button>
+                )}
             </div>
           );
         })()}

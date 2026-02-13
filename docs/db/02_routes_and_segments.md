@@ -34,10 +34,19 @@ CREATE TABLE routes (
     -- 작성자 ID (논리적 연동, FK 제약 없음)
     user_id BIGINT NOT NULL,
 
+    -- [Forking] 원본 코스 추적 (Optional)
+    parent_route_id BIGINT,
+
     -- 기본 정보
     title VARCHAR(255) NOT NULL,
     description TEXT,
     status route_status DEFAULT 'PUBLIC' NOT NULL,
+
+    -- [Media] 미리보기 썸네일 (Static Image URL) - 리스트 렌더링 성능 최적화
+    thumbnail_url VARCHAR(255),
+
+    -- [Official] 공식 인증/추천 코스 여부
+    is_verified BOOLEAN DEFAULT FALSE NOT NULL,
 
     -- [Storage] 상세 데이터 파일 경로 (JSON)
     data_file_path TEXT NOT NULL,
@@ -131,6 +140,10 @@ CREATE TABLE tags (
     id SERIAL PRIMARY KEY,
     names JSONB NOT NULL, -- {"ko": "한강", "en": "Han River"}
     slug VARCHAR(50) UNIQUE NOT NULL,
+    
+    -- 태그 유형 (Optional): 'GENERAL', 'AUTO_GENERATED' (e.g., 'HC', 'CAT1' 등 등급 자동 부여)
+    type VARCHAR(20) DEFAULT 'GENERAL',
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -190,11 +203,32 @@ CREATE TABLE route_tags (
     "avg_head": [180.5, ...]   // 구간 평균 방위각 (degrees)
   },
   
-  // 3. 코스 생성기 편집용 데이터 (Waypoints)
-  "control_points": [
-    {"lat": 37.5, "lon": 127.0, "type": "start"},
-    {"lat": 37.6, "lon": 127.1, "type": "end"}
-  ]
+
+  // 4. [New] 프론트엔드 편집기 상태 복구용 데이터 (Editor State)
+  // 시뮬레이터는 이 필드를 무시하며, 생성기에서 코스를 다시 불러올 때만 사용함
+  "editor_state": {
+    "sections": [
+      {
+        "id": "s1_uuid",
+        "name": "Section 1",
+        "color": "#2a9e92",
+        "points": [
+          {"id": "p1", "lng": 127.0, "lat": 37.5, "type": "start", "name": "Start"},
+          {"id": "p2", "lng": 127.1, "lat": 37.6, "type": "via", "name": ""}
+        ],
+        "segments": [
+          {
+            "id": "seg1",
+            "startPointId": "p1",
+            "endPointId": "p2",
+            "distance": 1.2,
+            "ascent": 10,
+            "type": "api"
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
 

@@ -1,12 +1,24 @@
 import React from 'react';
 
-const SidebarNav = ({ isMenuOpen, isSearchOpen, onToggleMenu, onToggleSearch }) => {
+const SidebarNav = ({ isMenuOpen, isSearchOpen, onToggleMenu, onToggleSearch, onNewRoute, isClean }) => {
   return (
-    <div className="hidden md:flex w-16 h-full bg-gray-900 border-r border-gray-800 flex-col items-center py-4 shrink-0 z-50">
+    <div className="hidden md:flex w-16 h-full bg-gray-900 border-r border-gray-800 flex-col items-center py-6 shrink-0 z-50 gap-2">
+      {/* New Route Button */}
+      <button 
+        onClick={onNewRoute}
+        disabled={isClean}
+        className={`p-3 rounded-xl transition-all ${isClean ? 'text-gray-700 cursor-not-allowed opacity-50' : 'text-gray-400 hover:text-white hover:bg-gray-800 hover:scale-110 active:scale-95'}`}
+        title="New Route"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      </button>
+
       {/* Menu Toggle */}
       <button 
         onClick={onToggleMenu}
-        className={`p-3 rounded-xl mb-4 transition-colors ${isMenuOpen ? 'bg-riduck-primary text-white shadow-lg shadow-riduck-primary/20' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+        className={`p-3 rounded-xl transition-colors ${isMenuOpen ? 'bg-riduck-primary text-white shadow-lg shadow-riduck-primary/20' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
         title="Menu"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -17,7 +29,7 @@ const SidebarNav = ({ isMenuOpen, isSearchOpen, onToggleMenu, onToggleSearch }) 
       {/* Search Toggle */}
       <button 
         onClick={onToggleSearch}
-        className={`p-3 rounded-xl mb-4 transition-colors ${isSearchOpen ? 'bg-riduck-primary text-white shadow-lg shadow-riduck-primary/20' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+        className={`p-3 rounded-xl transition-colors ${isSearchOpen ? 'bg-riduck-primary text-white shadow-lg shadow-riduck-primary/20' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
         title="Library"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -1,10 +1,13 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { Map, Source, Layer, Marker, Popup } from 'react-map-gl/maplibre';
+import { useAuth } from '../AuthContext';
+import { auth } from '../firebase';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import ElevationChart from './ElevationChart';
 import SidebarNav from './SidebarNav';
 import MenuPanel from './MenuPanel';
 import SearchPanel from './SearchPanel';
+import SaveRouteModal from './SaveRouteModal';
 
 const INITIAL_VIEW_STATE = {
   longitude: 126.978,
@@ -116,7 +119,8 @@ const generateGPX = (sections) => {
   return header + trkpts + footer;
 };
 
-const BikeRoutePlanner = () => {
+const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
+  const { user, loginWithGoogle } = useAuth();
   const mapRef = useRef();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -150,10 +154,16 @@ const BikeRoutePlanner = () => {
   const dragStateRef = useRef(null);
   const [hoveredSectionIndex, setHoveredSectionIndex] = useState(null);
   const [ambiguityPopup, setAmbiguityPopup] = useState(null);
+  const [isDirty, setIsDirty] = useState(false); // Track unsaved map changes
 
-  // Route Metadata
-  const [routeName, setRouteName] = useState('Untitled Route');
-  const [isEditingName, setIsEditingName] = useState(false);
+  // Route Metadata (Received via props)
+  const [routeDescription, setRouteDescription] = useState('');
+  const [routeStatus, setRouteStatus] = useState('PUBLIC');
+  const [routeTags, setRouteTags] = useState([]);
+  const [currentRouteId, setCurrentRouteId] = useState(null);
+  const [routeStats, setRouteStats] = useState({ views: 0, downloads: 0 });
+  const [routeOwnerId, setRouteOwnerId] = useState(null);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
 
   // Place Search State
   const [isPlaceSearchOpen, setIsPlaceSearchOpen] = useState(false);
@@ -380,6 +390,7 @@ const BikeRoutePlanner = () => {
   };
 
   const saveToHistory = (currentSections) => {
+    setIsDirty(true);
     setHistory(curr => ({ 
       past: [...curr.past, JSON.parse(JSON.stringify(currentSections))], 
       future: [] 
@@ -594,6 +605,45 @@ const BikeRoutePlanner = () => {
     }
   };
 
+  // Helper: Delete a section and manage connections
+  const deleteSection = (sectionIdx, sectionsList) => {
+      const segmentsToFetch = [];
+      
+      // 1. If there's a previous section, it likely has a "connector" segment 
+      // pointing to the section being deleted. We MUST clean this up.
+      if (sectionIdx > 0) {
+          const prevSec = sectionsList[sectionIdx - 1];
+          const prevPointsIds = new Set(prevSec.points.map(p => p.id));
+          
+          // A connector segment is one where endPointId is NOT in the section's own points.
+          // We filter them out to sever the link to the deleted section.
+          prevSec.segments = prevSec.segments.filter(s => prevPointsIds.has(s.endPointId));
+          
+          // 2. If there's a section AFTER the one being deleted, bridge the gap from Prev -> Next.
+          if (sectionIdx < sectionsList.length - 1) {
+              const nextSec = sectionsList[sectionIdx + 1];
+              const pStart = prevSec.points[prevSec.points.length - 1];
+              const pEnd = nextSec.points[0];
+
+              if (pStart && pEnd) {
+                  const segmentId = generateId();
+                  const loadingSeg = {
+                      id: segmentId, startPointId: pStart.id, endPointId: pEnd.id,
+                      geometry: { type: 'LineString', coordinates: [[pStart.lng, pStart.lat], [pEnd.lng, pEnd.lat]] },
+                      distance: 0, ascent: 0, type: 'loading'
+                  };
+                  prevSec.segments.push(loadingSeg);
+                  segmentsToFetch.push({ sectionIdx: sectionIdx - 1, segmentId, start: pStart, end: pEnd });
+              }
+          }
+      }
+
+      // 3. Finally, remove the section from the list
+      sectionsList.splice(sectionIdx, 1);
+      
+      return segmentsToFetch;
+  };
+
   const handlePointRemove = async (sectionIdx, pointIdx, e) => {
     e?.stopPropagation();
     saveToHistory(sections);
@@ -625,8 +675,6 @@ const BikeRoutePlanner = () => {
             distance: 0, ascent: 0, type: 'loading' 
         };
         targetSection.segments.push(loadingSeg);
-        // Ensure segments are sorted? For now array push is fine as we filter/map.
-        // Actually, order matters for rendering if we want continuous line in list, but map renders features independently.
         segmentsToFetch.push({ sectionIdx, segmentId, start: prevPointInSec, end: nextPointInSec });
     }
 
@@ -634,12 +682,10 @@ const BikeRoutePlanner = () => {
     
     // A. If Head Removed (pointIdx === 0)
     if (pointIdx === 0 && sectionIdx > 0) {
-        // Need to update previous section's last segment to point to NEW head (which is targetSection.points[0])
         const prevSection = updatedSections[sectionIdx - 1];
         const newHead = targetSection.points[0];
         
         if (newHead) {
-            // Reconnect PrevSec.LastPoint -> NewHead
             const lastPointOfPrev = prevSection.points[prevSection.points.length - 1];
             const segmentId = generateId();
             const loadingSeg = {
@@ -648,29 +694,20 @@ const BikeRoutePlanner = () => {
                 distance: 0, ascent: 0, type: 'loading'
             };
             
-            // Remove old last segment of prev section
-            // It was pointing to targetPoint.id
             prevSection.segments = prevSection.segments.filter(s => s.endPointId !== targetPoint.id);
             prevSection.segments.push(loadingSeg);
             
             segmentsToFetch.push({ sectionIdx: sectionIdx - 1, segmentId, start: lastPointOfPrev, end: newHead });
+        } else {
+             // Section became empty, handled below
         }
     }
     
     // B. If Tail Removed
-    // No special handling needed because next section's head is independent.
-    // Wait, if I remove the Tail of Section 1, Section 2's Head is still there. 
-    // But the link (S1's last segment) is gone.
-    // If I remove P_last of S1, S1's new last point is P_last-1.
-    // But S2 starts at P_next_head.
-    // There is NO link between S1 and S2 anymore!
-    // We must ADD a link from S1's NEW tail to S2's head.
-    
     if (!nextPointInSec && sectionIdx < updatedSections.length - 1) {
-        // Tail removed, and there is a next section
         const nextSection = updatedSections[sectionIdx + 1];
         const nextHead = nextSection.points[0];
-        const newTail = targetSection.points[targetSection.points.length - 1]; // New tail
+        const newTail = targetSection.points[targetSection.points.length - 1]; 
         
         if (newTail && nextHead) {
              const segmentId = generateId();
@@ -681,32 +718,23 @@ const BikeRoutePlanner = () => {
             };
             targetSection.segments.push(loadingSeg);
             segmentsToFetch.push({ sectionIdx, segmentId, start: newTail, end: nextHead });
+        } else {
+             // Section became empty, handled below
         }
     }
 
     // 4. Auto-Cleanup: Remove Empty Sections
     if (targetSection.points.length === 0) {
-        updatedSections.splice(sectionIdx, 1);
+        // Use shared logic!
+        // We revert changes to `targetSection` in `updatedSections` (it's empty anyway)
+        // and call deleteSection logic.
+        // Actually, we modified `updatedSections` in place.
+        // But `deleteSection` expects the list to HAVE the section at `sectionIdx`.
+        // It currently DOES have the empty section.
         
-        // If we removed a section in the middle, we must bridge the gap
-        if (sectionIdx > 0 && sectionIdx < updatedSections.length) { // length is now -1
-             const prevSec = updatedSections[sectionIdx - 1];
-             const nextSec = updatedSections[sectionIdx]; // was i+1
-             
-             const pStart = prevSec.points[prevSec.points.length - 1];
-             const pEnd = nextSec.points[0];
-             
-             if (pStart && pEnd) {
-                 const segmentId = generateId();
-                 const loadingSeg = {
-                    id: segmentId, startPointId: pStart.id, endPointId: pEnd.id,
-                    geometry: { type: 'LineString', coordinates: [[pStart.lng, pStart.lat], [pEnd.lng, pEnd.lat]] },
-                    distance: 0, ascent: 0, type: 'loading'
-                };
-                prevSec.segments.push(loadingSeg);
-                segmentsToFetch.push({ sectionIdx: sectionIdx - 1, segmentId, start: pStart, end: pEnd });
-             }
-        }
+        // We need to fetch any segments resulting from the merge/deletion
+        const newSegmentsToFetch = deleteSection(sectionIdx, updatedSections);
+        segmentsToFetch = [...segmentsToFetch, ...newSegmentsToFetch];
     } else {
         updatedSections[sectionIdx] = targetSection;
     }
@@ -720,7 +748,7 @@ const BikeRoutePlanner = () => {
                 const realData = await fetchSegmentData(start, end, isMockMode ? 'mock' : 'real');
                 setSections(prev => {
                     const latest = JSON.parse(JSON.stringify(prev));
-                    if (!latest[sIdx]) return prev; // Section might have been deleted? No, index should be valid.
+                    if (!latest[sIdx]) return prev; 
                     const sec = latest[sIdx];
                     sec.segments = sec.segments.map(s => s.id === segmentId ? { ...s, ...realData } : s);
                     return latest;
@@ -734,41 +762,8 @@ const BikeRoutePlanner = () => {
   const handleSectionDelete = async (sectionIdx) => {
       saveToHistory(sections);
       let updatedSections = JSON.parse(JSON.stringify(sections));
-      const deletedSection = sections[sectionIdx];
       
-      // Simply remove the section
-      updatedSections.splice(sectionIdx, 1);
-      
-      // Bridge the gap or Cleanup
-      let segmentsToFetch = [];
-      if (sectionIdx > 0) {
-          const prevSec = updatedSections[sectionIdx - 1];
-          
-          if (sectionIdx < updatedSections.length) {
-              // Middle section deleted: Bridge Prev -> Next
-              const nextSec = updatedSections[sectionIdx];
-              const pStart = prevSec.points[prevSec.points.length - 1];
-              const pEnd = nextSec.points[0];
-              
-              if (pStart && pEnd) {
-                 const segmentId = generateId();
-                 const loadingSeg = {
-                    id: segmentId, startPointId: pStart.id, endPointId: pEnd.id,
-                    geometry: { type: 'LineString', coordinates: [[pStart.lng, pStart.lat], [pEnd.lng, pEnd.lat]] },
-                    distance: 0, ascent: 0, type: 'loading'
-                };
-                prevSec.segments.push(loadingSeg);
-                segmentsToFetch.push({ sectionIdx: sectionIdx - 1, segmentId, start: pStart, end: pEnd });
-              }
-          } else {
-              // Last section deleted: Remove the connecting segment from previous section
-              // that was pointing to the deleted section's head.
-              const headOfDeleted = deletedSection.points[0];
-              if (headOfDeleted) {
-                  prevSec.segments = prevSec.segments.filter(s => s.endPointId !== headOfDeleted.id);
-              }
-          }
-      }
+      const segmentsToFetch = deleteSection(sectionIdx, updatedSections);
       
       setSections(updatedSections);
       
@@ -1006,6 +1001,12 @@ const BikeRoutePlanner = () => {
   const handleDownloadGPX = () => {
     const gpx = generateGPX(sections); 
     if(gpx) { 
+        // Record download in backend if route is saved
+        if (currentRouteId) {
+            fetch(`/api/routes/${currentRouteId}/download`, { method: 'POST' })
+                .catch(err => console.error("Failed to record download:", err));
+        }
+
         const blob = new Blob([gpx], { type: 'application/gpx+xml' }); 
         const url = URL.createObjectURL(blob); 
         const a = document.createElement('a'); 
@@ -1013,10 +1014,143 @@ const BikeRoutePlanner = () => {
     }
   };
 
-  const handleSaveRoute = () => {
-      // TODO: Implement Save Logic
-      alert("Save functionality coming soon!");
+  const openSaveModal = () => {
+    if (!auth.currentUser) {
+        if (confirm("Login is required to save routes. Sign in with Google now?")) {
+            loginWithGoogle();
+        }
+        return;
+    }
+    setIsSaveModalOpen(true);
   };
+
+  const handleSaveRoute = async (modalData) => {
+      setIsSaveModalOpen(false);
+      setIsLoading(true);
+      setLoadingMsg(modalData.isOverwrite ? 'Updating Route...' : 'Saving New Route...');
+
+      try {
+          const idToken = await auth.currentUser.getIdToken();
+          
+          // Simplified Payload: Only Editor State
+          const payload = {
+              title: modalData.title,
+              description: modalData.description,
+              status: modalData.status,
+              tags: modalData.tags,
+              is_overwrite: modalData.isOverwrite,
+              parent_route_id: modalData.isOverwrite ? null : currentRouteId,
+              // These values are informational for the initial request, 
+              // backend will recalculate using Valhalla for consistency.
+              summary_path: [{lat: 37.5, lon: 127.0}], // Placeholder, backend generates
+              distance: 0, 
+              elevation_gain: 0,
+              // Backend generates full_data using Valhalla
+              full_data: null, 
+              editor_state: {
+                  sections: sections
+              }
+          };
+
+          if (modalData.isOverwrite && currentRouteId) {
+             payload.route_id = currentRouteId;
+          }
+
+          const res = await fetch('/api/routes', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${idToken}`
+              },
+              body: JSON.stringify(payload)
+          });
+
+          if (!res.ok) {
+              const err = await res.json();
+              throw new Error(err.detail || 'Failed to save');
+          }
+
+          const result = await res.json();
+          alert(modalData.isOverwrite ? "Route updated!" : "Route saved successfully!");
+          
+          // Update local state with saved metadata
+          setCurrentRouteId(result.route_id);
+          setRouteName(modalData.title);
+          setRouteDescription(modalData.description);
+          setRouteStatus(modalData.status);
+          setRouteTags(modalData.tags);
+          setRouteOwnerId(auth.currentUser.uid); // Assuming current user is now owner
+          setIsDirty(false); // Changes saved
+          setIsMenuOpen(false);
+          setIsSearchOpen(false);
+      } catch (e) {
+          console.error(e);
+          alert(`Error saving route: ${e.message}`);
+      } finally {
+          setIsLoading(false);
+          setLoadingMsg('');
+      }
+  };
+
+  const handleLoadRoute = async (routeId, skipConfirm = false) => {
+      // Allow loading public routes without login
+      
+      if (!skipConfirm && sections.some(s => s.points.length > 0)) {
+          if (!confirm("Current route will be discarded. Load new route?")) return;
+      }
+
+      setIsLoading(true);
+      setLoadingMsg('Loading Route...');
+
+      try {
+          const headers = {};
+          if (auth.currentUser) {
+              const idToken = await auth.currentUser.getIdToken();
+              headers['Authorization'] = `Bearer ${idToken}`;
+          }
+
+          const res = await fetch(`/api/routes/${routeId}`, { headers });
+
+          if (!res.ok) throw new Error("Failed to load route data");
+          
+          const data = await res.json();
+          
+          if (data.editor_state && data.editor_state.sections) {
+              setSections(data.editor_state.sections);
+              
+              // Update all metadata to enable Correct Fork/Overwrite behavior
+              setCurrentRouteId(data.route_id);
+              setRouteName(data.title || '');
+              setRouteDescription(data.description || '');
+              setRouteStatus(data.status || 'PUBLIC');
+              setRouteTags(data.tags || []);
+              setRouteOwnerId(data.owner_id);
+              setRouteStats(data.stats || { views: 0, downloads: 0 });
+              
+              setHistory({ past: [], future: [] }); // Reset history
+              setIsDirty(false); // Freshly loaded
+              setIsMenuOpen(false);
+              setIsSearchOpen(false);
+              if (!skipConfirm) alert("Route loaded!");
+          } else {
+              alert("This route data is missing editor state (Legacy format?). Cannot load into editor.");
+          }
+
+      } catch (e) {
+          console.error(e);
+          alert(`Error loading route: ${e.message}`);
+      } finally {
+          setIsLoading(false);
+          setLoadingMsg('');
+      }
+  };
+
+  // Auto-load route from URL
+  React.useEffect(() => {
+    if (initialRouteId) {
+      handleLoadRoute(initialRouteId, true);
+    }
+  }, [initialRouteId]);
 
   // Toggle handlers for SidebarNav
   const toggleMenu = () => {
@@ -1035,6 +1169,25 @@ const BikeRoutePlanner = () => {
     });
   };
 
+  const handleNewRoute = () => {
+    if (sections.some(s => s.points.length > 0)) {
+        if (!confirm("Your unsaved changes will be lost. Create a new route?")) return;
+    }
+    setSections([{ id: generateId(), name: 'Section 1', points: [], segments: [], color: SECTION_COLORS[0] }]);
+    setRouteName('');
+    setRouteDescription('');
+    setRouteStatus('PUBLIC');
+    setRouteTags([]);
+    setCurrentRouteId(null);
+    setRouteOwnerId(null);
+    setHistory({ past: [], future: [] });
+    setIsDirty(false);
+    setIsMenuOpen(false);
+    setIsSearchOpen(false);
+  };
+
+  const isClean = sections.length === 1 && sections[0].points.length === 0;
+
   return (
     <div className="flex w-full h-full relative overflow-hidden">
       {/* 1. Left Sidebar Navigation (Toolbar) */}
@@ -1043,6 +1196,8 @@ const BikeRoutePlanner = () => {
         isSearchOpen={isSearchOpen} 
         onToggleMenu={toggleMenu} 
         onToggleSearch={toggleSearch} 
+        onNewRoute={handleNewRoute}
+        isClean={isClean}
       />
 
       {/* 2. Panels Container (Stackable) */}
@@ -1054,11 +1209,13 @@ const BikeRoutePlanner = () => {
         `}>
             <div className="w-80 h-full"> {/* Inner Fixed Width Container */}
                 <MenuPanel 
+                    currentRouteId={currentRouteId}
+                    routeStats={routeStats}
                     history={history}
                     onUndo={handleUndo}
                     onRedo={handleRedo}
                     onClear={() => { saveToHistory(sections); setSections([{ id: generateId(), name: 'Section 1', points: [], segments: [], color: SECTION_COLORS[0] }]); }}
-                    onSave={handleSaveRoute}
+                    onSave={openSaveModal}
                     onDownloadGPX={handleDownloadGPX}
                     sections={sections}
                     onPointRemove={handlePointRemove}
@@ -1081,7 +1238,7 @@ const BikeRoutePlanner = () => {
             h-full bg-gray-900 overflow-hidden transition-all duration-300 ease-in-out
         `}>
              <div className="w-80 h-full"> {/* Inner Fixed Width Container */}
-                <SearchPanel />
+                <SearchPanel onLoadRoute={handleLoadRoute} />
              </div>
         </div>
       </div>
@@ -1120,34 +1277,33 @@ const BikeRoutePlanner = () => {
                 </button>
 
                 {/* 2. Place Search Bar (Floating) */}
-                <div className={`pointer-events-auto flex items-center bg-gray-900/90 backdrop-blur-md border border-gray-700 shadow-xl rounded-full transition-all duration-300 ease-in-out ${isPlaceSearchOpen ? 'w-64 px-4 py-2' : 'w-10 h-10 md:w-12 md:h-12 justify-center p-0'}`}>
+                <div className={`pointer-events-auto flex items-center bg-gray-900/90 backdrop-blur-md border border-gray-700 shadow-xl rounded-full transition-all duration-300 ease-in-out h-10 md:h-12 overflow-hidden ${isPlaceSearchOpen ? 'w-64 px-4' : 'w-10 md:w-12 justify-center'}`}>
                     
                     {/* Input Field (Visible only when open) */}
                     <input 
                         type="text"
-                        placeholder="Search places..."
+                        placeholder="Not supported yet (미지원)"
                         value={placeSearchQuery}
                         onChange={(e) => setPlaceSearchQuery(e.target.value)}
-                        className={`bg-transparent text-white text-sm outline-none transition-all duration-300 ${isPlaceSearchOpen ? 'w-full opacity-100' : 'w-0 opacity-0'}`}
-                        // Focus automatically when opened might require ref
+                        disabled
+                        className={`bg-transparent text-gray-500 text-sm outline-none transition-all duration-300 h-full ${isPlaceSearchOpen ? 'flex-1 opacity-100' : 'w-0 opacity-0'}`}
                     />
 
                     {/* Toggle Button (Magnifying Glass) */}
                     <button 
-                        onClick={() => setIsPlaceSearchOpen(!isPlaceSearchOpen)}
-                        className={`text-gray-400 hover:text-white transition-colors shrink-0 ${isPlaceSearchOpen ? 'ml-2' : ''}`}
+                        onClick={() => {
+                            if (!isPlaceSearchOpen) {
+                                setIsPlaceSearchOpen(true);
+                            } else {
+                                alert("Place search is not supported yet (미지원).");
+                                setIsPlaceSearchOpen(false);
+                            }
+                        }}
+                        className={`text-gray-400 hover:text-white transition-colors shrink-0 flex items-center justify-center ${isPlaceSearchOpen ? 'ml-2' : ''}`}
                     >
-                        {isPlaceSearchOpen && placeSearchQuery ? (
-                            // Clear Icon if text exists (Optional logic, sticking to toggle for now)
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        ) : (
-                            // Search Icon
-                            <svg xmlns="http://www.w3.org/2000/svg" className={`${isPlaceSearchOpen ? 'h-5 w-5' : 'h-5 w-5 md:h-6 md:w-6'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                        )}
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isPlaceSearchOpen && placeSearchQuery ? "M6 18L18 6M6 6l12 12" : "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"} />
+                        </svg>
                     </button>
                 </div>
             </div>
@@ -1167,6 +1323,15 @@ const BikeRoutePlanner = () => {
 
             {/* Mobile Only: Sidebar Toggles (Below Stats) */}
             <div className="absolute top-[80px] left-4 z-10 flex gap-2 md:hidden">
+                <button 
+                    onClick={handleNewRoute}
+                    disabled={isClean}
+                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isClean ? 'bg-gray-800/50 border-gray-800 text-gray-600 opacity-50 cursor-not-allowed' : 'bg-gray-900/90 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                </button>
                 <button 
                     onClick={toggleMenu}
                     className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isMenuOpen ? 'bg-riduck-primary border-riduck-primary text-white shadow-riduck-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
@@ -1375,6 +1540,23 @@ const BikeRoutePlanner = () => {
         <div className="h-40 md:h-52 border-t border-gray-800 bg-gray-900/90 backdrop-blur-md relative z-10 px-4 pb-6 pt-2 shrink-0">
             <ElevationChart segments={sections.flatMap(s => s.segments)} onHoverPoint={handleHoverPoint} />
         </div>
+
+        {/* Save Route Modal */}
+        <SaveRouteModal 
+            isOpen={isSaveModalOpen}
+            onClose={() => setIsSaveModalOpen(false)}
+            onSave={handleSaveRoute}
+            isLoading={isLoading}
+            isOwner={user && (routeOwnerId === user.uid || routeOwnerId === user.id)}
+            isMapChanged={isDirty}
+            initialData={{
+                id: currentRouteId,
+                title: routeName,
+                description: routeDescription,
+                status: routeStatus,
+                tags: routeTags
+            }}
+        />
       </div>
     </div>
   );
