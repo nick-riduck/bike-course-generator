@@ -494,7 +494,12 @@ async def search_routes(
 
 @app.get("/api/routes/{route_id}")
 async def get_route_detail(route_id: int, authorization: str = Header(None)):
-    user_id = await get_current_user(authorization)
+    user_id = None
+    if authorization:
+        try:
+            user_id = await get_current_user(authorization)
+        except HTTPException:
+            pass # Invalid token, treat as anonymous
     
     try:
         conn = get_db_conn()
