@@ -530,6 +530,7 @@ async def get_route_detail(route_id: int, authorization: str = Header(None)):
         except HTTPException:
             pass # Invalid token, treat as anonymous
     
+    conn = None
     try:
         conn = get_db_conn()
         cur = conn.cursor()
@@ -541,29 +542,18 @@ async def get_route_detail(route_id: int, authorization: str = Header(None)):
         row = cur.fetchone()
         
         if not row:
-            cur.close()
-            conn.close()
             raise HTTPException(status_code=404, detail="Route not found")
         
         # Access Control: Owner OR Public
         if row['user_id'] != user_id and row['status'] != 'PUBLIC':
-            cur.close()
-            conn.close()
             raise HTTPException(status_code=403, detail="Forbidden: Private route")
         
         # Increment View Count
         cur.execute("UPDATE route_stats SET view_count = view_count + 1, updated_at = CURRENT_TIMESTAMP WHERE route_id = %s", (route_id,))
             
-        file_rel_path = row['data_file_path']
-        conn.commit()
-        cur.close()
-        conn.close()
-        
         # Resolve full path for reading (Local) or Blob path (GCS)
         file_rel_path = row['data_file_path']
         conn.commit()
-        cur.close()
-        conn.close()
         
         full_data = {}
         
@@ -601,8 +591,7 @@ async def get_route_detail(route_id: int, authorization: str = Header(None)):
                 full_data = json.load(f)
             
         # Re-fetch tags and stats
-        conn = get_db_conn()
-        cur = conn.cursor()
+        # Note: conn is still open here
         cur.execute("""
             SELECT t.slug FROM tags t 
             JOIN route_tags rt ON t.id = rt.tag_id 
@@ -613,9 +602,6 @@ async def get_route_detail(route_id: int, authorization: str = Header(None)):
         cur.execute("SELECT view_count, download_count FROM route_stats WHERE route_id = %s", (route_id,))
         stats = cur.fetchone()
         
-        cur.close()
-        conn.close()
-
         # Merge DB Metadata
         full_data.update({
             "route_id": row['id'],
@@ -639,6 +625,9 @@ async def get_route_detail(route_id: int, authorization: str = Header(None)):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
 
 
 @app.post("/api/routes/{route_id}/download")
