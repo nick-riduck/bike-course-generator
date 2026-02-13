@@ -7,7 +7,7 @@ load_dotenv()
 
 # DB 설정 (환경변수 없으면 기본값 사용)
 DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = os.getenv("DB_PORT", "5432")
+DB_PORT = os.getenv("DB_PORT", "5433")
 DB_USER = os.getenv("DB_USER", "postgres")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "password")
 DB_NAME = os.getenv("DB_NAME", "postgres")
@@ -30,6 +30,8 @@ def init_db():
         
         # 2. Drop Tables
         cur.execute("DROP TABLE IF EXISTS auth_mapping_temp CASCADE;")
+        cur.execute("DROP TABLE IF EXISTS route_tags CASCADE;")
+        cur.execute("DROP TABLE IF EXISTS tags CASCADE;")
         cur.execute("DROP TABLE IF EXISTS route_segments CASCADE;")
         cur.execute("DROP TABLE IF EXISTS route_stats CASCADE;")
         cur.execute("DROP TABLE IF EXISTS routes CASCADE;")
@@ -106,9 +108,12 @@ def init_db():
                 uuid UUID DEFAULT gen_random_uuid() UNIQUE NOT NULL,
                 route_num SERIAL UNIQUE NOT NULL,
                 user_id BIGINT NOT NULL,
+                parent_route_id BIGINT,
                 title VARCHAR(255) NOT NULL,
                 description TEXT,
                 status route_status DEFAULT 'PUBLIC' NOT NULL,
+                thumbnail_url VARCHAR(255),
+                is_verified BOOLEAN DEFAULT FALSE NOT NULL,
                 data_file_path TEXT NOT NULL,
                 summary_path GEOMETRY(LineString, 4326),
                 start_point GEOMETRY(Point, 4326),
@@ -163,6 +168,28 @@ def init_db():
                 start_index INTEGER NOT NULL, 
                 end_index INTEGER NOT NULL,
                 PRIMARY KEY (route_id, sequence)
+            );
+        """)
+
+        # Tags
+        print("Creating table: tags...")
+        cur.execute("""
+            CREATE TABLE tags (
+                id SERIAL PRIMARY KEY,
+                names JSONB NOT NULL, 
+                slug VARCHAR(50) UNIQUE NOT NULL,
+                type VARCHAR(20) DEFAULT 'GENERAL',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+
+        # RouteTags
+        print("Creating table: route_tags...")
+        cur.execute("""
+            CREATE TABLE route_tags (
+                route_id BIGINT NOT NULL,
+                tag_id INTEGER NOT NULL,
+                PRIMARY KEY (route_id, tag_id)
             );
         """)
 

@@ -8,3 +8,5 @@ polyline
 firebase-admin
 python-dotenv
 psycopg2-binary
+Pillow
+google-cloud-storage

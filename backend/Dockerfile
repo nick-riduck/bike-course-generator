@@ -4,6 +4,15 @@ FROM python:3.12-slim
 # Set working directory inside the container
 WORKDIR /app
 
+# Install system dependencies for building Python packages (psycopg2, Pillow)
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    python3-dev \
+    libjpeg-dev \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy requirements first to leverage Docker cache
 COPY requirements.txt .
 

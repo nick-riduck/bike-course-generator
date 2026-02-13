@@ -121,16 +121,12 @@ const ElevationChart = ({ segments, onHoverPoint }) => {
   }, [segments]);
 
   const chartData = useMemo(() => {
-    const labels = flatData.map(p => p.dist_km.toFixed(2));
-    const elevations = flatData.map(p => p.ele);
-
     return {
-      labels,
       datasets: [
         {
           fill: true,
           label: 'Elevation',
-          data: elevations,
+          data: flatData.map(p => ({ x: p.dist_km, y: p.ele })),
           borderColor: '#2a9e92',
           backgroundColor: 'rgba(42, 158, 146, 0.2)',
           tension: 0.4,
@@ -155,16 +151,9 @@ const ElevationChart = ({ segments, onHoverPoint }) => {
         ctx.setLineDash([5, 5]); // Dashed line
 
         checkpointDistances.forEach((cpDist, index) => {
-            // Find the closest x-axis index for this distance
-            // Since labels are strings "0.00", "0.01", we need to match appropriately
-            // or rely on the fact that flatData corresponds to labels 1:1
+            const xPos = x.getPixelForValue(cpDist);
             
-            // Find closest data point index
-            const closestIdx = flatData.findIndex(p => p.dist_km >= cpDist);
-            
-            if (closestIdx !== -1) {
-                const xPos = x.getPixelForValue(closestIdx);
-                
+            if (xPos >= 0 && xPos <= chart.width) {
                 // Draw Line
                 ctx.moveTo(xPos, top);
                 ctx.lineTo(xPos, bottom);
@@ -191,31 +180,75 @@ const ElevationChart = ({ segments, onHoverPoint }) => {
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
+    layout: {
+      padding: {
+        top: 10,
+        bottom: 0, // 하단 패딩 제거 (부모 컨테이너 패딩 활용)
+        left: 0,
+        right: 10 // 마지막 라벨 잘림 방지
+      }
+    },
     plugins: {
       legend: { display: false },
       tooltip: {
         mode: 'index',
         intersect: false,
-        backgroundColor: '#1E1E1E',
-        titleColor: '#fff',
-        bodyColor: '#2a9e92',
-        borderColor: '#444',
+        backgroundColor: '#111827', // gray-900
+        titleColor: '#F3F4F6', // gray-100
+        bodyColor: '#2DD4BF', // teal-400
+        borderColor: '#374151', // gray-700
         borderWidth: 1,
+        padding: 10,
         callbacks: {
-          label: (context) => `Ele: ${Math.round(context.parsed.y)}m`,
-          title: (items) => `Dist: ${items[0].label}km`,
+          label: (context) => ` Ele: ${Math.round(context.parsed.y)}m`,
+          title: (items) => `Dist: ${items[0].parsed.x.toFixed(2)}km`,
         }
       },
     },
     scales: {
       x: {
-        grid: { display: false },
-        ticks: { color: '#666', maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
+        type: 'linear',
+        min: 0,
+        max: flatData.length > 0 ? flatData[flatData.length - 1].dist_km : 10,
+        grid: { display: false, drawBorder: false },
+        ticks: { 
+            color: '#9CA3AF',
+            maxRotation: 0, 
+            autoSkip: true, 
+            maxTicksLimit: 10,
+            padding: 4,
+            includeBounds: true,
+            align: 'inner',
+            callback: function(value, index, ticks) {
+                // Last Tick: Always show with decimals
+                if (index === ticks.length - 1) return `${parseFloat(value.toFixed(2))}km`;
+                
+                // Other Ticks: Only show if it's an integer
+                // Using a small epsilon to handle floating point precision
+                if (Math.abs(value - Math.round(value)) < 0.01) {
+                    return `${Math.round(value)}km`;
+                }
+                return '';
+            }
+        },
+        afterBuildTicks: (axis) => {
+            const ticks = axis.ticks;
+            // Force include the exact max value as the last tick
+            if (ticks.length > 0 && ticks[ticks.length - 1].value !== axis.max) {
+                ticks.push({ value: axis.max });
+            }
+        },
+        border: { display: false }
       },
       y: {
-        grid: { color: '#333' },
-        ticks: { color: '#666' },
+        grid: { color: '#374151' },
+        ticks: { 
+            color: '#9CA3AF',
+            callback: (value) => `${Math.round(value)}m`,
+            padding: 4
+        },
         beginAtZero: false,
+        border: { display: false }
       },
     },
     interaction: {
@@ -244,25 +277,18 @@ const ElevationChart = ({ segments, onHoverPoint }) => {
 
   if (!segments || segments.length === 0) {
     return (
-      <div className="w-full h-48 bg-[#1E1E1E] rounded-xl border border-gray-800 flex items-center justify-center text-gray-500 italic mt-6">
-        No elevation data available
+      <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs italic tracking-wider">
+        Create a route to see elevation profile
       </div>
     );
   }
 
   return (
     <div 
-        className="w-full bg-[#1E1E1E]/90 backdrop-blur-md rounded-xl border border-gray-800 p-4 mt-6 shadow-lg h-[250px]"
+        className="w-full h-full bg-transparent flex flex-col"
         onMouseLeave={handleClearHover}
     >
-      <h3 className="text-xs font-bold text-[#2a9e92] mb-2 uppercase tracking-wider flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-        </svg>
-        Elevation Profile
-      </h3>
-      <div className="w-full h-[190px]">
-        {/* Pass custom plugin via plugins prop */}
+      <div className="flex-1 w-full min-h-0 relative">
         <Line ref={chartRef} data={chartData} options={options} plugins={[cpLinePlugin]} />
       </div>
     </div>
