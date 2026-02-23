@@ -60,7 +60,9 @@ class ValhallaClient:
         
         # [Step 0] Smart Gap Filling & Upsampling
         processed_input = self._fill_gaps_with_routing(shape_points, gap_threshold=500.0)
-        processed_input = self._upsample_points(processed_input, max_interval=50.0)
+        # Add extra points at sharp turns (U-turns) to prevent map-matching errors (e.g. detours)
+        processed_input = self._densify_at_turns(processed_input, turn_degree=80.0, step=5.0)
+        processed_input = self._upsample_points(processed_input, max_interval=30.0)
         
         total_points = len(processed_input)
         if total_points <= CHUNK_SIZE:
@@ -133,6 +135,53 @@ class ValhallaClient:
         final_elevations = self._get_bulk_elevations(merged_shape)
         return self._parse_to_standard_format({"edges": merged_edges}, merged_shape, final_elevations)
 
+    def _densify_at_turns(self, points: List[Dict[str, float]], turn_degree=80.0, step=5.0) -> List[Dict[str, float]]:
+        """Identify sharp turns and add extra points to aid map matching."""
+        if len(points) < 3: return points
+        
+        n = len(points)
+        densify_flags = [False] * (n - 1)
+        
+        for i in range(1, n - 1):
+            prev, curr, next_pt = points[i-1], points[i], points[i+1]
+            b1 = self._calculate_bearing(prev['lat'], prev['lon'], curr['lat'], curr['lon'])
+            b2 = self._calculate_bearing(curr['lat'], curr['lon'], next_pt['lat'], next_pt['lon'])
+            diff = abs(b1 - b2)
+            if diff > 180: diff = 360 - diff
+            
+            if diff > turn_degree:
+                # Mark incoming segment
+                densify_flags[i-1] = True
+                
+                # Mark outgoing segments up to 100m
+                accumulated_dist = 0.0
+                for k in range(i, n - 1):
+                    densify_flags[k] = True
+                    # Calculate distance for this segment
+                    p_start, p_end = points[k], points[k+1]
+                    accumulated_dist += self._haversine(p_start['lat'], p_start['lon'], p_end['lat'], p_end['lon'])
+                    
+                    if accumulated_dist >= 100.0:
+                        break
+                
+        new_points = [points[0]]
+        for i in range(n - 1):
+            start, end = points[i], points[i+1]
+            
+            if densify_flags[i]:
+                dist = self._haversine(start['lat'], start['lon'], end['lat'], end['lon'])
+                if dist > step:
+                    count = int(dist / step)
+                    for k in range(1, count + 1):
+                        frac = k / (count + 1)
+                        lat = start['lat'] + (end['lat'] - start['lat']) * frac
+                        lon = start['lon'] + (end['lon'] - start['lon']) * frac
+                        new_points.append({"lat": lat, "lon": lon})
+            
+            new_points.append(end)
+            
+        return new_points
+
     def _get_bulk_elevations(self, shape: List[Tuple[float, float]]) -> List[float]:
         H_CHUNK = 4000
         all_heights = []
@@ -196,9 +245,10 @@ class ValhallaClient:
 
     def _request_raw_data_no_ele(self, shape_points):
         """
-        스마트 폴백 전략:
-        1. 우선 'bicycle' 모드로 시도 (자전거 최적화)
-        2. 결과 포인트 비율이 70% 미만이면 매칭 실패로 간주하고 'auto' 모드로 재시도 (남산 등 데이터 누락 구간 구제)
+        스마트 폴백 & 국소 이탈 복구 전략 (경쟁 모드):
+        1. 1차 시도: 'bicycle' 모드 실행.
+        2. 이탈 구간 감지 및 국소 경쟁(Repair vs Auto) 실행.
+        3. 각 구간별로 더 원본에 가까운 경로를 선택하여 봉합.
         """
         
         # --- 1차 시도: Bicycle (기본값) ---
@@ -226,51 +276,34 @@ class ValhallaClient:
                 resp = client.post(f"{self.url}/trace_attributes", json=trace_payload)
                 resp.raise_for_status()
                 data = resp.json()
-                raw_shape = polyline.decode(data.get("shape", ""), 6)
                 
-                # --- 실패 감지 로직 (통합 지표: 유효 매칭 비율) ---
-                # matched_points 정보 활용 (각 입력 포인트가 어디에 매칭되었는지 확인)
-                matched_points = data.get("matched_points", [])
+                # --- 국소 경쟁 수술 (Repair) ---
+                # 이탈 구간에 대해 Strict(자전거) vs Auto(차) 경쟁 붙임
+                repaired_data = self._repair_segments(data, shape_points)
                 
+                raw_shape = polyline.decode(repaired_data.get("shape", ""), 6)
+                
+                # 매칭률 계산 (로그용)
+                matched_points = repaired_data.get("matched_points", [])
                 valid_count = 0
-                total_input = len(shape_points)
-                matched_points = data.get("matched_points", [])
-                # if matched_points:
-                #     print(f"    [Valhalla] DEBUG: First matched point keys: {list(matched_points[0].keys())}")
-                
-                # 유효 포인트 판별 로직
                 for mp in matched_points:
-                    if mp.get("type") == "matched":
-                        # API가 제공하는 distance_from_trace_point 사용 (단위: 미터)
-                        dist = mp.get("distance_from_trace_point", 0.0)
-                        if dist < 100.0: # 100m 이내 오차만 인정
-                            valid_count += 1
+                    if mp.get("type") == "matched" and mp.get("distance_from_trace_point", 0.0) < 100.0:
+                        valid_count += 1
                 
-                # 개수 불일치 시 로그 출력
-                # if len(matched_points) != total_input:
-                #     print(f"    [Valhalla] Note: Match count mismatch ({len(matched_points)} vs {total_input})")
+                ratio = (valid_count / len(shape_points)) * 100 if shape_points else 0
+                print(f"    [Valhalla] Result: Input {len(shape_points)} -> Valid {valid_count} ({ratio:.1f}%)")
                 
-                ratio = (valid_count / total_input) * 100 if total_input > 0 else 0
-                print(f"    [Valhalla] Try 1 (Bicycle): Input {total_input} -> Valid {valid_count} ({ratio:.1f}%)")
-                
-                # --- 검증 및 폴백 판단 ---
-                if not FALLBACK_MODE or ratio >= MATCH_THRESHOLD:
-                    return {
-                        "edges": data.get("edges", []),
-                        "matched_points": matched_points,
-                        "shape_points": raw_shape
-                    }
-                else:
-                    print(f"    [Valhalla] Low valid match ratio ({ratio:.1f}% < {MATCH_THRESHOLD}%). Fallback to 'auto' mode...")
+                return {
+                    "edges": repaired_data.get("edges", []),
+                    "matched_points": matched_points,
+                    "shape_points": raw_shape
+                }
                     
         except Exception as e:
             print(f"    [Valhalla] Try 1 (Bicycle) Failed: {e}. Fallback to 'auto' mode...")
 
-        # --- 2차 시도: Auto (폴백) ---
-        # costing만 auto로 변경하여 재시도
+        # --- 2차 시도: Auto (전체 폴백) ---
         trace_payload["costing"] = "auto"
-        # auto 모드에서는 오차 허용을 좀 더 줄여도 됨 (도로는 정확하므로)
-        # 하지만 일관성을 위해 유지하거나, 필요 시 조정 가능. 일단 유지.
         
         with httpx.Client(timeout=self.timeout) as client:
             resp = client.post(f"{self.url}/trace_attributes", json=trace_payload)
@@ -285,6 +318,258 @@ class ValhallaClient:
                 "matched_points": data.get("matched_points", []),
                 "shape_points": raw_shape
             }
+
+    def _repair_segments(self, data: Dict[str, Any], original_input: List[Dict[str, float]]) -> Dict[str, Any]:
+        """
+        이탈 구간에 대해 Strict(자전거 매칭) vs Auto(자동차 라우팅) vs Original(원본) 경쟁.
+        Auto의 경우 단순 매칭 대신 '라우팅(Route)'을 사용하여 연결성을 보장합니다.
+        """
+        matched_points = data.get("matched_points", [])
+        if not matched_points: return data
+
+        deviations = self._detect_deviations(matched_points, threshold=100.0)
+        if not deviations:
+            return data
+
+        print(f"    [Valhalla] Detected {len(deviations)} deviation segments. Starting competitive repair...")
+
+        new_edges = []
+        new_shape = []
+        last_input_idx = 0
+        
+        # 커트라인 (50m)
+        MAX_ALLOWED_DIST = 50.0 
+        
+        for dev_start, dev_end in deviations:
+            # 1. 정상 구간 복사
+            if dev_start > last_input_idx:
+                good_subset = original_input[last_input_idx : dev_start]
+                good_res = self._trace_subset(good_subset, mode="bicycle", strict=False)
+                self._append_result(new_edges, new_shape, good_res)
+                
+            # 2. 이탈 구간 경쟁
+            bad_subset = original_input[dev_start : dev_end + 1]
+            if not bad_subset:
+                last_input_idx = dev_end + 1
+                continue
+
+            # 후보 1: Strict Bicycle (Map Matching)
+            strict_res = self._trace_subset(bad_subset, mode="bicycle", strict=True)
+            strict_shape = strict_res.get("shape", [])
+            dist_strict = self._calculate_mean_distance(bad_subset, strict_shape)
+            
+            # 후보 2: Auto Routing (Point-to-Point Route)
+            # 시작점과 끝점을 잇는 경로를 찾음
+            start_pt = bad_subset[0]
+            end_pt = bad_subset[-1]
+            auto_shape = self._get_route_shape(start_pt, end_pt, costing="auto")
+            
+            if len(auto_shape) < 2: 
+                dist_auto = float('inf')
+            else:
+                dist_auto = self._calculate_mean_distance(bad_subset, auto_shape)
+            
+            # 우승자 선발
+            winner_res = None
+            winner_name = "Original"
+            
+            # 원본 (Default)
+            fallback_shape = [[p['lat'], p['lon']] for p in bad_subset]
+            winner_res = {
+                "edges": [{
+                    "begin_shape_index": 0, "end_shape_index": len(fallback_shape)-1,
+                    "use": "road", "surface": "unknown"
+                }],
+                "shape": fallback_shape
+            }
+
+            best_api_dist = min(dist_strict, dist_auto)
+            
+            if best_api_dist < MAX_ALLOWED_DIST:
+                if dist_strict <= dist_auto:
+                    winner_res = strict_res
+                    winner_name = "Strict"
+                else:
+                    winner_res = {
+                        "edges": [{
+                            "begin_shape_index": 0, "end_shape_index": len(auto_shape)-1,
+                            "use": "road", "surface": "paved_smooth"
+                        }],
+                        "shape": auto_shape
+                    }
+                    winner_name = "Auto(Route)"
+            
+            print(f"      dev[{dev_start}~{dev_end}, len={len(bad_subset)}]: Strict={dist_strict:.1f}m, Auto={dist_auto:.1f}m -> Winner: {winner_name}")
+            
+            self._append_result(new_edges, new_shape, winner_res)
+            last_input_idx = dev_end + 1
+            
+        # 3. 마지막 구간 복사
+        if last_input_idx < len(original_input):
+            good_subset = original_input[last_input_idx:]
+            good_res = self._trace_subset(good_subset, mode="bicycle", strict=False)
+            self._append_result(new_edges, new_shape, good_res)
+            
+        return {
+            "edges": new_edges,
+            "shape": polyline.encode(new_shape, 6),
+            "matched_points": [{"type": "matched", "distance_from_trace_point": 0.0}] * len(original_input)
+        }
+
+    def _get_route_shape(self, start_pt, end_pt, costing="bicycle") -> List[Tuple[float, float]]:
+        payload = {
+            "locations": [{"lat": start_pt['lat'], "lon": start_pt['lon']}, {"lat": end_pt['lat'], "lon": end_pt['lon']}],
+            "costing": costing
+        }
+        with httpx.Client(timeout=10.0) as client:
+            try:
+                resp = client.post(f"{self.url}/route", json=payload)
+                resp.raise_for_status()
+                shape_str = resp.json().get("trip", {}).get("legs", [{}])[0].get("shape", "")
+                return polyline.decode(shape_str, 6) if shape_str else []
+            except:
+                return []
+
+    def _trace_subset(self, points, mode="bicycle", strict=False):
+        """부분 경로에 대해 trace_attributes 호출"""
+        if not points: return {"edges": [], "shape": []}
+        
+        # 파라미터 설정
+        options = {
+            "search_radius": 20 if strict else 100,
+            "gps_accuracy": 5.0 if strict else 100.0,
+            "breakage_distance": 200 if strict else 500,
+            "turn_penalty_factor": 0 if strict else 500
+        }
+        
+        # auto 모드일 때는 strict 옵션 무시하고 기본값 사용
+        if mode == "auto":
+            options = {
+                "search_radius": 50, 
+                "gps_accuracy": 20.0,
+                "breakage_distance": 1000,
+                "turn_penalty_factor": 100
+            }
+
+        payload = {
+            "shape": points,
+            "costing": mode,
+            "shape_match": "map_snap",
+            "trace_options": options,
+            "filters": {"attributes": ["edge.use", "edge.surface", "edge.begin_shape_index", "edge.end_shape_index", "shape"], "action": "include"}
+        }
+        
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                resp = client.post(f"{self.url}/trace_attributes", json=payload)
+                resp.raise_for_status()
+                d = resp.json()
+                shp = polyline.decode(d.get("shape", ""), 6)
+                return {"edges": d.get("edges", []), "shape": shp}
+        except:
+            return {"edges": [], "shape": []}
+
+    def _calculate_mean_distance(self, original_points, result_shape):
+        """원본 포인트들과 결과 경로 간의 평균 거리를 계산합니다."""
+        if not result_shape: return float('inf')
+        
+        total_dist = 0.0
+        ref_points = result_shape
+        if len(ref_points) > 500:
+            step = len(ref_points) // 200
+            ref_points = ref_points[::step]
+            
+        for pt in original_points:
+            lat, lon = pt['lat'], pt['lon']
+            min_d = float('inf')
+            for r_pt in ref_points:
+                d = (lat - r_pt[0])**2 + (lon - r_pt[1])**2
+                if d < min_d: min_d = d
+            total_dist += math.sqrt(min_d)
+            
+        mean_deg = total_dist / len(original_points)
+        mean_meter = mean_deg * 111000
+        return mean_meter
+
+
+    def _append_result(self, target_edges, target_shape, result):
+        """결과(Edge, Shape)를 타겟 리스트에 이어 붙임 (인덱스 보정 포함)"""
+        edges = result.get("edges", [])
+        shape = result.get("shape", [])
+        if not shape: return
+        
+        # Shape 이어 붙이기
+        # 연결 부위 중복 제거 (이전 끝점과 현재 시작점이 같으면 제거)
+        start_offset = 0
+        if target_shape and shape:
+            last = target_shape[-1]
+            curr = shape[0]
+            # 거리가 매우 가까우면 중복으로 간주
+            if (last[0]-curr[0])**2 + (last[1]-curr[1])**2 < 1e-10:
+                start_offset = 1
+        
+        current_base_idx = len(target_shape)
+        
+        # Shape 추가
+        points_to_add = shape[start_offset:]
+        target_shape.extend(points_to_add)
+        
+        # Edge 추가 (인덱스 보정)
+        # start_offset만큼 shape 앞부분이 잘렸으므로, edge 인덱스도 당겨야 함
+        # 하지만 edge가 0번 인덱스를 참조하고 있었다면? -> 복잡함.
+        # 단순화를 위해: 추가된 shape에 맞춰 edge 인덱스를 재할당.
+        
+        for edge in edges:
+            # 원본 shape 내에서의 인덱스
+            old_start = edge.get("begin_shape_index", 0)
+            old_end = edge.get("end_shape_index", 0)
+            
+            # 잘린 앞부분(start_offset) 반영
+            if old_end < start_offset: continue # 이 엣지는 통째로 날아감
+            
+            new_start = max(0, old_start - start_offset)
+            new_end = max(0, old_end - start_offset)
+            
+            # 전체 리스트 기준 인덱스로 변환
+            edge["begin_shape_index"] = current_base_idx + new_start
+            edge["end_shape_index"] = current_base_idx + new_end
+            target_edges.append(edge)
+
+    def _detect_deviations(self, matched_points, threshold=100.0) -> List[Tuple[int, int]]:
+        """
+        matched_points를 분석하여 이탈 구간(Start Idx, End Idx) 리스트 반환.
+        """
+        deviations = []
+        n = len(matched_points)
+        if n == 0: return []
+        
+        in_deviation = False
+        start_idx = -1
+        
+        for i, mp in enumerate(matched_points):
+            is_bad = False
+            if mp.get("type") == "unmatched":
+                is_bad = True
+            else:
+                dist = mp.get("distance_from_trace_point", 0.0)
+                if dist > threshold:
+                    is_bad = True
+            
+            if is_bad:
+                if not in_deviation:
+                    in_deviation = True
+                    start_idx = i
+            else:
+                if in_deviation:
+                    in_deviation = False
+                    # 구간 종료 (i-1)
+                    # 너무 짧은 이탈(1~2포인트)은 무시? -> 아니오, 짧아도 100m 튀면 잡아야 함.
+                    deviations.append((start_idx, i - 1))
+        
+        if in_deviation:
+            deviations.append((start_idx, n - 1))
+            
+        return deviations
 
     def _request_and_parse(self, shape_points):
         raw = self._request_raw_data_no_ele(shape_points)

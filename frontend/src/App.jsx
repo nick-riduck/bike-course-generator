@@ -1,18 +1,55 @@
-import React, { useState } from 'react'
+import React, { useState, Component } from 'react'
 import { Routes, Route, useParams, useNavigate } from 'react-router-dom'
 import BikeRoutePlanner from './components/BikeRoutePlanner'
 import Login from './components/Login'
 
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("Uncaught error:", error, errorInfo);
+    this.setState({ error, errorInfo });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 text-white bg-red-900 h-screen">
+          <h1 className="text-2xl font-bold mb-4">Something went wrong.</h1>
+          <details className="whitespace-pre-wrap">
+            {this.state.error && this.state.error.toString()}
+            <br />
+            {this.state.errorInfo && this.state.errorInfo.componentStack}
+          </details>
+        </div>
+      );
+    }
+
+    return this.props.children; 
+  }
+}
+
 function App() {
+  console.log("App Rendering");
   return (
-    <Routes>
-      <Route path="/" element={<Layout />} />
-      <Route path="/route/:routeId" element={<Layout />} />
-    </Routes>
+    <ErrorBoundary>
+      <Routes>
+        <Route path="/" element={<Layout />} />
+        <Route path="/route/:routeId" element={<Layout />} />
+      </Routes>
+    </ErrorBoundary>
   );
 }
 
 function Layout() {
+  console.log("Layout Rendering");
   const { routeId } = useParams();
   const [routeName, setRouteName] = useState('');
   const [isEditingName, setIsEditingName] = useState(false);

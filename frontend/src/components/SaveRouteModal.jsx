@@ -22,7 +22,9 @@ const SaveRouteModal = ({
             setStatus(initialData.status || 'PUBLIC');
             setTags(initialData.tags || []);
         }
-    }, [isOpen, initialData.id, initialData.updated_at]);
+        // Only reset when modal opens. Ignoring initialData changes while open to preserve user edits.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen]);
 
     // Check for changes to prevent unnecessary updates
     const hasChanges = React.useMemo(() => {

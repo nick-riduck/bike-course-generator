@@ -104,21 +104,6 @@ const getProjectedDistance = (segmentCoords, targetLng, targetLat) => {
     return closestPointDistance;
 };
 
-const generateGPX = (sections) => {
-  const flatSegments = sections.flatMap(s => s.segments);
-  if (flatSegments.length === 0) return null;
-  const header = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="Riduck" xmlns="http://www.topografix.com/GPX/1/1"><trk><trkseg>`;
-  const footer = `</trkseg></trk></gpx>`;
-  let trkpts = '';
-  flatSegments.forEach(seg => {
-    const coords = seg.geometry?.coordinates || [];
-    coords.forEach(coord => {
-      trkpts += `<trkpt lat="${coord[1]}" lon="${coord[0]}">${coord[2] !== undefined ? `<ele>${coord[2]}</ele>` : ''}</trkpt>`;
-    });
-  });
-  return header + trkpts + footer;
-};
-
 const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const { user, loginWithGoogle } = useAuth();
   const mapRef = useRef();
@@ -175,6 +160,105 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const touchStartPosRef = useRef(null);
 
   const handleHoverPoint = useCallback((coord) => setHoveredCoord(coord), []);
+
+  const handleDownloadGPX = async () => {
+    if (!sections || sections.length === 0) return;
+
+    try {
+        const payload = {
+            title: routeName || 'Riduck Route',
+            editor_state: {
+                sections: sections
+            }
+        };
+
+        const response = await fetch('/api/export/gpx', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || 'Failed to generate GPX');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `route-${Date.now()}.gpx`;
+        if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+            if (filenameMatch && filenameMatch.length === 2)
+                filename = filenameMatch[1];
+        }
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        if (currentRouteId) {
+            fetch(`/api/routes/${currentRouteId}/download`, { method: 'POST' }).catch(e => {});
+        }
+
+    } catch (e) {
+        console.error("GPX Export Error:", e);
+        alert(`Failed to download GPX: ${e.message}`);
+    }
+  };
+
+  const handleSectionDownload = async (sectionIdx) => {
+    const section = sections[sectionIdx];
+    if (!section) return;
+
+    try {
+        const payload = {
+            title: section.name || 'Riduck Section',
+            editor_state: {
+                sections: [section] // Send only the specific section
+            }
+        };
+
+        const response = await fetch('/api/export/gpx', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || 'Failed to generate Section GPX');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `section-${section.name || 'Export'}-${Date.now()}.gpx`;
+        if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+            if (filenameMatch && filenameMatch.length === 2)
+                filename = filenameMatch[1];
+        }
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+    } catch (e) {
+        console.error("Section GPX Export Error:", e);
+        alert(`Failed to download Section GPX: ${e.message}`);
+    }
+  };
 
   const handleTouchStart = (e) => {
       // Only single touch
@@ -442,6 +526,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
       };
     } catch (e) { 
       console.error(e); 
+      alert(`Route Error: ${e.message || 'Failed to connect to route server.'}`);
       return { 
           geometry: { type: 'LineString', coordinates: [[start.lng, start.lat], [end.lng, end.lat]] }, 
           distance: 0, ascent: 0, type: 'error', surfaceSegments: [] 
@@ -821,15 +906,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
       setSections(updatedSections);
   };
 
-  const handleSectionDownload = (sectionIdx) => {
-      const gpx = generateGPX([sections[sectionIdx]]);
-      if(gpx) { 
-        const blob = new Blob([gpx], { type: 'application/gpx+xml' }); 
-        const url = URL.createObjectURL(blob); 
-        const a = document.createElement('a'); 
-        a.href = url; a.download = `section-${sections[sectionIdx].name}-${Date.now()}.gpx`; a.click(); 
-    }
-  };
+
 
   const handlePointRename = (sectionIdx, pointIdx, newName) => {
       const updatedSections = [...sections];
@@ -1007,21 +1084,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     }))
   }), [sections, hoveredSectionIndex]);
 
-  const handleDownloadGPX = () => {
-    const gpx = generateGPX(sections); 
-    if(gpx) { 
-        // Record download in backend if route is saved
-        if (currentRouteId) {
-            fetch(`/api/routes/${currentRouteId}/download`, { method: 'POST' })
-                .catch(err => console.error("Failed to record download:", err));
-        }
 
-        const blob = new Blob([gpx], { type: 'application/gpx+xml' }); 
-        const url = URL.createObjectURL(blob); 
-        const a = document.createElement('a'); 
-        a.href = url; a.download = `route-${Date.now()}.gpx`; a.click(); 
-    }
-  };
 
   const openSaveModal = () => {
     if (!auth.currentUser) {
@@ -1119,35 +1182,153 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           }
 
           const data = await res.json();
+          const { waypoints, full_geometry, summary, display_geojson } = data;
           
-          const coords = data.full_geometry.coordinates;
-          if (!coords || coords.length < 2) throw new Error("GPX file has insufficient coordinates.");
+          if (!full_geometry || !full_geometry.coordinates || full_geometry.coordinates.length < 2) {
+              throw new Error("GPX file has insufficient coordinates.");
+          }
+          
+          let newSections = [];
+          
+          // Strategy: Reconstruct from Waypoints if available
+          if (waypoints && waypoints.length > 0) {
+              // 1. Sort waypoints by index
+              waypoints.sort((a, b) => a.index - b.index);
 
-          const startCoord = coords[0];
-          const endCoord = coords[coords.length - 1];
+              // 2. Group into sections based on 'section_start' type
+              let currentSection = null;
+              
+              // Helper to create a new section
+              const createSection = (name, color) => ({
+                  id: generateId(),
+                  name: name || `Section ${newSections.length + 1}`,
+                  points: [],
+                  segments: [],
+                  color: color || SECTION_COLORS[newSections.length % SECTION_COLORS.length]
+              });
 
-          // Use numbering 1 and 2 for points
-          const startPoint = { id: generateId(), lng: startCoord[0], lat: startCoord[1], type: 'via', name: 'Start' };
-          const endPoint = { id: generateId(), lng: endCoord[0], lat: endCoord[1], type: 'via', name: 'End' };
+              // Initial Section (if first waypoint is not a section start)
+              if (waypoints[0].type !== 'section_start') {
+                  currentSection = createSection('Imported Section', SECTION_COLORS[0]);
+                  newSections.push(currentSection);
+              }
 
-          const newSegment = {
-              geometry: data.full_geometry,
-              distance: data.summary.distance,
-              ascent: data.summary.ascent,
-              type: 'api',
-              surfaceSegments: data.display_geojson.features
-          };
+              for (const wpt of waypoints) {
+                  if (wpt.type === 'section_start') {
+                      currentSection = createSection(wpt.name, wpt.color);
+                      newSections.push(currentSection);
+                  }
+                  
+                  // Add point to current section
+                  if (currentSection) {
+                      currentSection.points.push({
+                          id: generateId(),
+                          lng: wpt.lon,
+                          lat: wpt.lat,
+                          type: wpt.type, // 'section_start' or 'via'
+                          name: wpt.name
+                      });
+                  }
+              }
 
-          const importedSection = {
-              id: generateId(),
-              name: 'Imported Route',
-              points: [startPoint, endPoint],
-              segments: [newSegment],
-              color: SECTION_COLORS[0]
-          };
+              // 3. Reconstruct Segments between points
+              const allCoords = full_geometry.coordinates; // [[lon, lat, ele], ...]
+              const globalFeatures = display_geojson?.features || [];
+
+              for (const section of newSections) {
+                  for (let i = 0; i < section.points.length - 1; i++) {
+                      const p1 = section.points[i];
+                      const p2 = section.points[i+1];
+                      
+                      const wpt1 = waypoints.find(w => w.lon === p1.lng && w.lat === p1.lat); 
+                      const wpt2 = waypoints.find(w => w.lon === p2.lng && w.lat === p2.lat);
+                      
+                      let segmentGeo = { type: 'LineString', coordinates: [[p1.lng, p1.lat], [p2.lng, p2.lat]] };
+                      let dist = 0;
+                      let ascent = 0;
+                      let surfaceSegments = [];
+
+                      if (wpt1 && wpt2) {
+                          const idx1 = wpt1.index;
+                          const idx2 = wpt2.index;
+                          
+                          if (idx1 < idx2 && idx2 < allCoords.length) {
+                              // A. Geometry Slicing (Preserve Elevation!)
+                              const sliced = allCoords.slice(idx1, idx2 + 1);
+                              segmentGeo = { type: 'LineString', coordinates: sliced };
+                              
+                              // B. Calculate Stats
+                              for (let k = 0; k < sliced.length - 1; k++) {
+                                  const c1 = sliced[k];
+                                  const c2 = sliced[k+1];
+                                  dist += getDistance(c1[1], c1[0], c2[1], c2[0]);
+                                  
+                                  // Ascent (using elevation if available)
+                                  if (c1.length > 2 && c2.length > 2) {
+                                      const diff = c2[2] - c1[2];
+                                      if (diff > 0) ascent += diff;
+                                  }
+                              }
+
+                              // C. Map Surface Info
+                              // Find features that overlap with [idx1, idx2]
+                              surfaceSegments = globalFeatures.filter(f => {
+                                  const sIdx = f.properties.start_index;
+                                  const eIdx = f.properties.end_index;
+                                  if (sIdx === undefined || eIdx === undefined) return false;
+                                  
+                                  // Check overlap: Feature interval [sIdx, eIdx] overlaps with Segment interval [idx1, idx2]
+                                  return Math.max(idx1, sIdx) <= Math.min(idx2, eIdx);
+                              }).map(f => {
+                                  // Pass through the feature. 
+                                  // Note: The feature geometry might extend beyond this segment, 
+                                  // but for visualization it provides the correct surface type and color.
+                                  // If precise clipping is needed, we would slice f.geometry.coordinates here.
+                                  return f; 
+                              });
+                          }
+                      }
+
+                      section.segments.push({
+                          id: generateId(),
+                          startPointId: p1.id,
+                          endPointId: p2.id,
+                          geometry: segmentGeo,
+                          distance: dist,
+                          ascent: ascent,
+                          type: 'api',
+                          surfaceSegments: surfaceSegments
+                      });
+                  }
+              }
+              
+          } else {
+              // Fallback: Use Start and End of the entire track
+              const startCoord = full_geometry.coordinates[0];
+              const endCoord = full_geometry.coordinates[full_geometry.coordinates.length - 1];
+
+              const startPoint = { id: generateId(), lng: startCoord[0], lat: startCoord[1], type: 'via', name: 'Start' };
+              const endPoint = { id: generateId(), lng: endCoord[0], lat: endCoord[1], type: 'via', name: 'End' };
+
+              const newSegment = {
+                  geometry: full_geometry,
+                  distance: summary.distance,
+                  ascent: summary.ascent,
+                  type: 'api',
+                  surfaceSegments: display_geojson.features
+              };
+
+              newSections = [{
+                  id: generateId(),
+                  name: 'Imported Route',
+                  points: [startPoint, endPoint],
+                  segments: [newSegment],
+                  color: SECTION_COLORS[0]
+              }];
+          }
 
           saveToHistory(sections);
-          setSections([importedSection]);
+          setSections(newSections);
           
           setCurrentRouteId(null);
           setRouteName('Imported GPX');
@@ -1159,6 +1340,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
           // Focus map
           if (mapRef.current) {
+              const coords = full_geometry.coordinates;
               const lons = coords.map(c => c[0]);
               const lats = coords.map(c => c[1]);
               mapRef.current.fitBounds([

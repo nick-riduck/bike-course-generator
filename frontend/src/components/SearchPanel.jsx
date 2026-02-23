@@ -26,31 +26,25 @@ const SearchPanel = ({ onLoadRoute }) => {
   const [myRoutes, setMyRoutes] = useState([]);
   const [publicRoutes, setPublicRoutes] = useState([]);
   
-  // Pagination States
+  // UI States
   const [page, setPage] = useState(1);
   const [hasMoreMy, setHasMoreMy] = useState(true);
   const [hasMorePublic, setHasMorePublic] = useState(true);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState(null);
 
   // Scroll Ref
   const scrollContainerRef = useRef(null);
 
-  // 1. Initial Load & Tab Change & Search Change & Sort Change
-  useEffect(() => {
-    setPage(1);
-    setMyRoutes([]);
-    setPublicRoutes([]);
-    setHasMoreMy(true);
-    setHasMorePublic(true);
-    fetchData(1, true);
-  }, [user, searchQuery, activeTab, sortOption]);
-
   // 2. Fetch Data Logic
-  const fetchData = async (pageNum, isReset = false) => {
+  const fetchData = useCallback(async (pageNum, isReset = false) => {
     const isLoadMore = pageNum > 1;
     if (isLoadMore) setLoadingMore(true);
-    else setLoading(true);
+    else {
+        setLoading(true);
+        setError(null);
+    }
 
     try {
       const headers = {};
@@ -68,23 +62,18 @@ const SearchPanel = ({ onLoadRoute }) => {
       // Helper to fetch a specific scope
       const fetchScope = async (scope) => {
         const res = await fetch(`/api/routes?scope=${scope}${searchQuery ? `&q=${searchQuery}` : ''}&page=${pageNum}&limit=${limit}&sort=${sortOption}`, { headers });
-        if (res.ok) {
-          const data = await res.json();
-          return data.routes || [];
-        }
-        return [];
+        if (!res.ok) throw new Error(`Failed to fetch ${scope} routes: ${res.status}`);
+        const data = await res.json();
+        return data.routes || [];
       };
 
       if (fetchMy) {
-        // If tab is 'all', we only fetch the first page once (Overview)
-        // If tab is 'my', we fetch normally with pagination
         if (activeTab === 'my' || (activeTab === 'all' && pageNum === 1)) {
             const newMyRoutes = await fetchScope('my');
             if (activeTab === 'my') {
                 setMyRoutes(prev => isReset ? newMyRoutes : [...prev, ...newMyRoutes]);
                 setHasMoreMy(newMyRoutes.length === limit);
             } else {
-                // Overview mode: just take top 3
                 setMyRoutes(newMyRoutes.slice(0, 3));
             }
         }
@@ -97,7 +86,6 @@ const SearchPanel = ({ onLoadRoute }) => {
                 setPublicRoutes(prev => isReset ? newPublicRoutes : [...prev, ...newPublicRoutes]);
                 setHasMorePublic(newPublicRoutes.length === limit);
             } else {
-                // Overview mode: just take top 3
                 setPublicRoutes(newPublicRoutes.slice(0, 3));
             }
         }
@@ -105,16 +93,27 @@ const SearchPanel = ({ onLoadRoute }) => {
 
     } catch (e) {
       console.error(e);
+      setError("Network error. Please check your connection.");
     } finally {
       setLoading(false);
       setLoadingMore(false);
     }
-  };
+  }, [user, searchQuery, activeTab, sortOption]);
+
+  // 1. Initial Load & Tab Change & Search Change & Sort Change
+  useEffect(() => {
+    setPage(1);
+    setMyRoutes([]);
+    setPublicRoutes([]);
+    setHasMoreMy(true);
+    setHasMorePublic(true);
+    fetchData(1, true);
+  }, [user, searchQuery, activeTab, sortOption, fetchData]);
 
   // 3. Infinite Scroll Handler
   const handleScroll = useCallback(() => {
     if (activeTab === 'all') return; // No infinite scroll in overview
-    if (loading || loadingMore) return;
+    if (loading || loadingMore || error) return;
 
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -127,7 +126,7 @@ const SearchPanel = ({ onLoadRoute }) => {
             fetchData(nextPage, false);
         }
     }
-  }, [activeTab, loading, loadingMore, hasMoreMy, hasMorePublic, page]);
+  }, [activeTab, loading, loadingMore, error, hasMoreMy, hasMorePublic, page, fetchData]);
 
   // Attach Scroll Listener
   useEffect(() => {
@@ -358,7 +357,18 @@ const SearchPanel = ({ onLoadRoute }) => {
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto p-4 custom-scrollbar"
       >
-          
+          {error && (
+            <div className="p-4 mb-4 bg-red-500/10 border border-red-500/50 rounded-xl text-center">
+                <p className="text-xs text-red-400 mb-2">{error}</p>
+                <button 
+                    onClick={() => fetchData(1, true)}
+                    className="text-[10px] font-bold bg-red-500/20 hover:bg-red-500/30 text-red-300 px-3 py-1 rounded-lg border border-red-500/30 transition-all"
+                >
+                    RETRY CONNECTION
+                </button>
+            </div>
+          )}
+
           {/* Section: My Routes */}
           {(activeTab === 'all' || activeTab === 'my') && (
             <div className="mb-6">
@@ -380,7 +390,7 @@ const SearchPanel = ({ onLoadRoute }) => {
                    </div>
                 ) : loading && myRoutes.length === 0 ? (
                    <div className="flex justify-center p-4"><div className="animate-spin h-5 w-5 border-2 border-riduck-primary rounded-full border-t-transparent"></div></div>
-                ) : myRoutes.length === 0 ? (
+                ) : myRoutes.length === 0 && !error ? (
                    <div className="flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-gray-800 rounded-xl bg-gray-900/30">
                       <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center mb-2 text-gray-600">👤</div>
                       <p className="text-xs text-gray-600">No personal routes found.</p>
@@ -410,7 +420,7 @@ const SearchPanel = ({ onLoadRoute }) => {
                 
                 {loading && publicRoutes.length === 0 ? (
                    <div className="flex justify-center p-4"><div className="animate-spin h-5 w-5 border-2 border-riduck-primary rounded-full border-t-transparent"></div></div>
-                ) : publicRoutes.length === 0 ? (
+                ) : publicRoutes.length === 0 && !error ? (
                    <div className="flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-gray-800 rounded-xl bg-gray-900/30">
                       <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center mb-2 text-gray-600">🌍</div>
                       <p className="text-xs text-gray-600">No public courses found.</p>

@@ -44,3 +44,1479 @@
 4:07:40 PM [vite] (client) hmr update /src/index.css, /src/components/SearchPanel.jsx
 4:20:59 PM [vite] (client) hmr update /src/index.css, /src/components/SearchPanel.jsx
 4:22:04 PM [vite] (client) hmr update /src/index.css, /src/components/SearchPanel.jsx
+5:05:53 PM [vite] (client) hmr update /src/index.css, /src/components/MenuPanel.jsx
+5:05:55 PM [vite] (client) hmr update /src/index.css, /src/components/MenuPanel.jsx
+5:06:09 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+5:06:35 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+5:11:13 PM [vite] (client) hmr update /src/index.css, /src/components/SidebarNav.jsx
+5:11:15 PM [vite] (client) hmr update /src/index.css, /src/components/SidebarNav.jsx
+5:11:45 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+5:11:45 PM [vite] (client) hmr update /src/index.css, /src/components/MenuPanel.jsx
+5:11:46 PM [vite] (client) hmr update /src/index.css, /src/components/MenuPanel.jsx
+5:20:39 PM [vite] (client) hmr update /src/index.css, /src/components/SidebarNav.jsx
+5:20:57 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+5:22:16 PM [vite] (client) hmr update /src/index.css, /src/components/SidebarNav.jsx
+5:22:30 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+5:35:26 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+10:47:43 AM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+3:59:53 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+5:20:20 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+5:27:29 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+5:51:58 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+5:56:20 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+6:08:06 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+6:12:20 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+6:31:18 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+6:31:18 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'actualLng' has already been declared. (332:10)
+
+  330 |
+  331 |       // --- Geometry & Surface Splitting Logic ---
+> 332 |       let actualLng = lng;
+      |           ^
+  333 |       let actualLat = lat;
+  334 |       let actualEle = undefined;
+  335 |       let seg1Geom = [[targetSection.points[endPointIndex-1].lng, targetSection.points[endPointIndex-1].lat], [lng, lat]];
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:332:10
+  330 |  
+  331 |        // --- Geometry & Surface Splitting Logic ---
+  332 |        let actualLng = lng;
+      |            ^
+  333 |        let actualLat = lat;
+  334 |        let actualEle = undefined;
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseAsyncArrowFromCallExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11254:10)
+      at JSXParserMixin.parseCoverCallAndAsyncArrowHead (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11184:27)
+      at JSXParserMixin.parseSubscript (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11110:19)
+      at JSXParserMixin.parseSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11084:19)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11075:17)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+6:31:18 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'actualLng' has already been declared. (332:10)
+
+  330 |
+  331 |       // --- Geometry & Surface Splitting Logic ---
+> 332 |       let actualLng = lng;
+      |           ^
+  333 |       let actualLat = lat;
+  334 |       let actualEle = undefined;
+  335 |       let seg1Geom = [[targetSection.points[endPointIndex-1].lng, targetSection.points[endPointIndex-1].lat], [lng, lat]];
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:332:10
+  330 |  
+  331 |        // --- Geometry & Surface Splitting Logic ---
+  332 |        let actualLng = lng;
+      |            ^
+  333 |        let actualLat = lat;
+  334 |        let actualEle = undefined;
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseAsyncArrowFromCallExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11254:10)
+      at JSXParserMixin.parseCoverCallAndAsyncArrowHead (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11184:27)
+      at JSXParserMixin.parseSubscript (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11110:19)
+      at JSXParserMixin.parseSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11084:19)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11075:17)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+6:31:18 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'actualLng' has already been declared. (332:10)
+
+  330 |
+  331 |       // --- Geometry & Surface Splitting Logic ---
+> 332 |       let actualLng = lng;
+      |           ^
+  333 |       let actualLat = lat;
+  334 |       let actualEle = undefined;
+  335 |       let seg1Geom = [[targetSection.points[endPointIndex-1].lng, targetSection.points[endPointIndex-1].lat], [lng, lat]];
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:332:10
+  330 |  
+  331 |        // --- Geometry & Surface Splitting Logic ---
+  332 |        let actualLng = lng;
+      |            ^
+  333 |        let actualLat = lat;
+  334 |        let actualEle = undefined;
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseAsyncArrowFromCallExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11254:10)
+      at JSXParserMixin.parseCoverCallAndAsyncArrowHead (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11184:27)
+      at JSXParserMixin.parseSubscript (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11110:19)
+      at JSXParserMixin.parseSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11084:19)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11075:17)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+6:31:18 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'actualLng' has already been declared. (332:10)
+
+  330 |
+  331 |       // --- Geometry & Surface Splitting Logic ---
+> 332 |       let actualLng = lng;
+      |           ^
+  333 |       let actualLat = lat;
+  334 |       let actualEle = undefined;
+  335 |       let seg1Geom = [[targetSection.points[endPointIndex-1].lng, targetSection.points[endPointIndex-1].lat], [lng, lat]];
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:332:10
+  330 |  
+  331 |        // --- Geometry & Surface Splitting Logic ---
+  332 |        let actualLng = lng;
+      |            ^
+  333 |        let actualLat = lat;
+  334 |        let actualEle = undefined;
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseAsyncArrowFromCallExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11254:10)
+      at JSXParserMixin.parseCoverCallAndAsyncArrowHead (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11184:27)
+      at JSXParserMixin.parseSubscript (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11110:19)
+      at JSXParserMixin.parseSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11084:19)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11075:17)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+6:31:18 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'actualLng' has already been declared. (332:10)
+
+  330 |
+  331 |       // --- Geometry & Surface Splitting Logic ---
+> 332 |       let actualLng = lng;
+      |           ^
+  333 |       let actualLat = lat;
+  334 |       let actualEle = undefined;
+  335 |       let seg1Geom = [[targetSection.points[endPointIndex-1].lng, targetSection.points[endPointIndex-1].lat], [lng, lat]];
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:332:10
+  330 |  
+  331 |        // --- Geometry & Surface Splitting Logic ---
+  332 |        let actualLng = lng;
+      |            ^
+  333 |        let actualLat = lat;
+  334 |        let actualEle = undefined;
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseAsyncArrowFromCallExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11254:10)
+      at JSXParserMixin.parseCoverCallAndAsyncArrowHead (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11184:27)
+      at JSXParserMixin.parseSubscript (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11110:19)
+      at JSXParserMixin.parseSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11084:19)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11075:17)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+6:36:06 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+10:44:23 AM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+3:20:31 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+3:32:42 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+3:35:27 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+3:35:27 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'handleSectionDownload' has already been declared. (908:8)
+
+  906 |   };
+  907 |
+> 908 |   const handleSectionDownload = (sectionIdx) => {
+      |         ^
+  909 |       const gpx = generateGPX([sections[sectionIdx]]);
+  910 |       if(gpx) { 
+  911 |         const blob = new Blob([gpx], { type: 'application/gpx+xml' }); 
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:908:8
+  906 |    };
+  907 |  
+  908 |    const handleSectionDownload = (sectionIdx) => {
+      |          ^
+  909 |        const gpx = generateGPX([sections[sectionIdx]]);
+  910 |        if(gpx) { 
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseModuleItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12734:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:36)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseProgram (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12612:10)
+      at JSXParserMixin.parseTopLevel (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12602:25)
+      at JSXParserMixin.parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14478:25)
+      at parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14512:38)
+      at parser (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/parser/index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transform.js:22:33)
+      at transform.next (<anonymous>)
+3:35:27 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'handleSectionDownload' has already been declared. (908:8)
+
+  906 |   };
+  907 |
+> 908 |   const handleSectionDownload = (sectionIdx) => {
+      |         ^
+  909 |       const gpx = generateGPX([sections[sectionIdx]]);
+  910 |       if(gpx) { 
+  911 |         const blob = new Blob([gpx], { type: 'application/gpx+xml' }); 
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:908:8
+  906 |    };
+  907 |  
+  908 |    const handleSectionDownload = (sectionIdx) => {
+      |          ^
+  909 |        const gpx = generateGPX([sections[sectionIdx]]);
+  910 |        if(gpx) { 
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseModuleItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12734:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:36)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseProgram (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12612:10)
+      at JSXParserMixin.parseTopLevel (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12602:25)
+      at JSXParserMixin.parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14478:25)
+      at parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14512:38)
+      at parser (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/parser/index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transform.js:22:33)
+      at transform.next (<anonymous>)
+3:35:27 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'handleSectionDownload' has already been declared. (908:8)
+
+  906 |   };
+  907 |
+> 908 |   const handleSectionDownload = (sectionIdx) => {
+      |         ^
+  909 |       const gpx = generateGPX([sections[sectionIdx]]);
+  910 |       if(gpx) { 
+  911 |         const blob = new Blob([gpx], { type: 'application/gpx+xml' }); 
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:908:8
+  906 |    };
+  907 |  
+  908 |    const handleSectionDownload = (sectionIdx) => {
+      |          ^
+  909 |        const gpx = generateGPX([sections[sectionIdx]]);
+  910 |        if(gpx) { 
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseModuleItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12734:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:36)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseProgram (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12612:10)
+      at JSXParserMixin.parseTopLevel (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12602:25)
+      at JSXParserMixin.parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14478:25)
+      at parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14512:38)
+      at parser (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/parser/index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transform.js:22:33)
+      at transform.next (<anonymous>)
+3:35:27 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'handleSectionDownload' has already been declared. (908:8)
+
+  906 |   };
+  907 |
+> 908 |   const handleSectionDownload = (sectionIdx) => {
+      |         ^
+  909 |       const gpx = generateGPX([sections[sectionIdx]]);
+  910 |       if(gpx) { 
+  911 |         const blob = new Blob([gpx], { type: 'application/gpx+xml' }); 
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:908:8
+  906 |    };
+  907 |  
+  908 |    const handleSectionDownload = (sectionIdx) => {
+      |          ^
+  909 |        const gpx = generateGPX([sections[sectionIdx]]);
+  910 |        if(gpx) { 
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseModuleItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12734:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:36)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseProgram (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12612:10)
+      at JSXParserMixin.parseTopLevel (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12602:25)
+      at JSXParserMixin.parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14478:25)
+      at parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14512:38)
+      at parser (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/parser/index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transform.js:22:33)
+      at transform.next (<anonymous>)
+3:35:27 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'handleSectionDownload' has already been declared. (908:8)
+
+  906 |   };
+  907 |
+> 908 |   const handleSectionDownload = (sectionIdx) => {
+      |         ^
+  909 |       const gpx = generateGPX([sections[sectionIdx]]);
+  910 |       if(gpx) { 
+  911 |         const blob = new Blob([gpx], { type: 'application/gpx+xml' }); 
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:908:8
+  906 |    };
+  907 |  
+  908 |    const handleSectionDownload = (sectionIdx) => {
+      |          ^
+  909 |        const gpx = generateGPX([sections[sectionIdx]]);
+  910 |        if(gpx) { 
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseModuleItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12734:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:36)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseProgram (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12612:10)
+      at JSXParserMixin.parseTopLevel (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12602:25)
+      at JSXParserMixin.parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14478:25)
+      at parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14512:38)
+      at parser (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/parser/index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transform.js:22:33)
+      at transform.next (<anonymous>)
+3:35:55 PM [vite] (client) Pre-transform error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'handleSectionDownload' has already been declared. (908:8)
+
+  906 |   };
+  907 |
+> 908 |   const handleSectionDownload = (sectionIdx) => {
+      |         ^
+  909 |       const gpx = generateGPX([sections[sectionIdx]]);
+  910 |       if(gpx) { 
+  911 |         const blob = new Blob([gpx], { type: 'application/gpx+xml' }); 
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:908:8
+  906 |    };
+  907 |  
+  908 |    const handleSectionDownload = (sectionIdx) => {
+      |          ^
+  909 |        const gpx = generateGPX([sections[sectionIdx]]);
+  910 |        if(gpx) { 
+3:35:55 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'handleSectionDownload' has already been declared. (908:8)
+
+  906 |   };
+  907 |
+> 908 |   const handleSectionDownload = (sectionIdx) => {
+      |         ^
+  909 |       const gpx = generateGPX([sections[sectionIdx]]);
+  910 |       if(gpx) { 
+  911 |         const blob = new Blob([gpx], { type: 'application/gpx+xml' }); 
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:908:8
+  906 |    };
+  907 |  
+  908 |    const handleSectionDownload = (sectionIdx) => {
+      |          ^
+  909 |        const gpx = generateGPX([sections[sectionIdx]]);
+  910 |        if(gpx) { 
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseModuleItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12734:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:36)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseProgram (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12612:10)
+      at JSXParserMixin.parseTopLevel (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12602:25)
+      at JSXParserMixin.parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14478:25)
+      at parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14512:38)
+      at parser (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/parser/index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transform.js:22:33)
+      at transform.next (<anonymous>)
+3:35:59 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'handleSectionDownload' has already been declared. (908:8)
+
+  906 |   };
+  907 |
+> 908 |   const handleSectionDownload = (sectionIdx) => {
+      |         ^
+  909 |       const gpx = generateGPX([sections[sectionIdx]]);
+  910 |       if(gpx) { 
+  911 |         const blob = new Blob([gpx], { type: 'application/gpx+xml' }); 
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:908:8
+  906 |    };
+  907 |  
+  908 |    const handleSectionDownload = (sectionIdx) => {
+      |          ^
+  909 |        const gpx = generateGPX([sections[sectionIdx]]);
+  910 |        if(gpx) { 
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseModuleItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12734:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:36)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseProgram (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12612:10)
+      at JSXParserMixin.parseTopLevel (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12602:25)
+      at JSXParserMixin.parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14478:25)
+      at parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14512:38)
+      at parser (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/parser/index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transform.js:22:33)
+      at transform.next (<anonymous>)
+3:36:01 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'handleSectionDownload' has already been declared. (908:8)
+
+  906 |   };
+  907 |
+> 908 |   const handleSectionDownload = (sectionIdx) => {
+      |         ^
+  909 |       const gpx = generateGPX([sections[sectionIdx]]);
+  910 |       if(gpx) { 
+  911 |         const blob = new Blob([gpx], { type: 'application/gpx+xml' }); 
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:908:8
+  906 |    };
+  907 |  
+  908 |    const handleSectionDownload = (sectionIdx) => {
+      |          ^
+  909 |        const gpx = generateGPX([sections[sectionIdx]]);
+  910 |        if(gpx) { 
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseModuleItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12734:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:36)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseProgram (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12612:10)
+      at JSXParserMixin.parseTopLevel (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12602:25)
+      at JSXParserMixin.parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14478:25)
+      at parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14512:38)
+      at parser (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/parser/index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transform.js:22:33)
+      at transform.next (<anonymous>)
+3:37:01 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+3:37:01 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'handleDownloadGPX' has already been declared. (1086:8)
+
+  1084 |   }), [sections, hoveredSectionIndex]);
+  1085 |
+> 1086 |   const handleDownloadGPX = () => {
+       |         ^
+  1087 |     const gpx = generateGPX(sections); 
+  1088 |     if(gpx) { 
+  1089 |         // Record download in backend if route is saved
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:1086:8
+  1084 |    }), [sections, hoveredSectionIndex]);
+  1085 |  
+  1086 |    const handleDownloadGPX = () => {
+       |          ^
+  1087 |      const gpx = generateGPX(sections); 
+  1088 |      if(gpx) { 
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseModuleItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12734:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:36)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseProgram (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12612:10)
+      at JSXParserMixin.parseTopLevel (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12602:25)
+      at JSXParserMixin.parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14478:25)
+      at parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14512:38)
+      at parser (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/parser/index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transform.js:22:33)
+      at transform.next (<anonymous>)
+3:37:01 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'handleDownloadGPX' has already been declared. (1086:8)
+
+  1084 |   }), [sections, hoveredSectionIndex]);
+  1085 |
+> 1086 |   const handleDownloadGPX = () => {
+       |         ^
+  1087 |     const gpx = generateGPX(sections); 
+  1088 |     if(gpx) { 
+  1089 |         // Record download in backend if route is saved
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:1086:8
+  1084 |    }), [sections, hoveredSectionIndex]);
+  1085 |  
+  1086 |    const handleDownloadGPX = () => {
+       |          ^
+  1087 |      const gpx = generateGPX(sections); 
+  1088 |      if(gpx) { 
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseModuleItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12734:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:36)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseProgram (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12612:10)
+      at JSXParserMixin.parseTopLevel (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12602:25)
+      at JSXParserMixin.parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14478:25)
+      at parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14512:38)
+      at parser (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/parser/index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transform.js:22:33)
+      at transform.next (<anonymous>)
+3:37:01 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'handleDownloadGPX' has already been declared. (1086:8)
+
+  1084 |   }), [sections, hoveredSectionIndex]);
+  1085 |
+> 1086 |   const handleDownloadGPX = () => {
+       |         ^
+  1087 |     const gpx = generateGPX(sections); 
+  1088 |     if(gpx) { 
+  1089 |         // Record download in backend if route is saved
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:1086:8
+  1084 |    }), [sections, hoveredSectionIndex]);
+  1085 |  
+  1086 |    const handleDownloadGPX = () => {
+       |          ^
+  1087 |      const gpx = generateGPX(sections); 
+  1088 |      if(gpx) { 
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseModuleItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12734:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:36)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseProgram (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12612:10)
+      at JSXParserMixin.parseTopLevel (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12602:25)
+      at JSXParserMixin.parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14478:25)
+      at parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14512:38)
+      at parser (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/parser/index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transform.js:22:33)
+      at transform.next (<anonymous>)
+3:37:01 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'handleDownloadGPX' has already been declared. (1086:8)
+
+  1084 |   }), [sections, hoveredSectionIndex]);
+  1085 |
+> 1086 |   const handleDownloadGPX = () => {
+       |         ^
+  1087 |     const gpx = generateGPX(sections); 
+  1088 |     if(gpx) { 
+  1089 |         // Record download in backend if route is saved
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:1086:8
+  1084 |    }), [sections, hoveredSectionIndex]);
+  1085 |  
+  1086 |    const handleDownloadGPX = () => {
+       |          ^
+  1087 |      const gpx = generateGPX(sections); 
+  1088 |      if(gpx) { 
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseModuleItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12734:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:36)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseProgram (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12612:10)
+      at JSXParserMixin.parseTopLevel (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12602:25)
+      at JSXParserMixin.parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14478:25)
+      at parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14512:38)
+      at parser (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/parser/index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transform.js:22:33)
+      at transform.next (<anonymous>)
+3:37:01 PM [vite] (client) Pre-transform error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'handleDownloadGPX' has already been declared. (1086:8)
+
+  1084 |   }), [sections, hoveredSectionIndex]);
+  1085 |
+> 1086 |   const handleDownloadGPX = () => {
+       |         ^
+  1087 |     const gpx = generateGPX(sections); 
+  1088 |     if(gpx) { 
+  1089 |         // Record download in backend if route is saved
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:1086:8
+  1084 |    }), [sections, hoveredSectionIndex]);
+  1085 |  
+  1086 |    const handleDownloadGPX = () => {
+       |          ^
+  1087 |      const gpx = generateGPX(sections); 
+  1088 |      if(gpx) { 
+3:37:01 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'handleDownloadGPX' has already been declared. (1086:8)
+
+  1084 |   }), [sections, hoveredSectionIndex]);
+  1085 |
+> 1086 |   const handleDownloadGPX = () => {
+       |         ^
+  1087 |     const gpx = generateGPX(sections); 
+  1088 |     if(gpx) { 
+  1089 |         // Record download in backend if route is saved
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:1086:8
+  1084 |    }), [sections, hoveredSectionIndex]);
+  1085 |  
+  1086 |    const handleDownloadGPX = () => {
+       |          ^
+  1087 |      const gpx = generateGPX(sections); 
+  1088 |      if(gpx) { 
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseModuleItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12734:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:36)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseProgram (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12612:10)
+      at JSXParserMixin.parseTopLevel (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12602:25)
+      at JSXParserMixin.parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14478:25)
+      at parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14512:38)
+      at parser (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/parser/index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transform.js:22:33)
+      at transform.next (<anonymous>)
+3:37:08 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'handleDownloadGPX' has already been declared. (1086:8)
+
+  1084 |   }), [sections, hoveredSectionIndex]);
+  1085 |
+> 1086 |   const handleDownloadGPX = () => {
+       |         ^
+  1087 |     const gpx = generateGPX(sections); 
+  1088 |     if(gpx) { 
+  1089 |         // Record download in backend if route is saved
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:1086:8
+  1084 |    }), [sections, hoveredSectionIndex]);
+  1085 |  
+  1086 |    const handleDownloadGPX = () => {
+       |          ^
+  1087 |      const gpx = generateGPX(sections); 
+  1088 |      if(gpx) { 
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseModuleItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12734:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:36)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseProgram (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12612:10)
+      at JSXParserMixin.parseTopLevel (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12602:25)
+      at JSXParserMixin.parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14478:25)
+      at parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14512:38)
+      at parser (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/parser/index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transform.js:22:33)
+      at transform.next (<anonymous>)
+3:54:14 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'handleDownloadGPX' has already been declared. (1086:8)
+
+  1084 |   }), [sections, hoveredSectionIndex]);
+  1085 |
+> 1086 |   const handleDownloadGPX = () => {
+       |         ^
+  1087 |     const gpx = generateGPX(sections); 
+  1088 |     if(gpx) { 
+  1089 |         // Record download in backend if route is saved
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:1086:8
+  1084 |    }), [sections, hoveredSectionIndex]);
+  1085 |  
+  1086 |    const handleDownloadGPX = () => {
+       |          ^
+  1087 |      const gpx = generateGPX(sections); 
+  1088 |      if(gpx) { 
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseModuleItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12734:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:36)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseProgram (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12612:10)
+      at JSXParserMixin.parseTopLevel (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12602:25)
+      at JSXParserMixin.parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14478:25)
+      at parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14512:38)
+      at parser (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/parser/index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transform.js:22:33)
+      at transform.next (<anonymous>)
+3:56:39 PM [vite] Internal server error: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx: Identifier 'handleDownloadGPX' has already been declared. (1086:8)
+
+  1084 |   }), [sections, hoveredSectionIndex]);
+  1085 |
+> 1086 |   const handleDownloadGPX = () => {
+       |         ^
+  1087 |     const gpx = generateGPX(sections); 
+  1088 |     if(gpx) { 
+  1089 |         // Record download in backend if route is saved
+  Plugin: vite:react-babel
+  File: /Users/nick/bike_course_generator/frontend/src/components/BikeRoutePlanner.jsx:1086:8
+  1084 |    }), [sections, hoveredSectionIndex]);
+  1085 |  
+  1086 |    const handleDownloadGPX = () => {
+       |          ^
+  1087 |      const gpx = generateGPX(sections); 
+  1088 |      if(gpx) { 
+      at constructor (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at ScopeHandler.checkRedeclarationInScope (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1619:19)
+      at ScopeHandler.declareName (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:1585:12)
+      at JSXParserMixin.declareNameFromIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7567:16)
+      at JSXParserMixin.checkIdentifier (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7563:12)
+      at JSXParserMixin.checkLVal (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:7500:12)
+      at JSXParserMixin.parseVarId (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13402:10)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13373:12)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseStatementListItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12737:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:61)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseBlock (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13287:10)
+      at JSXParserMixin.parseFunctionBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12090:24)
+      at JSXParserMixin.parseArrowExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12065:10)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11677:12)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11321:23)
+      at JSXParserMixin.parseExprAtom (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at JSXParserMixin.parseExprSubscripts (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11071:23)
+      at JSXParserMixin.parseUpdate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11056:21)
+      at JSXParserMixin.parseMaybeUnary (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:11036:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10889:61)
+      at JSXParserMixin.parseExprOps (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10894:23)
+      at JSXParserMixin.parseMaybeConditional (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10871:23)
+      at JSXParserMixin.parseMaybeAssign (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:39
+      at JSXParserMixin.allowInAnd (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12411:16)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:10790:17)
+      at JSXParserMixin.parseVar (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13374:91)
+      at JSXParserMixin.parseVarStatement (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13220:10)
+      at JSXParserMixin.parseStatementContent (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12841:23)
+      at JSXParserMixin.parseStatementLike (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12757:17)
+      at JSXParserMixin.parseModuleItem (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12734:17)
+      at JSXParserMixin.parseBlockOrModuleBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13306:36)
+      at JSXParserMixin.parseBlockBody (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:13299:10)
+      at JSXParserMixin.parseProgram (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12612:10)
+      at JSXParserMixin.parseTopLevel (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:12602:25)
+      at JSXParserMixin.parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14478:25)
+      at parse (/Users/nick/bike_course_generator/frontend/node_modules/@babel/parser/lib/index.js:14512:38)
+      at parser (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/parser/index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transformation/index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (/Users/nick/bike_course_generator/frontend/node_modules/@babel/core/lib/transform.js:22:33)
+      at transform.next (<anonymous>)
+3:57:10 PM [vite] (client) hmr update /src/components/BikeRoutePlanner.jsx, /src/index.css
+npm notice
+npm notice New major version of npm available! 10.9.2 -> 11.10.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.10.0
+npm notice To update run: npm install -g npm@11.10.0
+npm notice

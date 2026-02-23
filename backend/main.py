@@ -22,6 +22,7 @@ from google.cloud import storage
 
 from valhalla import ValhallaClient
 from gpx_loader import GpxLoader
+from gpx_export import GpxExporter
 
 # .env 로드
 load_dotenv()
@@ -44,7 +45,7 @@ app = FastAPI()
 
 # DB 연결 설정
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "localhost"),
+    "host": os.getenv("DB_HOST", "127.0.0.1"), # Force IPv4 default
     "port": os.getenv("DB_PORT", "5432"), # Use standard 5432 for VM
     "user": os.getenv("DB_USER", "postgres"),
     "password": os.getenv("DB_PASSWORD", "password"),
@@ -750,52 +751,38 @@ async def import_gpx(file: UploadFile = File(...)):
         if not loader.points:
             raise HTTPException(status_code=400, detail="Invalid GPX file: No track points found.")
         
-        shape_points = [{"lat": p.lat, "lon": p.lon} for p in loader.points]
-        standard_data = valhalla_client.get_standard_course(shape_points)
-        
-        features = []
-        lats = standard_data['points']['lat']
-        lons = standard_data['points']['lon']
-        eles = standard_data['points']['ele']
-        segs = standard_data['segments']
-        
-        surface_info = {
-            1: ("Asphalt", "Smooth paved road.", "#2979FF"),
-            2: ("Concrete", "Concrete surface.", "#2979FF"),
-            3: ("Special", "Wood or metal surface. Caution!", "#9E9E9E"),
-            4: ("Paving Stones", "Paving stones or cobblestones.", "#FFC400"),
-            5: ("Cycleway", "Dedicated bicycle path.", "#00E676"),
-            6: ("Compacted", "Compacted fine gravel.", "#8D6E63"),
-            7: ("Unpaved", "Gravel or dirt road. Rough terrain.", "#8D6E63"),
-            0: ("Unknown", "Unknown surface type.", "#9E9E9E")
-        }
-        
-        for i in range(len(segs['p_start'])):
-            s_idx = segs['p_start'][i]
-            e_idx = segs['p_end'][i]
-            surf_id = segs['surf_id'][i]
-            label, description, color = surface_info.get(surf_id, surface_info[0])
-            
-            seg_coords = [[lons[k], lats[k]] for k in range(s_idx, e_idx + 1)]
-            if len(seg_coords) >= 2:
-                features.append({
-                    "type": "Feature",
-                    "geometry": {"type": "LineString", "coordinates": seg_coords},
-                    "properties": {"color": color, "surface": label, "description": description}
-                })
-        
-        return {
-            "summary": {
-                "distance": standard_data['stats']['distance'] / 1000.0,
-                "ascent": standard_data['stats']['ascent']
-            },
-            "full_geometry": {
-                "type": "LineString",
-                "coordinates": [[float(lons[i]), float(lats[i]), float(eles[i])] for i in range(len(lats))]
-            },
-            "display_geojson": {"type": "FeatureCollection", "features": features}
-        }
+        # Delegate complex processing (Valhalla analysis & Waypoint snapping) to Loader
+        result = loader.process_with_valhalla(valhalla_client)
+        return result
+
     except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+class GpxExportRequest(BaseModel):
+    title: str
+    editor_state: dict
+
+@app.post("/api/export/gpx")
+async def export_gpx(request: GpxExportRequest):
+    try:
+        data = request.dict()
+        exporter = GpxExporter(data)
+        xml_content = exporter.to_xml_string()
+        
+        # Sanitize filename
+        safe_title = "".join([c for c in request.title if c.isalnum() or c in (' ', '-', '_')]).strip()
+        if not safe_title: safe_title = "route"
+        filename = f"{safe_title.replace(' ', '_')}.gpx"
+        
+        return Response(
+            content=xml_content, 
+            media_type="application/gpx+xml",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+    except Exception as e:
+        print(f"GPX Export Error: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
