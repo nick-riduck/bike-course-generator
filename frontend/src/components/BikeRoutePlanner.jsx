@@ -152,6 +152,9 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
+  // Preview State
+  const [previewRoute, setPreviewRoute] = useState(null);
+
   // Place Search State
   const [isPlaceSearchOpen, setIsPlaceSearchOpen] = useState(false);
   const [placeSearchQuery, setPlaceSearchQuery] = useState('');
@@ -161,11 +164,98 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const isLongPressRef = useRef(false);
   const touchStartPosRef = useRef(null);
 
+  // Animation Ref
+  const animationRef = useRef(null);
+  const previewInvalidLoggedRef = useRef(false);
+  const dragPreviewInvalidLoggedRef = useRef(false);
+
   const handleHoverPoint = useCallback((coord) => setHoveredCoord(coord), []);
 
   const handleOpenExportModal = () => {
     if (!sections || sections.length === 0) return;
     setIsExportModalOpen(true);
+  };
+
+  const handlePreviewRoute = async (routeId) => {
+    setIsLoading(true);
+    setLoadingMsg('Loading Preview...');
+    
+    // Mobile UX: Close sidebar immediately to show map
+    if (window.innerWidth < 768) {
+        setIsSearchOpen(false);
+        setIsMenuOpen(false);
+    }
+
+    try {
+        const headers = {};
+        if (auth.currentUser) {
+            const idToken = await auth.currentUser.getIdToken();
+            headers['Authorization'] = `Bearer ${idToken}`;
+        }
+        const res = await fetch(`/api/routes/${routeId}`, { headers });
+        if (!res.ok) throw new Error("Failed to load route data");
+        const data = await res.json();
+        
+        if (data.editor_state && data.editor_state.sections) {
+             setPreviewRoute({
+                 id: data.route_id,
+                 data: data,
+                 sections: data.editor_state.sections
+             });
+             // Fit map to preview sections
+             fitMapToSections(data.editor_state.sections);
+        } else {
+             alert("Invalid route data for editor.");
+        }
+    } catch (e) {
+        console.error(e);
+        alert(`Error loading preview: ${e.message}`);
+    } finally {
+        setIsLoading(false);
+        setLoadingMsg('');
+    }
+  };
+
+  const confirmPreviewLoad = () => {
+     if (!previewRoute) return;
+     
+     // Check for unsaved changes
+     if (sections.some(s => s.points.length > 0)) {
+          if (!confirm("Current route will be discarded. Load this route?")) return;
+     }
+
+     const { data } = previewRoute;
+     
+     setSections(data.editor_state.sections);
+     setCurrentRouteId(data.route_id);
+     setRouteName(data.title || '');
+     setRouteDescription(data.description || '');
+     setRouteStatus(data.status || 'PUBLIC');
+     setRouteTags(data.tags || []);
+     setRouteOwnerId(data.owner_id);
+     setRouteStats(data.stats || { views: 0, downloads: 0 });
+     
+     setHistory({ past: [], future: [] });
+     setIsDirty(false);
+     
+     // Close panels
+     setIsMenuOpen(false);
+     setIsSearchOpen(false);
+     
+     // Clear preview
+     setPreviewRoute(null);
+  };
+
+  const cancelPreview = (options = {}) => {
+      const { reopenSearchOnMobile = true } = options;
+      setPreviewRoute(null);
+      // Optionally fly back to current sections
+      if (sections.some(s => s.points.length > 0)) {
+          fitMapToSections(sections);
+      }
+      if (reopenSearchOnMobile && window.innerWidth < 768) {
+          setIsSearchOpen(true);
+      }
   };
 
   const performExport = async (filename, format) => {
@@ -658,6 +748,11 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   }, [!!dragState, handleDragEnd]);
 
   const handleMapClick = async (e) => {
+    if (previewRoute) {
+        cancelPreview({ reopenSearchOnMobile: false });
+        return;
+    }
+
     // If panels are open on mobile, close them and do nothing else
     if (window.innerWidth < 768 && (isMenuOpen || isSearchOpen)) {
         setIsMenuOpen(false);
@@ -877,7 +972,6 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 const realData = await fetchSegmentData(start, end, isMockMode ? 'mock' : 'real');
                 setSections(prev => {
                     const latest = JSON.parse(JSON.stringify(prev));
-                    if (!latest[sIdx]) return prev; 
                     const sec = latest[sIdx];
                     sec.segments = sec.segments.map(s => s.id === segmentId ? { ...s, ...realData } : s);
                     return latest;
@@ -1011,7 +1105,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             prevSection.segments = prevSection.segments.map(s => 
                 s.endPointId === currPoint.id ? loadingSeg : s
             );
-            segmentsToFetch.push({ sectionIdx: sectionIdx - 1, segmentId: segId, start: lastPointOfPrevSection, end: currPoint });
+            segmentsToFetch.push({ sectionIdx: sectionIdx - 1, segmentId: segId, start: lastPointOfPrev, end: currPoint });
         }
     }
 
@@ -1118,6 +1212,127 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         return [{ type: 'Feature', geometry: s.geometry, properties: props }];
     }))
   }), [sections, hoveredSectionIndex]);
+
+  const previewGeoJSON = useMemo(() => {
+    if (!previewRoute) return null;
+    const invalids = [];
+    const features = previewRoute.sections.flatMap((sec, secIdx) =>
+      sec.segments
+        .map((seg, segIdx) => ({ geometry: seg.geometry, seg, secIdx, segIdx }))
+        .filter(({ geometry, seg, secIdx, segIdx }) => {
+          const geom = geometry;
+          const ok =
+            geom &&
+            geom.type === 'LineString' &&
+            Array.isArray(geom.coordinates) &&
+            geom.coordinates.length >= 2 &&
+            geom.coordinates.every(
+              (c) =>
+                Array.isArray(c) &&
+                c.length >= 2 &&
+                Number.isFinite(c[0]) &&
+                Number.isFinite(c[1])
+            );
+          if (!ok) {
+            invalids.push({
+              secIdx,
+              segIdx,
+              type: geom?.type ?? null,
+              coordinatesLen: Array.isArray(geom?.coordinates) ? geom.coordinates.length : null,
+            });
+          }
+          return ok;
+        })
+        .map(({ geometry }) => ({
+          type: 'Feature',
+          geometry,
+          properties: { type: 'preview' },
+        }))
+    );
+    if (invalids.length > 0 && !previewInvalidLoggedRef.current) {
+      console.warn('[previewGeoJSON] Dropping invalid segments', invalids.slice(0, 5));
+      previewInvalidLoggedRef.current = true;
+    }
+    if (features.length === 0) return null;
+    return {
+      type: 'FeatureCollection',
+      features,
+    };
+  }, [previewRoute]);
+
+  // Animated Dash Array (Marching Ants)
+  React.useEffect(() => {
+      if (!previewRoute || !previewGeoJSON || !mapRef.current) {
+          if (animationRef.current) {
+              cancelAnimationFrame(animationRef.current);
+              animationRef.current = null;
+          }
+          return;
+      }
+
+      // Smooth marching-ants with finite dash variants (prevents LineAtlas overflow).
+      const DASH_LEN = 3;
+      const GAP_LEN = 1;
+      const STEP_COUNT = 64;
+      const STEP_MS = 50;
+      const TOTAL = DASH_LEN + GAP_LEN;
+      const makeDashFrame = (progress) => {
+          if (progress < DASH_LEN) {
+              // Shift starts within a dash segment.
+              return [DASH_LEN - progress, GAP_LEN, progress, 0];
+          }
+          // Shift starts within a gap segment.
+          const gapProgress = progress - DASH_LEN;
+          return [0, GAP_LEN - gapProgress, DASH_LEN, gapProgress];
+      };
+      const DASH_SEQUENCE = Array.from({ length: STEP_COUNT + 1 }, (_, idx) =>
+          makeDashFrame((idx / STEP_COUNT) * TOTAL)
+      );
+      let isCancelled = false;
+      let lastStep = -1;
+
+      const animateDash = (timestamp) => {
+          if (isCancelled) return;
+          const forwardStep = Math.floor(timestamp / STEP_MS) % DASH_SEQUENCE.length;
+          const step = (DASH_SEQUENCE.length - 1 - forwardStep + DASH_SEQUENCE.length) % DASH_SEQUENCE.length;
+          
+          const mapInstance = mapRef.current?.getMap ? mapRef.current.getMap() : mapRef.current;
+          
+          if (
+              step !== lastStep &&
+              mapInstance &&
+              mapInstance.getLayer &&
+              mapInstance.getLayer('preview-layer')
+          ) {
+              lastStep = step;
+              try {
+                  mapInstance.setPaintProperty('preview-layer', 'line-dasharray', DASH_SEQUENCE[step]); 
+              } catch (err) {
+                  // Keep animation loop alive if layer gets replaced during render.
+              }
+          }
+          animationRef.current = requestAnimationFrame(animateDash);
+      };
+
+      const mapInstance = mapRef.current?.getMap ? mapRef.current.getMap() : mapRef.current;
+      const startAnimation = () => {
+          if (isCancelled) return;
+          if (animationRef.current) cancelAnimationFrame(animationRef.current);
+          animationRef.current = requestAnimationFrame(animateDash);
+      };
+
+      if (mapInstance && mapInstance.isStyleLoaded && !mapInstance.isStyleLoaded()) {
+          mapInstance.once('idle', startAnimation);
+      } else {
+          startAnimation();
+      }
+
+      return () => {
+          isCancelled = true;
+          if (mapInstance && mapInstance.off) mapInstance.off('idle', startAnimation);
+          if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      };
+  }, [previewRoute, previewGeoJSON]);
 
 
 
@@ -1534,6 +1749,24 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
   const isClean = sections.length === 1 && sections[0].points.length === 0;
 
+  // Preview stats: prefer DB values (same source as Library), fallback to editor_state sums.
+  const previewDistLocalKm = previewRoute && Array.isArray(previewRoute.sections)
+    ? previewRoute.sections.reduce((acc, sec) => acc + (sec.segments || []).reduce((sAcc, s) => sAcc + (Number(s.distance) || 0), 0), 0)
+    : 0;
+
+  const previewAscentLocalM = previewRoute && Array.isArray(previewRoute.sections)
+    ? previewRoute.sections.reduce((acc, sec) => acc + (sec.segments || []).reduce((sAcc, s) => sAcc + (Number(s.ascent) || 0), 0), 0)
+    : 0;
+
+  const previewDistKm = previewRoute && Number.isFinite(Number(previewRoute?.data?.distance))
+    ? Number(previewRoute.data.distance) / 1000
+    : previewDistLocalKm;
+
+  const previewAscentM = previewRoute && Number.isFinite(Number(previewRoute?.data?.elevation_gain))
+    ? Number(previewRoute.data.elevation_gain)
+    : previewAscentLocalM;
+
+
   return (
     <div className="flex w-full h-full relative overflow-hidden">
       {/* 1. Left Sidebar Navigation (Toolbar) */}
@@ -1587,7 +1820,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             h-full bg-gray-900 overflow-hidden transition-all duration-300 ease-in-out
         `}>
              <div className="w-80 h-full"> {/* Inner Fixed Width Container */}
-                <SearchPanel onLoadRoute={handleLoadRoute} />
+                <SearchPanel onLoadRoute={handlePreviewRoute} />
              </div>
         </div>
       </div>
@@ -1742,6 +1975,22 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                         <Layer id="route-layer" type="line" layout={{ 'line-join': 'round', 'line-cap': 'round' }} paint={{ 'line-color': ['get', 'color'], 'line-width': 6, 'line-opacity': 0.9 }} />
                     </Source>
                 )}
+
+                {previewGeoJSON && (
+                    <Source id="preview-source" type="geojson" data={previewGeoJSON}>
+                        <Layer 
+                            id="preview-layer" 
+                            type="line" 
+                            layout={{ 'line-join': 'round', 'line-cap': 'butt' }} 
+                            paint={{ 
+                                'line-color': '#FF4081', // Pink/Magenta
+                                'line-width': 5, 
+                                'line-opacity': 0.9,
+                                'line-dasharray': [3, 1] // [dash length, gap length] relative to line-width
+                            }} 
+                        />
+                    </Source>
+                )}
                 
                 {/* Drag Preview Line */}
                 {dragState && dragState.candidate && (() => {
@@ -1752,6 +2001,24 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                      const startP = sec.points.find(p => p.id === segment.startPointId);
                      const endP = sec.points.find(p => p.id === segment.endPointId);
                      if (!startP || !endP) return null;
+                     if (
+                         !Number.isFinite(startP.lng) ||
+                         !Number.isFinite(startP.lat) ||
+                         !Number.isFinite(endP.lng) ||
+                         !Number.isFinite(endP.lat) ||
+                         !Number.isFinite(dragState.lng) ||
+                         !Number.isFinite(dragState.lat)
+                     ) {
+                         if (!dragPreviewInvalidLoggedRef.current) {
+                             console.warn('[drag-preview] Invalid coordinates', {
+                                 start: [startP.lng, startP.lat],
+                                 mid: [dragState.lng, dragState.lat],
+                                 end: [endP.lng, endP.lat],
+                             });
+                             dragPreviewInvalidLoggedRef.current = true;
+                         }
+                         return null;
+                     }
 
                      const previewGeoJson = {
                          type: 'Feature',
@@ -1904,6 +2171,44 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     </div>
                 )}
             </Map>
+
+            {/* Preview Control UI (Floating Above Map) */}
+            {previewRoute && (
+                <div className="absolute inset-x-0 bottom-3 md:bottom-6 z-30 flex justify-center px-3 md:px-6 pointer-events-none animate-fadeInUp">
+                    <div className="pointer-events-auto w-full max-w-[360px] md:max-w-[440px] bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 shadow-2xl rounded-2xl p-4">
+                        <div className="flex flex-col gap-4">
+                            {/* Header Info */}
+                            <div className="flex justify-between items-start gap-3">
+                                <div className="min-w-0">
+                                    <h3 className="text-white font-bold text-base md:text-lg leading-tight truncate">{previewRoute.data.title || 'Untitled Route'}</h3>
+                                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-400 font-mono">
+                                        <span>{previewDistKm.toFixed(1)}km</span>
+                                        <span className="w-1 h-1 rounded-full bg-gray-600"></span>
+                                        <span>+{Math.round(previewAscentM)}m</span>
+                                    </div>
+                                </div>
+                                <span className="shrink-0 bg-riduck-primary/20 text-riduck-primary text-[10px] font-bold px-2 py-1 rounded border border-riduck-primary/30 uppercase tracking-wider">Preview</span>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <button 
+                                    onClick={() => cancelPreview()}
+                                    className="py-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-sm transition-all active:scale-[0.98]"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={confirmPreviewLoad}
+                                    className="py-3 rounded-xl bg-riduck-primary hover:bg-riduck-primary/90 text-white font-bold text-sm shadow-lg shadow-riduck-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                                >
+                                    Load Route
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
 
         {/* Elevation Chart (Bottom Fixed with Padding) */}

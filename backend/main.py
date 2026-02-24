@@ -631,7 +631,8 @@ async def get_route_detail(route_id: int, authorization: str = Header(None)):
         # Join with users to get author info for masking
         cur.execute(
             """
-            SELECT r.id, r.user_id, r.title, r.description, r.status, r.data_file_path, 
+            SELECT r.id, r.user_id, r.title, r.description, r.status, r.data_file_path,
+                   r.distance, r.elevation_gain,
                    u.username as author_name, u.email as author_email
             FROM routes r
             LEFT JOIN users u ON r.user_id = u.id
@@ -716,6 +717,8 @@ async def get_route_detail(route_id: int, authorization: str = Header(None)):
             "title": row['title'],
             "description": row['description'],
             "status": row['status'],
+            "distance": row['distance'],
+            "elevation_gain": row['elevation_gain'],
             "tags": tags,
             "stats": {
                 "views": stats['view_count'] if stats else 0,
