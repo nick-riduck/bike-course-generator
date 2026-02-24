@@ -8,6 +8,7 @@ import SidebarNav from './SidebarNav';
 import MenuPanel from './MenuPanel';
 import SearchPanel from './SearchPanel';
 import SaveRouteModal from './SaveRouteModal';
+import ExportRouteModal from './ExportRouteModal';
 
 const INITIAL_VIEW_STATE = {
   longitude: 126.978,
@@ -149,6 +150,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const [routeStats, setRouteStats] = useState({ views: 0, downloads: 0 });
   const [routeOwnerId, setRouteOwnerId] = useState(null);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   // Place Search State
   const [isPlaceSearchOpen, setIsPlaceSearchOpen] = useState(false);
@@ -161,15 +163,44 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
   const handleHoverPoint = useCallback((coord) => setHoveredCoord(coord), []);
 
-  const handleDownloadGPX = async () => {
+  const handleOpenExportModal = () => {
+    if (!sections || sections.length === 0) return;
+    setIsExportModalOpen(true);
+  };
+
+  const performExport = async (filename, format) => {
     if (!sections || sections.length === 0) return;
 
     try {
+        // Deep clone sections to remove any potential non-serializable properties
+        const cleanSections = sections.map(sec => ({
+            id: sec.id,
+            name: sec.name,
+            color: sec.color,
+            points: sec.points.map(p => ({
+                id: p.id,
+                lat: p.lat,
+                lng: p.lng,
+                type: p.type,
+                name: p.name
+            })),
+            segments: sec.segments.map(s => ({
+                id: s.id,
+                startPointId: s.startPointId,
+                endPointId: s.endPointId,
+                geometry: s.geometry,
+                distance: s.distance,
+                ascent: s.ascent,
+                type: s.type
+            }))
+        }));
+
         const payload = {
-            title: routeName || 'Riduck Route',
+            title: filename || routeName || 'Riduck Route',
             editor_state: {
-                sections: sections
-            }
+                sections: cleanSections
+            },
+            format: format
         };
 
         const response = await fetch('/api/export/gpx', {
@@ -180,23 +211,26 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
         if (!response.ok) {
             const err = await response.json().catch(() => ({}));
-            throw new Error(err.detail || 'Failed to generate GPX');
+            throw new Error(err.detail || `Failed to generate ${format.toUpperCase()}`);
         }
 
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         
         const contentDisposition = response.headers.get('Content-Disposition');
-        let filename = `route-${Date.now()}.gpx`;
+        let downloadFilename = `route-${Date.now()}.${format}`;
         if (contentDisposition) {
             const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
             if (filenameMatch && filenameMatch.length === 2)
-                filename = filenameMatch[1];
+                downloadFilename = filenameMatch[1];
+        } else {
+             const safeName = (filename || 'route').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+             downloadFilename = `${safeName}.${format}`;
         }
 
         const a = document.createElement('a');
         a.href = url;
-        a.download = filename;
+        a.download = downloadFilename;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -207,12 +241,12 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         }
 
     } catch (e) {
-        console.error("GPX Export Error:", e);
-        alert(`Failed to download GPX: ${e.message}`);
+        console.error(`${format.toUpperCase()} Export Error:`, e);
+        alert(`Failed to download ${format.toUpperCase()}: ${e.message}`);
     }
   };
 
-  const handleSectionDownload = async (sectionIdx) => {
+  const handleSectionDownload = async (sectionIdx, format = 'gpx') => {
     const section = sections[sectionIdx];
     if (!section) return;
 
@@ -221,7 +255,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             title: section.name || 'Riduck Section',
             editor_state: {
                 sections: [section] // Send only the specific section
-            }
+            },
+            format: format
         };
 
         const response = await fetch('/api/export/gpx', {
@@ -1164,6 +1199,55 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
       }
   };
 
+  const fitMapToSections = useCallback((sectionsToFit) => {
+    if (!mapRef.current || !sectionsToFit || sectionsToFit.length === 0) return;
+
+    let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
+    let hasPoints = false;
+
+    sectionsToFit.forEach(section => {
+        // Check segments (detailed geometry)
+        section.segments?.forEach(segment => {
+            segment.geometry?.coordinates?.forEach(coord => {
+                const [lng, lat] = coord;
+                if (lng < minLng) minLng = lng;
+                if (lng > maxLng) maxLng = lng;
+                if (lat < minLat) minLat = lat;
+                if (lat > maxLat) maxLat = lat;
+                hasPoints = true;
+            });
+        });
+        // Check points (markers) - crucial if no segments yet
+        section.points?.forEach(p => {
+             const lng = p.lng;
+             const lat = p.lat;
+             if (lng < minLng) minLng = lng;
+             if (lng > maxLng) maxLng = lng;
+             if (lat < minLat) minLat = lat;
+             if (lat > maxLat) maxLat = lat;
+             hasPoints = true;
+        });
+    });
+
+    if (hasPoints) {
+        // Add some padding/buffer if it's a single point or very small area
+        if (Math.abs(maxLng - minLng) < 0.0001 && Math.abs(maxLat - minLat) < 0.0001) {
+            const buffer = 0.01;
+            minLng -= buffer; maxLng += buffer;
+            minLat -= buffer; maxLat += buffer;
+        }
+
+        try {
+            mapRef.current.fitBounds(
+                [[minLng, minLat], [maxLng, maxLat]],
+                { padding: 100, duration: 1000 }
+            );
+        } catch (e) {
+            console.error("Fit bounds error:", e);
+        }
+    }
+  }, []);
+
   const handleImportGPX = async (file) => {
       setIsLoading(true);
       setLoadingMsg('Importing GPX...');
@@ -1338,16 +1422,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           setRouteOwnerId(null);
           setRouteStats({ views: 0, downloads: 0 });
 
-          // Focus map
-          if (mapRef.current) {
-              const coords = full_geometry.coordinates;
-              const lons = coords.map(c => c[0]);
-              const lats = coords.map(c => c[1]);
-              mapRef.current.fitBounds([
-                  [Math.min(...lons), Math.min(...lats)],
-                  [Math.max(...lons), Math.max(...lats)]
-              ], { padding: 50, duration: 1000 });
-          }
+          // Focus map using helper
+          fitMapToSections(newSections);
 
           setIsMenuOpen(false);
           alert("GPX imported successfully!");
@@ -1397,6 +1473,10 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
               setIsDirty(false); // Freshly loaded
               setIsMenuOpen(false);
               setIsSearchOpen(false);
+              
+              // Focus Map
+              fitMapToSections(data.editor_state.sections);
+
               if (!skipConfirm) alert("Route loaded!");
           } else {
               alert("This route data is missing editor state (Legacy format?). Cannot load into editor.");
@@ -1464,7 +1544,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         onToggleSearch={toggleSearch} 
         onNewRoute={handleNewRoute}
         onImportGPX={handleImportGPX}
-        onExportGPX={handleDownloadGPX}
+        onExportGPX={handleOpenExportModal}
         isClean={isClean}
       />
 
@@ -1484,7 +1564,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     onRedo={handleRedo}
                     onClear={() => { saveToHistory(sections); setSections([{ id: generateId(), name: 'Section 1', points: [], segments: [], color: SECTION_COLORS[0] }]); }}
                     onSave={openSaveModal}
-                    onDownloadGPX={handleDownloadGPX}
+                    onDownloadGPX={handleOpenExportModal}
                     sections={sections}
                     onPointRemove={handlePointRemove}
                     onPointRename={handlePointRename}
@@ -1618,7 +1698,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     </svg>
                 </button>
                 <label className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all bg-gray-900/90 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800 cursor-pointer flex items-center justify-center`}>
-                    <input type="file" accept=".gpx" className="hidden" onChange={(e) => {
+                    <input type="file" accept=".gpx,.tcx" className="hidden" onChange={(e) => {
                         const file = e.target.files[0];
                         if (file) {
                             handleImportGPX(file);
@@ -1630,7 +1710,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     </svg>
                 </label>
                 <button 
-                    onClick={handleDownloadGPX}
+                    onClick={handleOpenExportModal}
                     disabled={isClean}
                     className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isClean ? 'bg-gray-800/50 border-gray-800 text-gray-600 opacity-50 cursor-not-allowed' : 'bg-gray-900/90 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800'}`}
                 >
@@ -1846,6 +1926,13 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 status: routeStatus,
                 tags: routeTags
             }}
+        />
+        
+        <ExportRouteModal
+            isOpen={isExportModalOpen}
+            onClose={() => setIsExportModalOpen(false)}
+            onExport={performExport}
+            initialTitle={routeName}
         />
       </div>
     </div>

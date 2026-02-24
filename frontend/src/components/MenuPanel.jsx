@@ -146,13 +146,25 @@ const MenuPanel = ({
                     {/* Section Actions Toolbar */}
                     <div className="flex items-center justify-end gap-1 pt-1 border-t border-gray-700/30 mt-2">
                       <button 
-                        onClick={() => onSectionDownload(sIdx)}
-                        className="p-1.5 text-gray-500 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all"
-                        title="Download this section as GPX"
+                        onClick={() => onSectionDownload(sIdx, 'gpx')}
+                        className="p-1.5 text-gray-500 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all flex items-center gap-0.5"
+                        title="Download Section (GPX)"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
+                        <span className="text-[8px] font-bold">GPX</span>
+                      </button>
+
+                      <button 
+                        onClick={() => onSectionDownload(sIdx, 'tcx')}
+                        className="p-1.5 text-gray-500 hover:text-orange-400 hover:bg-orange-400/10 rounded-lg transition-all flex items-center gap-0.5"
+                        title="Download Section (TCX)"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        <span className="text-[8px] font-bold">TCX</span>
                       </button>
                       
                       {sIdx > 0 && (
@@ -306,6 +318,17 @@ const MenuPanel = ({
           const hasSegments = sections.some(s => s.segments.length > 0);
           return (
             <div className="grid grid-cols-1 gap-2">
+                <button 
+                    onClick={onDownloadGPX}
+                    disabled={!hasSegments}
+                    className="bg-white hover:bg-gray-200 text-black py-3.5 rounded-2xl font-black text-sm shadow-lg disabled:opacity-20 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    EXPORT FILE
+                </button>
+
                 <button 
                     onClick={onSave}
                     disabled={!hasSegments}

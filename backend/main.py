@@ -21,8 +21,8 @@ from psycopg2.extras import RealDictCursor
 from google.cloud import storage
 
 from valhalla import ValhallaClient
-from gpx_loader import GpxLoader
-from gpx_export import GpxExporter
+from gpx_loader import GpxLoader, TcxLoader
+from gpx_export import GpxExporter, TcxExporter
 
 # .env 로드
 load_dotenv()
@@ -736,20 +736,59 @@ async def get_route_detail(route_id: int, authorization: str = Header(None)):
         if conn:
             conn.close()
 
+@app.post("/api/routes/{route_id}/download")
+async def increment_download_count(route_id: int):
+    conn = get_db_conn()
+    cur = conn.cursor()
+    try:
+        # Check if route exists
+        cur.execute("SELECT id FROM routes WHERE id = %s", (route_id,))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Route not found")
+
+        # Increment download count
+        cur.execute(
+            """
+            INSERT INTO route_stats (route_id, download_count) VALUES (%s, 1)
+            ON CONFLICT (route_id) DO UPDATE 
+            SET download_count = route_stats.download_count + 1, updated_at = CURRENT_TIMESTAMP
+            """,
+            (route_id,)
+        )
+        conn.commit()
+        return {"status": "success"}
+    except Exception as e:
+        print(f"Increment Download Count Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+
 @app.post("/api/routes/import")
 async def import_gpx(file: UploadFile = File(...)):
     try:
         content = await file.read()
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".gpx") as tmp:
+        suffix = os.path.splitext(file.filename)[1].lower()
+        if suffix not in [".gpx", ".tcx"]:
+            # Default to gpx if unknown, but maybe check content? 
+            # For now, let's be strict or default to GPX.
+            if b"<TrainingCenterDatabase" in content: suffix = ".tcx"
+            else: suffix = ".gpx"
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(content)
             tmp_path = tmp.name
         
-        loader = GpxLoader(tmp_path)
+        if suffix == ".tcx":
+            loader = TcxLoader(tmp_path)
+        else:
+            loader = GpxLoader(tmp_path)
+            
         loader.load()
         os.unlink(tmp_path)
         
         if not loader.points:
-            raise HTTPException(status_code=400, detail="Invalid GPX file: No track points found.")
+            raise HTTPException(status_code=400, detail=f"Invalid {suffix[1:].upper()} file: No track points found.")
         
         # Delegate complex processing (Valhalla analysis & Waypoint snapping) to Loader
         result = loader.process_with_valhalla(valhalla_client)
@@ -763,22 +802,33 @@ async def import_gpx(file: UploadFile = File(...)):
 class GpxExportRequest(BaseModel):
     title: str
     editor_state: dict
+    format: Optional[str] = "gpx" # "gpx" or "tcx"
 
 @app.post("/api/export/gpx")
 async def export_gpx(request: GpxExportRequest):
     try:
         data = request.dict()
-        exporter = GpxExporter(data)
-        xml_content = exporter.to_xml_string()
+        export_format = request.format.lower() if request.format else "gpx"
+        
+        if export_format == "tcx":
+            exporter = TcxExporter(data)
+            xml_content = exporter.to_xml_string()
+            media_type = "application/vnd.garmin.tcx+xml"
+            ext = "tcx"
+        else:
+            exporter = GpxExporter(data)
+            xml_content = exporter.to_xml_string()
+            media_type = "application/gpx+xml"
+            ext = "gpx"
         
         # Sanitize filename
         safe_title = "".join([c for c in request.title if c.isalnum() or c in (' ', '-', '_')]).strip()
         if not safe_title: safe_title = "route"
-        filename = f"{safe_title.replace(' ', '_')}.gpx"
+        filename = f"{safe_title.replace(' ', '_')}.{ext}"
         
         return Response(
             content=xml_content, 
-            media_type="application/gpx+xml",
+            media_type=media_type,
             headers={"Content-Disposition": f'attachment; filename="{filename}"'}
         )
     except Exception as e:
