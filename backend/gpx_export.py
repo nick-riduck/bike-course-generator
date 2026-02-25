@@ -4,6 +4,9 @@ from xml.dom import minidom
 from typing import List, Dict, Any
 import math
 
+RIDUCK_NS = 'https://riduck.dev/xmlns/1'
+ET.register_namespace('riduck', RIDUCK_NS)
+
 class GpxExporter:
     def __init__(self, data: Dict[str, Any]):
         """
@@ -21,10 +24,11 @@ class GpxExporter:
             "xmlns": "http://www.topografix.com/GPX/1/1",
             "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
             "xsi:schemaLocation": "http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd",
+            f"xmlns:riduck": RIDUCK_NS,
             "version": "1.1",
             "creator": "Riduck"
         }
-        
+
         gpx = ET.Element("gpx", ns_map)
         
         # Metadata
@@ -51,14 +55,18 @@ class GpxExporter:
                     ele = ET.SubElement(wpt, "ele")
                     ele.text = str(point['ele'])
                 
+                # dist_km
+                dist_km = point.get('dist_km')
+                dist_km_str = f"{float(dist_km):.6f}" if dist_km is not None else None
+
                 # Section Start Logic (First point of section)
                 if p_idx == 0:
                     n = ET.SubElement(wpt, "name")
                     n.text = section_name
-                    
+
                     desc = ET.SubElement(wpt, "desc")
-                    desc.text = f"Color:{section_color}"
-                    
+                    desc.text = f"Color:{section_color}" + (f";Riduck_DistKm={dist_km_str}" if dist_km_str else "")
+
                     sym = ET.SubElement(wpt, "sym")
                     sym.text = "Riduck_Section_Start"
                 else:
@@ -67,6 +75,15 @@ class GpxExporter:
                     if p_name:
                         n = ET.SubElement(wpt, "name")
                         n.text = p_name
+                    if dist_km_str:
+                        desc = ET.SubElement(wpt, "desc")
+                        desc.text = f"Riduck_DistKm={dist_km_str}"
+
+                # extensions: riduck:dist_km (primary)
+                if dist_km_str:
+                    ext = ET.SubElement(wpt, "extensions")
+                    dk = ET.SubElement(ext, f"{{{RIDUCK_NS}}}dist_km")
+                    dk.text = dist_km_str
 
         # 2. Track (Merged)
         trk = ET.SubElement(gpx, "trk")
@@ -235,35 +252,43 @@ class TcxExporter:
                 lon = float(point.get('lng', 0))
                 name = point.get('name', '')
                 
+                # dist_km
+                dist_km = point.get('dist_km')
+                dist_km_str = f"{float(dist_km):.6f}" if dist_km is not None else None
+
                 # Determine Type & Notes
                 pt_type = "Generic"
                 notes = ""
-                
+
                 if p_idx == 0:
                     # Section Start
                     name = section.get('name', name or f'Section {s_idx+1}')
                     color = section.get('color', '#2a9e92')
-                    notes = f"Riduck_Section:Color={color}"
-                    # Optionally use a specific icon for Section Start if desired, e.g. "Summit" or "First Aid"
-                    # But "Generic" is safest.
+                    notes = f"Riduck_Section:Color={color}" + (f";Riduck_DistKm={dist_km_str}" if dist_km_str else "")
                 else:
                     # Intermediate Point
                     if not name: name = "Point"
-                    # We could map point.type to TCX types (Food, Water, Summit, Valley, Right, Left...)
-                    # For now keep Generic.
-                
+                    if dist_km_str:
+                        notes = f"Riduck_DistKm={dist_km_str}"
+
                 # Create Element
                 cp = ET.SubElement(course, "CoursePoint")
                 ET.SubElement(cp, "Name").text = str(name)
                 ET.SubElement(cp, "Time").text = get_time_str(current_cumulative_dist / avg_speed_mps)
-                
+
                 pos = ET.SubElement(cp, "Position")
                 ET.SubElement(pos, "LatitudeDegrees").text = f"{lat:.6f}"
                 ET.SubElement(pos, "LongitudeDegrees").text = f"{lon:.6f}"
-                
+
                 ET.SubElement(cp, "PointType").text = pt_type
                 if notes:
                     ET.SubElement(cp, "Notes").text = notes
+
+                # extensions: riduck:dist_km (primary)
+                if dist_km_str:
+                    ext = ET.SubElement(cp, "Extensions")
+                    dk = ET.SubElement(ext, f"{{{RIDUCK_NS}}}dist_km")
+                    dk.text = dist_km_str
 
                 # Advance distance for the NEXT point (which is at the end of current segment)
                 if not is_last_in_section:

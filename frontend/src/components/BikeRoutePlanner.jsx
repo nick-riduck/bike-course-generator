@@ -110,6 +110,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const mapRef = useRef();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isElevationChartVisible, setIsElevationChartVisible] = useState(true);
   
   // 지하철/철도 라인 켜기
   const handleMapLoad = (e) => {
@@ -151,6 +152,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const [routeOwnerId, setRouteOwnerId] = useState(null);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [focusedPointId, setFocusedPointId] = useState(null);
+  const [mapHoverCoord, setMapHoverCoord] = useState(null);
 
   // Preview State
   const [previewRoute, setPreviewRoute] = useState(null);
@@ -170,6 +173,112 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const dragPreviewInvalidLoggedRef = useRef(false);
 
   const handleHoverPoint = useCallback((coord) => setHoveredCoord(coord), []);
+
+  const flyMapToPoint = useCallback((coord) => {
+    if (!coord || !Number.isFinite(coord.lng) || !Number.isFinite(coord.lat)) return;
+
+    const mapInstance = mapRef.current?.getMap ? mapRef.current.getMap() : mapRef.current;
+    if (!mapInstance || typeof mapInstance.flyTo !== 'function') return;
+
+    try {
+      const currentZoom = typeof mapInstance.getZoom === 'function' ? mapInstance.getZoom() : undefined;
+      mapInstance.flyTo({
+        center: [coord.lng, coord.lat],
+        zoom: currentZoom,
+        duration: 700,
+        essential: true
+      });
+    } catch (err) {
+      console.warn('Chart-to-map move failed:', err);
+    }
+  }, []);
+
+  const handleChartPointSelect = useCallback((coord) => {
+    if (!coord || !Number.isFinite(coord.lng) || !Number.isFinite(coord.lat)) return;
+    setFocusedPointId(null);
+    setHoveredCoord({ lng: coord.lng, lat: coord.lat });
+    flyMapToPoint(coord);
+  }, [flyMapToPoint]);
+
+  const handleMenuPointFocus = useCallback((sectionIdx, _pointIdx, point) => {
+    if (!point || !Number.isFinite(point.lng) || !Number.isFinite(point.lat)) return;
+
+    const coord = { lng: point.lng, lat: point.lat };
+    setFocusedPointId(point.id);
+    setHoveredCoord(coord);
+    setHoveredSectionIndex(sectionIdx);
+    flyMapToPoint(coord);
+  }, [flyMapToPoint]);
+
+  React.useEffect(() => {
+    if (!focusedPointId) return;
+
+    const pointExists = sections.some((section) =>
+      section.points?.some((point) => point.id === focusedPointId)
+    );
+
+    if (!pointExists) {
+      setFocusedPointId(null);
+      setHoveredCoord(null);
+    }
+  }, [sections, focusedPointId]);
+
+  const sectionsWithPointDistances = useMemo(() => {
+    if (!Array.isArray(sections)) return [];
+
+    let cumulativeDistKm = 0;
+
+    const getSegmentDistanceKm = (segment, startPoint, endPoint) => {
+      const segDist = Number(segment?.distance);
+      if (Number.isFinite(segDist) && segDist > 0) return segDist;
+      if (startPoint && endPoint) {
+        return getDistance(startPoint.lat, startPoint.lng, endPoint.lat, endPoint.lng);
+      }
+      return 0;
+    };
+
+    return sections.map((section, sectionIdx) => {
+      const points = Array.isArray(section?.points) ? section.points : [];
+      const segmentList = Array.isArray(section?.segments) ? section.segments : [];
+      const pointIdSet = new Set(points.map((p) => p.id));
+      const distanceByPointId = new globalThis.Map();
+
+      if (points.length > 0) {
+        distanceByPointId.set(points[0].id, cumulativeDistKm);
+
+        for (let i = 0; i < points.length - 1; i++) {
+          const startPoint = points[i];
+          const endPoint = points[i + 1];
+          const linkingSegment = segmentList.find(
+            (segment) => segment.startPointId === startPoint.id && segment.endPointId === endPoint.id
+          );
+
+          cumulativeDistKm += getSegmentDistanceKm(linkingSegment, startPoint, endPoint);
+          distanceByPointId.set(endPoint.id, cumulativeDistKm);
+        }
+
+        if (sectionIdx < sections.length - 1) {
+          const nextSectionFirstPoint = sections[sectionIdx + 1]?.points?.[0];
+          const lastPoint = points[points.length - 1];
+
+          if (lastPoint && nextSectionFirstPoint) {
+            const connectorSegment = segmentList.find(
+              (segment) => segment.startPointId === lastPoint.id && !pointIdSet.has(segment.endPointId)
+            );
+            cumulativeDistKm += getSegmentDistanceKm(connectorSegment, lastPoint, nextSectionFirstPoint);
+          }
+        }
+      }
+
+      return {
+        ...section,
+        points: points.map((point) => ({
+          ...point,
+          dist_km: Number((distanceByPointId.get(point.id) ?? cumulativeDistKm).toFixed(6))
+        }))
+      };
+    });
+  }, [sections]);
 
   const handleOpenExportModal = () => {
     if (!sections || sections.length === 0) return;
@@ -263,7 +372,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
     try {
         // Deep clone sections to remove any potential non-serializable properties
-        const cleanSections = sections.map(sec => ({
+        const cleanSections = sectionsWithPointDistances.map(sec => ({
             id: sec.id,
             name: sec.name,
             color: sec.color,
@@ -272,7 +381,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 lat: p.lat,
                 lng: p.lng,
                 type: p.type,
-                name: p.name
+                name: p.name,
+                dist_km: p.dist_km
             })),
             segments: sec.segments.map(s => ({
                 id: s.id,
@@ -337,7 +447,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   };
 
   const handleSectionDownload = async (sectionIdx, format = 'gpx') => {
-    const section = sections[sectionIdx];
+    const section = sectionsWithPointDistances[sectionIdx];
     if (!section) return;
 
     try {
@@ -457,6 +567,13 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const onHover = useCallback(event => {
     const { features, point: { x, y }, lngLat } = event;
     const hoveredFeature = features && features[0];
+    const routeFeatures = features ? features.filter(f => f.layer.id === 'route-layer') : [];
+
+    if (routeFeatures.length > 0 && lngLat && Number.isFinite(lngLat.lng) && Number.isFinite(lngLat.lat)) {
+      setMapHoverCoord({ lng: lngLat.lng, lat: lngLat.lat });
+    } else {
+      setMapHoverCoord(null);
+    }
     
     // 1. Surface Info Tooltip
     if (hoveredFeature && hoveredFeature.properties.surface) {
@@ -473,8 +590,6 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         dragStateRef.current = newDragState;
         return;
     }
-
-    const routeFeatures = features ? features.filter(f => f.layer.id === 'route-layer') : [];
 
     if (routeFeatures.length > 0) {
         const candidates = routeFeatures.map(f => ({
@@ -766,6 +881,15 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     // But just in case.
     if (dragState) return;
 
+    // If a point is currently focused from the sidebar, first map click cancels focus.
+    // This click should not create a new route point.
+    if (focusedPointId) {
+      setFocusedPointId(null);
+      setHoveredCoord(null);
+      setHoveredSectionIndex(null);
+      return;
+    }
+
     // Normal Click: Always Append to End
     const { lng, lat } = e.lngLat;
     const newPoint = { id: generateId(), lng, lat, type: 'via', name: '' };
@@ -875,6 +999,11 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     let updatedSections = JSON.parse(JSON.stringify(sections)); // Deep copy to avoid mutation issues
     const targetSection = updatedSections[sectionIdx];
     const targetPoint = targetSection.points[pointIdx];
+
+    if (targetPoint?.id && targetPoint.id === focusedPointId) {
+      setFocusedPointId(null);
+      setHoveredCoord(null);
+    }
     
     // 1. Remove Point from current section
     const prevPointInSec = targetSection.points[pointIdx - 1];
@@ -1370,7 +1499,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
               // Backend generates full_data using Valhalla
               full_data: null, 
               editor_state: {
-                  sections: sections
+                  sections: sectionsWithPointDistances
               }
           };
 
@@ -1524,8 +1653,9 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                           id: generateId(),
                           lng: wpt.lon,
                           lat: wpt.lat,
-                          type: wpt.type, // 'section_start' or 'via'
-                          name: wpt.name
+                          type: wpt.type,
+                          name: wpt.name,
+                          ...(wpt.dist_km != null ? { dist_km: wpt.dist_km } : {})
                       });
                   }
               }
@@ -1799,6 +1929,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     onSave={openSaveModal}
                     onDownloadGPX={handleOpenExportModal}
                     sections={sections}
+                    focusedPointId={focusedPointId}
+                    onPointFocus={handleMenuPointFocus}
                     onPointRemove={handlePointRemove}
                     onPointRename={handlePointRename}
                     onSplitSection={handleSplitSection}
@@ -1965,7 +2097,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
 
-                onMouseLeave={() => { setHoverInfo(null); setDragState(null); }} // Cancel drag if leave?
+                onMouseLeave={() => { setHoverInfo(null); setDragState(null); setMapHoverCoord(null); }} // Cancel drag if leave?
                 interactiveLayerIds={['route-layer']}
                 style={{ width: '100%', height: '100%' }} 
                 cursor={isLoading ? 'wait' : (dragState ? 'grabbing' : (insertCandidate ? 'grab' : 'crosshair'))}
@@ -2078,6 +2210,20 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     </Marker>
                 )}
 
+                {hoveredCoord && Number.isFinite(hoveredCoord.lng) && Number.isFinite(hoveredCoord.lat) && (
+                    <Marker
+                        longitude={hoveredCoord.lng}
+                        latitude={hoveredCoord.lat}
+                        anchor="center"
+                        draggable={false}
+                    >
+                        <div className="pointer-events-none relative flex items-center justify-center">
+                            <div className="absolute h-7 w-7 rounded-full border border-riduck-primary/40 bg-riduck-primary/10"></div>
+                            <div className="h-3 w-3 rounded-full border-2 border-white bg-riduck-primary shadow-lg shadow-riduck-primary/40"></div>
+                        </div>
+                    </Marker>
+                )}
+
                 {sections.flatMap((sec, sIdx) => sec.points.map((p, pIdx, arr) => (
                     <Marker 
                         key={`${sec.id}-${p.id}`} 
@@ -2087,13 +2233,23 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                         draggable={true}
                         onDragEnd={(evt) => handlePointMove(sIdx, pIdx, evt)}
                     >
+                    {(() => {
+                      const isFocusedPoint = focusedPointId === p.id;
+                      return (
                     <div 
-                      className={`group flex items-center justify-center w-6 h-6 rounded-full border-2 border-white shadow-lg cursor-pointer text-white text-xs font-black z-50 hover:scale-110 transition-transform`} 
+                      className={`group relative flex items-center justify-center w-6 h-6 rounded-full border-2 border-white cursor-pointer text-white text-xs font-black z-50 transition-transform ${
+                        isFocusedPoint ? 'scale-125 shadow-[0_0_0_2px_rgba(42,158,146,0.35),0_0_14px_rgba(42,158,146,0.65)]' : 'shadow-lg hover:scale-110'
+                      }`} 
                       style={{ backgroundColor: sIdx === 0 && pIdx === 0 ? '#10B981' : (sIdx === sections.length - 1 && pIdx === arr.length - 1 ? '#EF4444' : sec.color) }}
                       onClick={(e) => handlePointRemove(sIdx, pIdx, e)}
                     >
+                        {isFocusedPoint && (
+                          <span className="pointer-events-none absolute -inset-2 rounded-full border border-riduck-primary/60 animate-ping"></span>
+                        )}
                         <span className="group-hover:hidden">{pIdx + 1}</span><span className="hidden group-hover:block">✕</span>
                     </div>
+                      );
+                    })()}
                     </Marker>
                 )))}
                 {ambiguityPopup && (
@@ -2211,9 +2367,60 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             )}
         </div>
 
-        {/* Elevation Chart (Bottom Fixed with Padding) */}
-        <div className="h-40 md:h-52 border-t border-gray-800 bg-gray-900/90 backdrop-blur-md relative z-10 px-4 pb-6 pt-2 shrink-0">
-            <ElevationChart segments={sections.flatMap(s => s.segments)} onHoverPoint={handleHoverPoint} />
+        {/* Elevation Chart Panel (Collapsible) */}
+        <div className="relative z-20 shrink-0">
+            <button
+                type="button"
+                onClick={() => setIsElevationChartVisible(prev => !prev)}
+                aria-expanded={isElevationChartVisible}
+                aria-controls="elevation-chart-panel"
+                className="group absolute left-1/2 top-0 z-30 -translate-x-1/2 -translate-y-full pointer-events-auto border-0 bg-transparent p-0 text-[11px] font-bold text-gray-200 shadow-xl transition hover:text-white"
+            >
+                <svg
+                    aria-hidden="true"
+                    viewBox="0 0 120 40"
+                    preserveAspectRatio="none"
+                    className="absolute inset-0 h-full w-full overflow-visible"
+                >
+                    <path
+                        d="M26 2 Q20 2 19 8 L8 31 Q6 37 12 37 L108 37 Q114 37 112 31 L101 8 Q100 2 94 2 Z"
+                        className="fill-gray-900/95 stroke-gray-700 transition-colors group-hover:stroke-riduck-primary"
+                        strokeWidth="1.5"
+                    />
+                </svg>
+                <span className="relative inline-flex items-center gap-1.5 px-7 py-1.5">
+                    {isElevationChartVisible ? 'Hide Elevation' : 'Show Elevation'}
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className={`h-4 w-4 transition-transform duration-300 ${isElevationChartVisible ? '' : 'rotate-180'}`}
+                    >
+                        <path
+                            fillRule="evenodd"
+                            d="M4.47 7.97a.75.75 0 011.06 0L10 12.44l4.47-4.47a.75.75 0 111.06 1.06l-5 5a.75.75 0 01-1.06 0l-5-5a.75.75 0 010-1.06z"
+                            clipRule="evenodd"
+                        />
+                    </svg>
+                </span>
+            </button>
+
+            <div
+                id="elevation-chart-panel"
+                className={`relative overflow-hidden bg-gray-900/90 backdrop-blur-md transition-all duration-300 ease-in-out ${
+                    isElevationChartVisible ? 'h-40 md:h-52 border-t border-gray-800 opacity-100' : 'h-0 border-t border-transparent opacity-0'
+                }`}
+            >
+                <div className={`h-full px-4 transition-all duration-300 ${isElevationChartVisible ? 'pb-6 pt-2' : 'pb-0 pt-0'}`}>
+                    <ElevationChart
+                        segments={sections.flatMap(s => s.segments)}
+                        checkpoints={sectionsWithPointDistances.flatMap(s => s.points)}
+                        onHoverPoint={handleHoverPoint}
+                        onSelectPoint={handleChartPointSelect}
+                        mapHoverCoord={mapHoverCoord}
+                    />
+                </div>
+            </div>
         </div>
 
         {/* Save Route Modal */}

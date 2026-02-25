@@ -182,22 +182,39 @@ class GpxLoader(BaseTrackLoader):
                     return child.text
             return ""
 
+        RIDUCK_NS = 'https://riduck.dev/xmlns/1'
+
         for wpt in wpts:
             lat = float(wpt.attrib['lat'])
             lon = float(wpt.attrib['lon'])
-            
+
             name = get_text(wpt, ['gpx:name', 'name'])
             sym = get_text(wpt, ['gpx:sym', 'sym'])
             desc = get_text(wpt, ['gpx:desc', 'desc'])
-            
-            color = "#2a9e92" # Default
+
+            color = "#2a9e92"
             if "Riduck" in sym:
                 color_match = re.search(r"Color:(#[0-9a-fA-F]{6})", desc)
                 if color_match: color = color_match.group(1)
-            
+
+            # dist_km: extensions 우선, desc fallback
+            dist_km = None
+            ext_node = wpt.find(f'gpx:extensions', ns) or wpt.find('extensions')
+            if ext_node is not None:
+                dk_node = ext_node.find(f'{{{RIDUCK_NS}}}dist_km')
+                if dk_node is not None and dk_node.text:
+                    try: dist_km = float(dk_node.text)
+                    except ValueError: pass
+            if dist_km is None:
+                dk_match = re.search(r"Riduck_DistKm=([\d.]+)", desc)
+                if dk_match:
+                    try: dist_km = float(dk_match.group(1))
+                    except ValueError: pass
+
             self.parsed_waypoints.append({
-                "lat": lat, "lon": lon, "name": name, "sym": sym, "color": color, 
-                "type": "section_start" if "Riduck_Section_Start" in sym else "via"
+                "lat": lat, "lon": lon, "name": name, "sym": sym, "color": color,
+                "type": "section_start" if "Riduck_Section_Start" in sym else "via",
+                "dist_km": dist_km
             })
 
 class TcxLoader(BaseTrackLoader):
@@ -289,16 +306,32 @@ class TcxLoader(BaseTrackLoader):
                     continue
                 
                 # Riduck Specific Parsing from Notes
-                color = "#2a9e92" # Default
+                color = "#2a9e92"
                 is_section_start = False
-                
+
                 if notes and "Riduck_Section" in notes:
                     is_section_start = True
                     color_match = re.search(r"Color:(#[0-9a-fA-F]{6})", notes)
                     if color_match: color = color_match.group(1)
-                
+
+                # dist_km: Extensions 우선, Notes fallback
+                RIDUCK_NS = 'https://riduck.dev/xmlns/1'
+                dist_km = None
+                ext_node = find_child(cp, 'Extensions')
+                if ext_node is not None:
+                    for child in ext_node:
+                        if child.tag.endswith('}dist_km') or child.tag == 'dist_km':
+                            try: dist_km = float(child.text)
+                            except (ValueError, TypeError): pass
+                if dist_km is None and notes:
+                    dk_match = re.search(r"Riduck_DistKm=([\d.]+)", notes)
+                    if dk_match:
+                        try: dist_km = float(dk_match.group(1))
+                        except ValueError: pass
+
                 self.parsed_waypoints.append({
-                    "lat": lat, "lon": lon, "name": name, "sym": pt_type, "color": color, 
-                    "type": "section_start" if is_section_start else "via"
+                    "lat": lat, "lon": lon, "name": name, "sym": pt_type, "color": color,
+                    "type": "section_start" if is_section_start else "via",
+                    "dist_km": dist_km
                 })
 
