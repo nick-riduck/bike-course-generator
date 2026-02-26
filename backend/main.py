@@ -521,16 +521,17 @@ async def search_routes(
         query += " GROUP BY r.id, u.id, rs.view_count, rs.download_count"
         
         # Order By Logic
+        # r.id DESC 보조 정렬: 동일 값이 많을 때 페이지네이션 안정성 보장 (stable pagination)
         if sort == 'updated':
-            query += " ORDER BY r.updated_at DESC"
+            query += " ORDER BY r.updated_at DESC, r.id DESC"
         elif sort == 'popular':
-            query += " ORDER BY download_count DESC, r.created_at DESC"
+            query += " ORDER BY download_count DESC, r.created_at DESC, r.id DESC"
         elif sort == 'distance':
-            query += " ORDER BY r.distance DESC"
+            query += " ORDER BY r.distance DESC, r.id DESC"
         elif sort == 'elevation':
-            query += " ORDER BY r.elevation_gain DESC"
+            query += " ORDER BY r.elevation_gain DESC, r.id DESC"
         else: # latest default
-            query += " ORDER BY r.created_at DESC"
+            query += " ORDER BY r.created_at DESC, r.id DESC"
         
         # Pagination
         query += " LIMIT %s OFFSET %s"

@@ -158,7 +158,11 @@ class GpxLoader(BaseTrackLoader):
             lat = float(pt.attrib['lat'])
             lon = float(pt.attrib['lon'])
             
-            ele_node = pt.find('gpx:ele', ns) or pt.find('ele')
+            # NOTE: `or` 를 쓰면 자식 없는 leaf 엘리먼트가 falsy 로 평가되어
+            # 두 번째 find 가 실행됨 → 항상 None 반환. is None 체크로 수정.
+            ele_node = pt.find('gpx:ele', ns)
+            if ele_node is None:
+                ele_node = pt.find('ele')
             ele = float(ele_node.text) if ele_node is not None and ele_node.text else 0.0
 
             current_pt = TrackPoint(lat, lon, ele)

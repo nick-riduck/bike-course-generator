@@ -10,6 +10,8 @@ const MenuPanel = ({
   onSave, 
   onDownloadGPX, 
   sections,
+  focusedPointId,
+  onPointFocus,
   onPointRemove,
   onPointRename,
   onSplitSection,
@@ -209,15 +211,24 @@ const MenuPanel = ({
                       const isFirst = sIdx === 0 && pIdx === 0;
                       const isLast = sIdx === sections.length - 1 && pIdx === section.points.length - 1;
                       const bgColor = isFirst ? '#10B981' : (isLast ? '#EF4444' : section.color);
+                      const isFocusedPoint = focusedPointId === p.id;
                       
                       const displayName = p.name ? p.name : `Point ${pIdx + 1}`;
                       const isNameCustom = !!p.name;
 
                       return (
-                        <div key={p.id} className="group flex items-center gap-3 bg-gray-800/20 p-2.5 rounded-xl border border-transparent hover:border-gray-700 hover:bg-gray-800/40 transition-all">
+                        <div
+                          key={p.id}
+                          onClick={() => onPointFocus && onPointFocus(sIdx, pIdx, p)}
+                          className={`group flex items-center gap-3 p-2.5 rounded-xl border transition-all cursor-pointer ${
+                            isFocusedPoint
+                              ? 'bg-riduck-primary/10 border-riduck-primary/40 shadow-[0_0_0_1px_rgba(42,158,146,0.25)]'
+                              : 'bg-gray-800/20 border-transparent hover:border-gray-700 hover:bg-gray-800/40'
+                          }`}
+                        >
                           {/* Styled to match map marker */}
                           <div 
-                            className="w-6 h-6 rounded-full border-2 border-white shadow-sm flex items-center justify-center text-[9px] font-black text-white shrink-0" 
+                            className={`w-6 h-6 rounded-full border-2 border-white shadow-sm flex items-center justify-center text-[9px] font-black text-white shrink-0 ${isFocusedPoint ? 'scale-110 shadow-riduck-primary/40' : ''}`} 
                             style={{ backgroundColor: bgColor }}
                           >
                             {pIdx + 1}
@@ -236,9 +247,12 @@ const MenuPanel = ({
                                 />
                             ) : (
                                 <p 
-                                    className={`text-xs truncate cursor-text transition-colors hover:text-riduck-primary ${isNameCustom ? 'text-white font-bold' : 'text-gray-500 font-medium'}`}
-                                    onClick={() => handleStartPointRename(p)}
-                                    title="Click to rename"
+                                    className={`text-xs truncate transition-colors hover:text-riduck-primary ${isNameCustom ? 'text-white font-bold' : 'text-gray-500 font-medium'}`}
+                                    onDoubleClick={(e) => {
+                                      e.stopPropagation();
+                                      handleStartPointRename(p);
+                                    }}
+                                    title="Double click to rename"
                                 >
                                     {displayName}
                                 </p>
@@ -249,7 +263,10 @@ const MenuPanel = ({
                           <div className="flex items-center gap-0.5">
                             {pIdx > 0 && (
                               <button 
-                                onClick={() => onSplitSection(sIdx, pIdx)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onSplitSection(sIdx, pIdx);
+                                }}
                                 className="p-1.5 text-gray-500 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors"
                                 title="Split Section Here"
                               >

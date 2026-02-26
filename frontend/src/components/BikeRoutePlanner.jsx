@@ -306,13 +306,49 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         const data = await res.json();
         
         if (data.editor_state && data.editor_state.sections) {
+             // 에디터로 저장된 루트: editor_state.sections 사용
              setPreviewRoute({
                  id: data.route_id,
                  data: data,
                  sections: data.editor_state.sections
              });
-             // Fit map to preview sections
              fitMapToSections(data.editor_state.sections);
+        } else if (data.points && Array.isArray(data.points.lat) && data.points.lat.length >= 2) {
+             // v1.0 columnar 포맷 (GPX 임포트 스크립트로 저장된 루트)
+             const lats = data.points.lat;
+             const lons = data.points.lon;
+             const eles = data.points.ele || lats.map(() => 0);
+             const coords = lats.map((lat, i) => [lons[i], lat, eles[i]]);
+
+             const surfColors = { 1: '#2979FF', 2: '#2979FF', 3: '#9E9E9E', 4: '#FFC400', 5: '#00E676', 6: '#8D6E63', 7: '#8D6E63', 0: '#9E9E9E' };
+             const segs = data.segments || {};
+             const displayFeatures = (segs.p_start || []).map((sIdx, i) => ({
+                 type: 'Feature',
+                 geometry: { type: 'LineString', coordinates: coords.slice(sIdx, (segs.p_end[i] || sIdx) + 1) },
+                 properties: { color: surfColors[segs.surf_id?.[i]] ?? '#9E9E9E', start_index: sIdx, end_index: segs.p_end?.[i] }
+             }));
+
+             const startPt = { id: generateId(), lng: coords[0][0], lat: coords[0][1], type: 'via', name: 'Start' };
+             const endPt   = { id: generateId(), lng: coords[coords.length - 1][0], lat: coords[coords.length - 1][1], type: 'via', name: 'End' };
+             const syntheticSections = [{
+                 id: generateId(),
+                 name: 'Route',
+                 points: [startPt, endPt],
+                 segments: [{
+                     id: generateId(),
+                     startPointId: startPt.id,
+                     endPointId: endPt.id,
+                     geometry: { type: 'LineString', coordinates: coords },
+                     distance: (data.stats?.distance || 0) / 1000,
+                     ascent: data.stats?.ascent || 0,
+                     type: 'api',
+                     surfaceSegments: displayFeatures
+                 }],
+                 color: SECTION_COLORS[0]
+             }];
+
+             setPreviewRoute({ id: data.route_id, data: data, sections: syntheticSections });
+             fitMapToSections(syntheticSections);
         } else {
              alert("Invalid route data for editor.");
         }
@@ -334,8 +370,9 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
      }
 
      const { data } = previewRoute;
-     
-     setSections(data.editor_state.sections);
+
+     // previewRoute.sections: editor_state 유무와 무관하게 handlePreviewRoute에서 이미 빌드됨
+     setSections(previewRoute.sections);
      setCurrentRouteId(data.route_id);
      setRouteName(data.title || '');
      setRouteDescription(data.description || '');

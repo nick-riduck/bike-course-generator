@@ -163,8 +163,7 @@ const SearchPanel = ({ onLoadRoute }) => {
   };
 
   const renderRouteCard = (route, isMyRoute) => (
-      <div 
-          key={route.id}
+      <div
           onClick={() => onLoadRoute(route.id)}
           className="p-0 bg-gray-800/40 hover:bg-gray-800 border border-gray-700/50 hover:border-riduck-primary rounded-xl cursor-pointer transition-all group overflow-hidden flex flex-col relative"
       >
@@ -397,7 +396,7 @@ const SearchPanel = ({ onLoadRoute }) => {
                    </div>
                 ) : (
                    <div className="space-y-3">
-                      {myRoutes.map(route => renderRouteCard(route, true))}
+                      {myRoutes.map(route => <React.Fragment key={`my-${route.id}`}>{renderRouteCard(route, true)}</React.Fragment>)}
                    </div>
                 )}
             </div>
@@ -427,7 +426,7 @@ const SearchPanel = ({ onLoadRoute }) => {
                    </div>
                 ) : (
                    <div className="space-y-3">
-                      {publicRoutes.map(route => renderRouteCard(route, false))}
+                      {publicRoutes.map(route => <React.Fragment key={`pub-${route.id}`}>{renderRouteCard(route, false)}</React.Fragment>)}
                    </div>
                 )}
             </div>
