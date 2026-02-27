@@ -9,6 +9,24 @@ import MenuPanel from './MenuPanel';
 import SearchPanel from './SearchPanel';
 import SaveRouteModal from './SaveRouteModal';
 import ExportRouteModal from './ExportRouteModal';
+import ReactMarkdown from 'react-markdown';
+
+const formatDate = (dateString) => {
+    if (!dateString) return null;
+    const d = new Date(dateString);
+    const now = new Date();
+    if ((now - d) < 86400000) {
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const hh = String(d.getHours()).padStart(2, '0');
+        const min = String(d.getMinutes()).padStart(2, '0');
+        return `${mm}.${dd} ${hh}:${min}`;
+    }
+    const y = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}.${mm}.${dd}`;
+};
 
 const INITIAL_VIEW_STATE = {
   longitude: 126.978,
@@ -157,6 +175,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
   // Preview State
   const [previewRoute, setPreviewRoute] = useState(null);
+  const [mobilePreviewExpanded, setMobilePreviewExpanded] = useState(false);
 
   // Place Search State
   const [isPlaceSearchOpen, setIsPlaceSearchOpen] = useState(false);
@@ -171,6 +190,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const animationRef = useRef(null);
   const previewInvalidLoggedRef = useRef(false);
   const dragPreviewInvalidLoggedRef = useRef(false);
+  const previewPanelMobileRef = useRef(null);
 
   const handleHoverPoint = useCallback((coord) => setHoveredCoord(coord), []);
 
@@ -285,15 +305,72 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     setIsExportModalOpen(true);
   };
 
+  const MOBILE_PREVIEW_PANEL_ESTIMATED_H = 220; // rough estimate for step-1 fitBounds
+
+  const fitMapToSections = useCallback((sectionsToFit, customPadding = null) => {
+    if (!mapRef.current || !sectionsToFit || sectionsToFit.length === 0) return;
+
+    let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
+    let hasPoints = false;
+
+    sectionsToFit.forEach(section => {
+        // Check segments (detailed geometry)
+        section.segments?.forEach(segment => {
+            segment.geometry?.coordinates?.forEach(coord => {
+                const [lng, lat] = coord;
+                if (lng < minLng) minLng = lng;
+                if (lng > maxLng) maxLng = lng;
+                if (lat < minLat) minLat = lat;
+                if (lat > maxLat) maxLat = lat;
+                hasPoints = true;
+            });
+        });
+        // Check points (markers) - crucial if no segments yet
+        section.points?.forEach(p => {
+             const lng = p.lng;
+             const lat = p.lat;
+             if (lng < minLng) minLng = lng;
+             if (lng > maxLng) maxLng = lng;
+             if (lat < minLat) minLat = lat;
+             if (lat > maxLat) maxLat = lat;
+             hasPoints = true;
+        });
+    });
+
+    if (hasPoints) {
+        // Add some padding/buffer if it's a single point or very small area
+        if (Math.abs(maxLng - minLng) < 0.0001 && Math.abs(maxLat - minLat) < 0.0001) {
+            const buffer = 0.01;
+            minLng -= buffer; maxLng += buffer;
+            minLat -= buffer; maxLat += buffer;
+        }
+
+        try {
+            mapRef.current.fitBounds(
+                [[minLng, minLat], [maxLng, maxLat]],
+                { padding: customPadding ?? 100, duration: 1000 }
+            );
+        } catch (e) {
+            console.error("Fit bounds error:", e);
+        }
+    }
+  }, []);
+
   const handlePreviewRoute = async (routeId) => {
     setIsLoading(true);
     setLoadingMsg('Loading Preview...');
-    
+
+    const isMobile = window.innerWidth < 768;
     // Mobile UX: Close sidebar immediately to show map
-    if (window.innerWidth < 768) {
+    if (isMobile) {
         setIsSearchOpen(false);
         setIsMenuOpen(false);
     }
+
+    // Mobile: step-1 padding uses estimated panel height so route lands in upper map area
+    const previewPadding = isMobile
+        ? { top: 60, bottom: MOBILE_PREVIEW_PANEL_ESTIMATED_H + 30, left: 40, right: 40 }
+        : null;
 
     try {
         const headers = {};
@@ -304,7 +381,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         const res = await fetch(`/api/routes/${routeId}`, { headers });
         if (!res.ok) throw new Error("Failed to load route data");
         const data = await res.json();
-        
+
         if (data.editor_state && data.editor_state.sections) {
              // 에디터로 저장된 루트: editor_state.sections 사용
              setPreviewRoute({
@@ -312,7 +389,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                  data: data,
                  sections: data.editor_state.sections
              });
-             fitMapToSections(data.editor_state.sections);
+             fitMapToSections(data.editor_state.sections, previewPadding);
         } else if (data.points && Array.isArray(data.points.lat) && data.points.lat.length >= 2) {
              // v1.0 columnar 포맷 (GPX 임포트 스크립트로 저장된 루트)
              const lats = data.points.lat;
@@ -339,8 +416,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                      startPointId: startPt.id,
                      endPointId: endPt.id,
                      geometry: { type: 'LineString', coordinates: coords },
-                     distance: (data.stats?.distance || 0) / 1000,
-                     ascent: data.stats?.ascent || 0,
+                     distance: (data.distance || 0) / 1000,
+                     ascent: data.elevation_gain || 0,
                      type: 'api',
                      surfaceSegments: displayFeatures
                  }],
@@ -348,7 +425,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
              }];
 
              setPreviewRoute({ id: data.route_id, data: data, sections: syntheticSections });
-             fitMapToSections(syntheticSections);
+             fitMapToSections(syntheticSections, previewPadding);
         } else {
              alert("Invalid route data for editor.");
         }
@@ -363,16 +440,16 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
   const confirmPreviewLoad = () => {
      if (!previewRoute) return;
-     
+
      // Check for unsaved changes
      if (sections.some(s => s.points.length > 0)) {
           if (!confirm("Current route will be discarded. Load this route?")) return;
      }
 
      const { data } = previewRoute;
+     const sectionsToLoad = previewRoute.sections;
 
-     // previewRoute.sections: editor_state 유무와 무관하게 handlePreviewRoute에서 이미 빌드됨
-     setSections(previewRoute.sections);
+     setSections(sectionsToLoad);
      setCurrentRouteId(data.route_id);
      setRouteName(data.title || '');
      setRouteDescription(data.description || '');
@@ -380,22 +457,36 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
      setRouteTags(data.tags || []);
      setRouteOwnerId(data.owner_id);
      setRouteStats(data.stats || { views: 0, downloads: 0 });
-     
+
      setHistory({ past: [], future: [] });
      setIsDirty(false);
-     
+
      // Close panels
      setIsMenuOpen(false);
      setIsSearchOpen(false);
-     
-     // Clear preview
+
+     // Clear preview state
      setPreviewRoute(null);
+     setMobilePreviewExpanded(false);
+     setIsElevationChartVisible(true);
+
+     // Wait for panel close + elevation chart open animations (~300ms) then fit
+     setTimeout(() => {
+         const isMobile = window.innerWidth < 768;
+         fitMapToSections(sectionsToLoad, {
+             top: 80,
+             bottom: 80,
+             left: isMobile ? 40 : 80,
+             right: isMobile ? 40 : 80,
+         });
+     }, 350);
   };
 
   const cancelPreview = (options = {}) => {
       const { reopenSearchOnMobile = true } = options;
       setPreviewRoute(null);
-      // Optionally fly back to current sections
+      setMobilePreviewExpanded(false);
+      setIsElevationChartVisible(true);
       if (sections.some(s => s.points.length > 0)) {
           fitMapToSections(sections);
       }
@@ -1500,6 +1591,16 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
       };
   }, [previewRoute, previewGeoJSON]);
 
+  // Mobile re-fit: on new preview load (120ms) or panel expand/collapse (400ms for animations)
+  React.useEffect(() => {
+      if (!previewRoute || window.innerWidth >= 768) return;
+      const delay = mobilePreviewExpanded ? 400 : 120;
+      const timer = setTimeout(() => {
+          const h = previewPanelMobileRef.current?.offsetHeight ?? MOBILE_PREVIEW_PANEL_ESTIMATED_H;
+          fitMapToSections(previewRoute.sections, { top: 60, bottom: h + 30, left: 40, right: 40 });
+      }, delay);
+      return () => clearTimeout(timer);
+  }, [previewRoute, mobilePreviewExpanded, fitMapToSections]);
 
 
   const openSaveModal = () => {
@@ -1579,55 +1680,6 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           setLoadingMsg('');
       }
   };
-
-  const fitMapToSections = useCallback((sectionsToFit) => {
-    if (!mapRef.current || !sectionsToFit || sectionsToFit.length === 0) return;
-
-    let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
-    let hasPoints = false;
-
-    sectionsToFit.forEach(section => {
-        // Check segments (detailed geometry)
-        section.segments?.forEach(segment => {
-            segment.geometry?.coordinates?.forEach(coord => {
-                const [lng, lat] = coord;
-                if (lng < minLng) minLng = lng;
-                if (lng > maxLng) maxLng = lng;
-                if (lat < minLat) minLat = lat;
-                if (lat > maxLat) maxLat = lat;
-                hasPoints = true;
-            });
-        });
-        // Check points (markers) - crucial if no segments yet
-        section.points?.forEach(p => {
-             const lng = p.lng;
-             const lat = p.lat;
-             if (lng < minLng) minLng = lng;
-             if (lng > maxLng) maxLng = lng;
-             if (lat < minLat) minLat = lat;
-             if (lat > maxLat) maxLat = lat;
-             hasPoints = true;
-        });
-    });
-
-    if (hasPoints) {
-        // Add some padding/buffer if it's a single point or very small area
-        if (Math.abs(maxLng - minLng) < 0.0001 && Math.abs(maxLat - minLat) < 0.0001) {
-            const buffer = 0.01;
-            minLng -= buffer; maxLng += buffer;
-            minLat -= buffer; maxLat += buffer;
-        }
-
-        try {
-            mapRef.current.fitBounds(
-                [[minLng, minLat], [maxLng, maxLat]],
-                { padding: 100, duration: 1000 }
-            );
-        } catch (e) {
-            console.error("Fit bounds error:", e);
-        }
-    }
-  }, []);
 
   const handleImportGPX = async (file) => {
       setIsLoading(true);
@@ -1985,12 +2037,125 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
         {/* Search Panel */}
         <div className={`
-            ${isSearchOpen ? 'w-80 border-r border-gray-800 pointer-events-auto shadow-2xl' : 'w-0'} 
+            ${isSearchOpen ? 'w-80 border-r border-gray-800 pointer-events-auto shadow-2xl' : 'w-0'}
             h-full bg-gray-900 overflow-hidden transition-all duration-300 ease-in-out
         `}>
              <div className="w-80 h-full"> {/* Inner Fixed Width Container */}
-                <SearchPanel onLoadRoute={handlePreviewRoute} />
+                <SearchPanel onLoadRoute={handlePreviewRoute} activePreviewId={previewRoute?.id ?? null} />
              </div>
+        </div>
+
+        {/* Desktop Preview Detail Panel (md+) - slides in next to search panel */}
+        <div className={`
+            hidden md:block
+            ${previewRoute ? 'w-80 border-r border-gray-800 pointer-events-auto' : 'w-0'}
+            h-full bg-gray-900 overflow-hidden transition-all duration-300 ease-in-out flex-shrink-0
+        `}>
+            {previewRoute && (
+            <div className="w-80 h-full flex flex-col">
+                {/* Fixed: Title + X + meta info */}
+                <div className="px-4 pt-4 pb-3 flex flex-col gap-3 shrink-0 border-b border-gray-800">
+                    {/* Number + Title + X */}
+                    <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                            {previewRoute.data.route_num && (
+                                <span className="text-[11px] text-gray-500 font-mono">#{previewRoute.data.route_num}</span>
+                            )}
+                            <h2 className="text-white font-bold text-base leading-snug mt-0.5">{previewRoute.data.title || 'Untitled Route'}</h2>
+                        </div>
+                        <button
+                            onClick={() => cancelPreview()}
+                            className="text-gray-500 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-800 shrink-0 mt-0.5"
+                            title="Close preview"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+
+                    {/* Author + Date */}
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                            {previewRoute.data.author_image
+                                ? <img src={previewRoute.data.author_image} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                                : <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center shrink-0">
+                                    <svg className="w-3.5 h-3.5 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/></svg>
+                                  </div>
+                            }
+                            <span className="text-sm text-gray-300 font-medium truncate">{previewRoute.data.author_name || '—'}</span>
+                        </div>
+                        <div className="text-right text-[11px] text-gray-500 font-mono shrink-0">
+                            {previewRoute.data.created_at && <div>{formatDate(previewRoute.data.created_at)}</div>}
+                            {previewRoute.data.updated_at && previewRoute.data.updated_at !== previewRoute.data.created_at && (
+                                <div className="text-[10px]">ed. {formatDate(previewRoute.data.updated_at)}</div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Tags */}
+                    {previewRoute.data.tags?.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                            {previewRoute.data.tags.map(tag => (
+                                <span key={tag} className="bg-gray-800 text-gray-300 text-[11px] px-2 py-0.5 rounded-full border border-gray-700">{tag}</span>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-gray-800/60 rounded-xl px-3 py-2.5">
+                            <div className="text-[10px] text-gray-500 font-medium mb-0.5">Distance</div>
+                            <div className="text-white font-bold text-sm font-mono">{previewDistKm.toFixed(1)}<span className="text-xs text-gray-400 font-normal ml-0.5">km</span></div>
+                        </div>
+                        <div className="bg-gray-800/60 rounded-xl px-3 py-2.5">
+                            <div className="text-[10px] text-gray-500 font-medium mb-0.5">Elevation</div>
+                            <div className="text-white font-bold text-sm font-mono">+{Math.round(previewAscentM)}<span className="text-xs text-gray-400 font-normal ml-0.5">m</span></div>
+                        </div>
+                    </div>
+
+                    {/* View/Download counts */}
+                    {(previewRoute.data.stats?.views > 0 || previewRoute.data.stats?.downloads > 0) && (
+                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                            <span className="flex items-center gap-1">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                {previewRoute.data.stats.views.toLocaleString()}
+                            </span>
+                            <span className="flex items-center gap-1">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                {previewRoute.data.stats.downloads.toLocaleString()}
+                            </span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Scrollable: Description only */}
+                {previewRoute.data.description ? (
+                    <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-3">
+                        <div className="prose prose-sm prose-invert max-w-none">
+                            <ReactMarkdown>{previewRoute.data.description}</ReactMarkdown>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex-1" />
+                )}
+
+                {/* Action Buttons */}
+                <div className="px-4 pb-4 pt-2 shrink-0 border-t border-gray-800 grid grid-cols-2 gap-3">
+                    <button
+                        onClick={() => cancelPreview()}
+                        className="py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-sm transition-all active:scale-[0.98]"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={confirmPreviewLoad}
+                        className="py-2.5 rounded-xl bg-riduck-primary hover:bg-riduck-primary/90 text-white font-bold text-sm shadow-lg shadow-riduck-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+                    >
+                        Load Route
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+                    </button>
+                </div>
+            </div>
+            )}
         </div>
       </div>
 
@@ -2001,7 +2166,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         {/* Map Area */}
         <div className="flex-1 relative">
                         {/* Top Right: Tools Container */}
-            <div className="absolute top-4 right-4 md:top-6 md:right-6 z-10 flex flex-col items-end gap-3 pointer-events-none">
+            <div className={`absolute top-4 right-4 md:top-6 md:right-6 z-10 flex-col items-end gap-3 pointer-events-none ${mobilePreviewExpanded ? 'hidden md:flex' : 'flex'}`}>
                 {/* 1. Straight Line Mode Toggle */}
                 <button 
                     onClick={() => setIsMockMode(!isMockMode)}
@@ -2060,20 +2225,29 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             </div>
 
             {/* Stats Overlay */}
-            <div className="absolute top-4 left-4 md:top-6 md:left-6 z-10 bg-gray-900/90 backdrop-blur-md px-5 py-2 md:px-8 md:py-3 rounded-2xl border border-gray-700 shadow-2xl flex gap-4 md:gap-8 items-center pointer-events-none transition-all">
+            <div className={`absolute top-4 left-4 md:top-6 md:left-6 z-10 backdrop-blur-md px-5 py-2 md:px-8 md:py-3 rounded-2xl border shadow-2xl flex gap-4 md:gap-8 items-center pointer-events-none transition-all ${previewRoute ? 'bg-riduck-primary/15 border-riduck-primary/40' : 'bg-gray-900/90 border-gray-700'}`}>
+                {previewRoute && (
+                    <span className="text-riduck-primary text-[9px] md:text-[10px] font-bold uppercase tracking-wider absolute -top-2.5 left-3 bg-gray-900 px-1.5 rounded">Preview</span>
+                )}
                 <div className="text-center">
                     <p className="text-[8px] md:text-[10px] text-gray-400 uppercase font-bold tracking-wider">Distance</p>
-                    <p className="text-lg md:text-2xl font-mono text-white font-bold">{totalDist.toFixed(1)}<span className="text-xs md:text-sm text-gray-500 ml-0.5 font-sans">km</span></p>
+                    <p className="text-lg md:text-2xl font-mono text-white font-bold">
+                        {previewRoute ? previewDistKm.toFixed(1) : totalDist.toFixed(1)}
+                        <span className="text-xs md:text-sm text-gray-500 ml-0.5 font-sans">km</span>
+                    </p>
                 </div>
                 <div className="w-px h-6 md:h-8 bg-gray-700"></div>
                 <div className="text-center">
                     <p className="text-[8px] md:text-[10px] text-gray-400 uppercase font-bold tracking-wider">Ascent</p>
-                    <p className="text-lg md:text-2xl font-mono text-white font-bold">{Math.round(totalAscent)}<span className="text-xs md:text-sm text-gray-500 ml-0.5 font-sans">m</span></p>
+                    <p className="text-lg md:text-2xl font-mono text-white font-bold">
+                        +{previewRoute ? Math.round(previewAscentM) : Math.round(totalAscent)}
+                        <span className="text-xs md:text-sm text-gray-500 ml-0.5 font-sans">m</span>
+                    </p>
                 </div>
             </div>
 
             {/* Mobile Only: Sidebar Toggles (Below Stats) */}
-            <div className="absolute top-[80px] left-4 z-10 flex gap-2 md:hidden">
+            <div className={`absolute top-[80px] left-4 z-10 gap-2 md:hidden ${mobilePreviewExpanded ? 'hidden' : 'flex'}`}>
                 <button 
                     onClick={handleNewRoute}
                     disabled={isClean}
@@ -2365,39 +2539,120 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 )}
             </Map>
 
-            {/* Preview Control UI (Floating Above Map) */}
+            {/* Preview Control UI — Mobile only (floating bottom sheet) */}
             {previewRoute && (
-                <div className="absolute inset-x-0 bottom-3 md:bottom-6 z-30 flex justify-center px-3 md:px-6 pointer-events-none animate-fadeInUp">
-                    <div className="pointer-events-auto w-full max-w-[360px] md:max-w-[440px] bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 shadow-2xl rounded-2xl p-4">
-                        <div className="flex flex-col gap-4">
-                            {/* Header Info */}
-                            <div className="flex justify-between items-start gap-3">
+                <div
+                    ref={previewPanelMobileRef}
+                    className="md:hidden absolute inset-x-0 bottom-0 z-30 pointer-events-auto animate-fadeInUp"
+                    onClick={() => { setIsSearchOpen(false); setIsMenuOpen(false); }}
+                >
+                    <div className={`bg-gray-900/97 backdrop-blur-xl border-t border-gray-700/60 shadow-2xl rounded-t-2xl flex flex-col ${mobilePreviewExpanded ? 'max-h-[57vh] overflow-hidden' : ''}`}>
+                        {/* Drag handle */}
+                        <div className="w-8 h-1 bg-gray-700 rounded-full mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
+
+                        {/* Fixed info area */}
+                        <div className="px-4 pt-4 pb-3 flex flex-col gap-3 shrink-0">
+                            {/* Title + X */}
+                            <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
-                                    <h3 className="text-white font-bold text-base md:text-lg leading-tight truncate">{previewRoute.data.title || 'Untitled Route'}</h3>
-                                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-400 font-mono">
-                                        <span>{previewDistKm.toFixed(1)}km</span>
-                                        <span className="w-1 h-1 rounded-full bg-gray-600"></span>
-                                        <span>+{Math.round(previewAscentM)}m</span>
-                                    </div>
+                                    {previewRoute.data.route_num && (
+                                        <span className="text-[11px] text-gray-500 font-mono">#{previewRoute.data.route_num}</span>
+                                    )}
+                                    <h3 className="text-white font-bold text-base leading-snug">{previewRoute.data.title || 'Untitled Route'}</h3>
                                 </div>
-                                <span className="shrink-0 bg-riduck-primary/20 text-riduck-primary text-[10px] font-bold px-2 py-1 rounded border border-riduck-primary/30 uppercase tracking-wider">Preview</span>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); cancelPreview(); }}
+                                    className="text-gray-500 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-800 shrink-0 mt-0.5"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
                             </div>
 
-                            {/* Actions */}
-                            <div className="grid grid-cols-2 gap-3">
-                                <button 
-                                    onClick={() => cancelPreview()}
-                                    className="py-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-sm transition-all active:scale-[0.98]"
-                                >
-                                    Cancel
-                                </button>
-                                <button 
-                                    onClick={confirmPreviewLoad}
-                                    className="py-3 rounded-xl bg-riduck-primary hover:bg-riduck-primary/90 text-white font-bold text-sm shadow-lg shadow-riduck-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-                                >
-                                    Load Route
-                                </button>
+                            {/* Author + Date */}
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                    {previewRoute.data.author_image
+                                        ? <img src={previewRoute.data.author_image} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
+                                        : <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center shrink-0">
+                                            <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/></svg>
+                                          </div>
+                                    }
+                                    <span className="text-sm text-gray-400 truncate">{previewRoute.data.author_name || '—'}</span>
+                                </div>
+                                <div className="text-right text-xs text-gray-500 font-mono shrink-0">
+                                    {previewRoute.data.created_at && <div>{formatDate(previewRoute.data.created_at)}</div>}
+                                    {previewRoute.data.updated_at && previewRoute.data.updated_at !== previewRoute.data.created_at && (
+                                        <div className="text-[11px]">ed. {formatDate(previewRoute.data.updated_at)}</div>
+                                    )}
+                                </div>
                             </div>
+
+                            {/* Stats */}
+                            <div className="flex items-center gap-3 text-sm font-mono">
+                                <span className="text-white font-bold">{previewDistKm.toFixed(1)}<span className="text-gray-400 font-normal ml-0.5">km</span></span>
+                                <span className="text-gray-600">·</span>
+                                <span className="text-white font-bold">+{Math.round(previewAscentM)}<span className="text-gray-400 font-normal ml-0.5">m</span></span>
+                                {previewRoute.data.stats?.views > 0 && (
+                                    <>
+                                        <span className="text-gray-600">·</span>
+                                        <span className="text-gray-400 flex items-center gap-0.5">
+                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                            {previewRoute.data.stats.views.toLocaleString()}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Tags (always visible) */}
+                            {previewRoute.data.tags?.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5">
+                                    {previewRoute.data.tags.map(tag => (
+                                        <span key={tag} className="bg-gray-800 text-gray-300 text-xs px-2 py-0.5 rounded-full border border-gray-700">{tag}</span>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Show detail / Hide */}
+                            {previewRoute.data.description && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const next = !mobilePreviewExpanded;
+                                        setMobilePreviewExpanded(next);
+                                        setIsElevationChartVisible(!next);
+                                    }}
+                                    className="text-sm text-riduck-primary font-medium flex items-center gap-1"
+                                >
+                                    {mobilePreviewExpanded ? 'Hide' : 'Show detail'}
+                                    <svg className={`w-3 h-3 transition-transform ${mobilePreviewExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Scrollable: Description only */}
+                        {mobilePreviewExpanded && previewRoute.data.description && (
+                            <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pb-2 min-h-0">
+                                <div className="prose prose-sm prose-invert max-w-none text-sm">
+                                    <ReactMarkdown>{previewRoute.data.description}</ReactMarkdown>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="px-4 pb-4 pt-2 grid grid-cols-2 gap-3 shrink-0 border-t border-gray-800">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); cancelPreview(); }}
+                                className="py-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-sm transition-all active:scale-[0.98]"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); confirmPreviewLoad(); }}
+                                className="py-3 rounded-xl bg-riduck-primary hover:bg-riduck-primary/90 text-white font-bold text-sm shadow-lg shadow-riduck-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+                            >
+                                Load Route
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -2406,58 +2661,60 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
         {/* Elevation Chart Panel (Collapsible) */}
         <div className="relative z-20 shrink-0">
-            <button
-                type="button"
-                onClick={() => setIsElevationChartVisible(prev => !prev)}
-                aria-expanded={isElevationChartVisible}
-                aria-controls="elevation-chart-panel"
-                className="group absolute left-1/2 top-0 z-30 -translate-x-1/2 -translate-y-full pointer-events-auto border-0 bg-transparent p-0 text-[11px] font-bold text-gray-200 shadow-xl transition hover:text-white"
-            >
-                <svg
-                    aria-hidden="true"
-                    viewBox="0 0 120 40"
-                    preserveAspectRatio="none"
-                    className="absolute inset-0 h-full w-full overflow-visible"
-                >
-                    <path
-                        d="M26 2 Q20 2 19 8 L8 31 Q6 37 12 37 L108 37 Q114 37 112 31 L101 8 Q100 2 94 2 Z"
-                        className="fill-gray-900/95 stroke-gray-700 transition-colors group-hover:stroke-riduck-primary"
-                        strokeWidth="1.5"
-                    />
-                </svg>
-                <span className="relative inline-flex items-center gap-1.5 px-7 py-1.5">
-                    {isElevationChartVisible ? 'Hide Elevation' : 'Show Elevation'}
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        className={`h-4 w-4 transition-transform duration-300 ${isElevationChartVisible ? '' : 'rotate-180'}`}
-                    >
-                        <path
-                            fillRule="evenodd"
-                            d="M4.47 7.97a.75.75 0 011.06 0L10 12.44l4.47-4.47a.75.75 0 111.06 1.06l-5 5a.75.75 0 01-1.06 0l-5-5a.75.75 0 010-1.06z"
-                            clipRule="evenodd"
-                        />
-                    </svg>
-                </span>
-            </button>
-
             <div
                 id="elevation-chart-panel"
                 className={`relative overflow-hidden bg-gray-900/90 backdrop-blur-md transition-all duration-300 ease-in-out ${
-                    isElevationChartVisible ? 'h-40 md:h-52 border-t border-gray-800 opacity-100' : 'h-0 border-t border-transparent opacity-0'
+                    isElevationChartVisible ? 'h-40 md:h-52 opacity-100' : 'h-0 opacity-0'
                 }`}
             >
-                <div className={`h-full px-4 transition-all duration-300 ${isElevationChartVisible ? 'pb-6 pt-2' : 'pb-0 pt-0'}`}>
+                <div className={`h-full px-4 transition-all duration-300 ${isElevationChartVisible ? 'pt-4 pb-0' : 'pt-0 pb-0'}`}>
                     <ElevationChart
-                        segments={sections.flatMap(s => s.segments)}
-                        checkpoints={sectionsWithPointDistances.flatMap(s => s.points)}
+                        segments={previewRoute
+                            ? previewRoute.sections.flatMap(s => s.segments)
+                            : sections.flatMap(s => s.segments)}
+                        checkpoints={previewRoute
+                            ? []
+                            : sectionsWithPointDistances.flatMap(s => s.points)}
                         onHoverPoint={handleHoverPoint}
                         onSelectPoint={handleChartPointSelect}
                         mapHoverCoord={mapHoverCoord}
                     />
                 </div>
             </div>
+
+            <button
+                type="button"
+                onClick={() => setIsElevationChartVisible(prev => !prev)}
+                aria-expanded={isElevationChartVisible}
+                aria-controls="elevation-chart-panel"
+                className="group flex w-full items-center justify-center gap-1.5 border-t border-gray-800 bg-gray-900/95 py-1.5 text-[11px] font-bold text-gray-400 transition hover:bg-gray-800/80 hover:text-white"
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className={`h-3.5 w-3.5 transition-transform duration-300 ${isElevationChartVisible ? '' : 'rotate-180'}`}
+                >
+                    <path
+                        fillRule="evenodd"
+                        d="M4.47 7.97a.75.75 0 011.06 0L10 12.44l4.47-4.47a.75.75 0 111.06 1.06l-5 5a.75.75 0 01-1.06 0l-5-5a.75.75 0 010-1.06z"
+                        clipRule="evenodd"
+                    />
+                </svg>
+                {isElevationChartVisible ? 'Hide Elevation' : 'Show Elevation'}
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className={`h-3.5 w-3.5 transition-transform duration-300 ${isElevationChartVisible ? '' : 'rotate-180'}`}
+                >
+                    <path
+                        fillRule="evenodd"
+                        d="M4.47 7.97a.75.75 0 011.06 0L10 12.44l4.47-4.47a.75.75 0 111.06 1.06l-5 5a.75.75 0 01-1.06 0l-5-5a.75.75 0 010-1.06z"
+                        clipRule="evenodd"
+                    />
+                </svg>
+            </button>
         </div>
 
         {/* Save Route Modal */}

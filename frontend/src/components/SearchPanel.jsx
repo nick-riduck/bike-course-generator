@@ -16,7 +16,7 @@ const formatRelativeTime = (dateString) => {
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
-const SearchPanel = ({ onLoadRoute }) => {
+const SearchPanel = ({ onLoadRoute, activePreviewId }) => {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'my', 'public'
@@ -165,7 +165,11 @@ const SearchPanel = ({ onLoadRoute }) => {
   const renderRouteCard = (route, isMyRoute) => (
       <div
           onClick={() => onLoadRoute(route.id)}
-          className="p-0 bg-gray-800/40 hover:bg-gray-800 border border-gray-700/50 hover:border-riduck-primary rounded-xl cursor-pointer transition-all group overflow-hidden flex flex-col relative"
+          className={`p-0 bg-gray-800/40 hover:bg-gray-800 border rounded-xl cursor-pointer transition-all group overflow-hidden flex flex-col relative ${
+              activePreviewId === route.id
+                  ? 'border-riduck-primary bg-gray-800 ring-1 ring-riduck-primary/30'
+                  : 'border-gray-700/50 hover:border-riduck-primary'
+          }`}
       >
           {/* Thumbnail Area */}
           <div className="h-20 bg-[#111827] relative overflow-hidden border-b border-gray-800 shrink-0">

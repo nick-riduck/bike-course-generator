@@ -632,9 +632,10 @@ async def get_route_detail(route_id: int, authorization: str = Header(None)):
         # Join with users to get author info for masking
         cur.execute(
             """
-            SELECT r.id, r.user_id, r.title, r.description, r.status, r.data_file_path,
-                   r.distance, r.elevation_gain,
-                   u.username as author_name, u.email as author_email
+            SELECT r.id, r.route_num, r.user_id, r.title, r.description, r.status, r.data_file_path,
+                   r.distance, r.elevation_gain, r.created_at, r.updated_at,
+                   u.username as author_name, u.email as author_email,
+                   u.profile_image_url as author_image
             FROM routes r
             LEFT JOIN users u ON r.user_id = u.id
             WHERE r.id = %s AND r.status != 'DELETED'
@@ -713,13 +714,17 @@ async def get_route_detail(route_id: int, authorization: str = Header(None)):
         # Merge DB Metadata
         full_data.update({
             "route_id": row['id'],
+            "route_num": row['route_num'],
             "owner_id": row['user_id'],
             "author_name": author_name,
+            "author_image": row['author_image'],
             "title": row['title'],
             "description": row['description'],
             "status": row['status'],
             "distance": row['distance'],
             "elevation_gain": row['elevation_gain'],
+            "created_at": row['created_at'].isoformat() if row['created_at'] else None,
+            "updated_at": row['updated_at'].isoformat() if row['updated_at'] else None,
             "tags": tags,
             "stats": {
                 "views": stats['view_count'] if stats else 0,

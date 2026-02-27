@@ -31,6 +31,7 @@ from __future__ import annotations
 import sys
 import os
 import re
+import io
 import json
 import uuid
 import math
@@ -46,6 +47,61 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "backend"))
 
 from gpx_loader import GpxLoader, TrackPoint  # noqa: E402
+
+try:
+    from PIL import Image, ImageDraw
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
+    print("[WARN] Pillow not installed — thumbnails will be skipped. pip install Pillow")
+
+LOCAL_THUMBNAIL_DIR = PROJECT_ROOT / "backend" / "storage" / "thumbnails"
+
+
+def generate_thumbnail_local(lats: List[float], lons: List[float], route_uuid: str) -> Optional[str]:
+    """PIL로 썸네일 생성 후 backend/storage/thumbnails/{uuid}.png 에 저장. URL 반환."""
+    if not PIL_AVAILABLE or len(lats) < 2:
+        return None
+    try:
+        min_lat, max_lat = min(lats), max(lats)
+        min_lon, max_lon = min(lons), max(lons)
+
+        step = max(1, len(lats) // 500)
+        s_lats = lats[::step]
+        s_lons = lons[::step]
+        if s_lats[-1] != lats[-1]:
+            s_lats.append(lats[-1])
+            s_lons.append(lons[-1])
+
+        W, H, padding = 600, 240, 40
+        img = Image.new('RGB', (W, H), color='#111827')
+        draw = ImageDraw.Draw(img)
+
+        lat_range = max(max_lat - min_lat, 0.0001)
+        lon_range = max(max_lon - min_lon, 0.0001)
+        scale = min((W - 2 * padding) / lon_range, (H - 2 * padding) / lat_range)
+        off_x = (W - lon_range * scale) / 2
+        off_y = (H - lat_range * scale) / 2
+
+        pts = [(off_x + (lon - min_lon) * scale,
+                off_y + (max_lat - lat) * scale)
+               for lat, lon in zip(s_lats, s_lons)]
+
+        if len(pts) > 1:
+            draw.line(pts, fill='#2a9e92', width=5, joint='curve')
+            r = 5
+            draw.ellipse((pts[0][0]-r, pts[0][1]-r, pts[0][0]+r, pts[0][1]+r),
+                         fill='#10B981', outline='white', width=1)
+            draw.ellipse((pts[-1][0]-r, pts[-1][1]-r, pts[-1][0]+r, pts[-1][1]+r),
+                         fill='#EF4444', outline='white', width=1)
+
+        LOCAL_THUMBNAIL_DIR.mkdir(parents=True, exist_ok=True)
+        out_path = LOCAL_THUMBNAIL_DIR / f"{route_uuid}.png"
+        img.save(str(out_path), format='PNG')
+        return f"/api/thumbnails/{route_uuid}.png"
+    except Exception as e:
+        print(f"[WARN] Thumbnail generation failed: {e}")
+        return None
 
 # ============================================================
 # 경로 / 상수
@@ -424,14 +480,18 @@ def _process_gpx(
 
     data_file_path = f"routes/{route_uuid}.json"
 
+    # 4. 썸네일 생성
+    thumbnail_url = generate_thumbnail_local(lats, lons, route_uuid)
+
     # 5. 제목 결정 (멀티 GPX 폴더는 파일명으로 구분)
     title = gpx_path.stem if is_multi else route_info.get("title", gpx_path.parent.name)
 
     n_pts  = len(lats)
     n_segs = len(route_json.get("segments", {}).get("p_start", []))
+    thumb_label = "thumb=OK" if thumbnail_url else "thumb=SKIP"
     print(
         f"OK [{mode_label}] "
-        f"dist={distance_m}m ascent={ascent_m}m pts={n_pts} segs={n_segs}"
+        f"dist={distance_m}m ascent={ascent_m}m pts={n_pts} segs={n_segs} {thumb_label}"
     )
 
     return {
@@ -441,6 +501,7 @@ def _process_gpx(
         "status":           route_info.get("status", "PUBLIC"),
         "is_verified":      route_info.get("is_verified", False),
         "data_file_path":   data_file_path,
+        "thumbnail_url":    thumbnail_url,
         "summary_path_wkt": _linestring_wkt(lats, lons),
         "start_point_wkt":  _point_wkt(lats[0], lons[0]),
         "distance_m":       distance_m,
@@ -525,11 +586,12 @@ def _generate_sql(
         slp = _esc(r["summary_path_wkt"])
         stp = _esc(r["start_point_wkt"])
 
+        thumb_val = f"'{_esc(r['thumbnail_url'])}'" if r.get('thumbnail_url') else 'NULL'
         lines += [
             f"-- {r['title']}",
             "INSERT INTO routes",
             "  (uuid, user_id, title, description, status, is_verified,",
-            "   data_file_path, summary_path, start_point, distance, elevation_gain)",
+            "   data_file_path, thumbnail_url, summary_path, start_point, distance, elevation_gain)",
             "SELECT",
             f"  '{r['uuid']}',",
             f"  id,",
@@ -538,6 +600,7 @@ def _generate_sql(
             f"  '{r['status']}',",
             f"  {'TRUE' if r['is_verified'] else 'FALSE'},",
             f"  '{_esc(r['data_file_path'])}',",
+            f"  {thumb_val},",
             f"  ST_GeomFromText('{slp}', 4326),",
             f"  ST_GeomFromText('{stp}', 4326),",
             f"  {r['distance_m']},",
