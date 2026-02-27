@@ -156,6 +156,112 @@ async def create_route(route: RouteCreateRequest, authorization: str = Header(No
         print(f"Save Route Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/nearby")
+async def get_nearby_routes(
+    lat: float,
+    lon: float,
+    radius: float = 5.0, # km
+    limit: int = 7
+):
+    conn = get_db_conn()
+    cur = conn.cursor()
+    try:
+        radius_meters = radius * 1000
+
+        # =====================================================================
+        # [GIS 공간 쿼리 패턴] Hybrid Query Pattern - 반드시 이 방식을 사용할 것
+        # =====================================================================
+        # DB 컬럼은 GEOMETRY(4326) 타입으로 저장됨 (docs/db/02_routes_and_segments.md)
+        #
+        # ❌ 잘못된 방식 - 런타임 캐스팅만 사용:
+        #    ST_DWithin(summary_path::geography, center::geography, radius_m)
+        #    → GIST 인덱스를 전혀 사용하지 못함 → 풀스캔 → ~558ms (benchmark 실측)
+        #
+        # ✅ 올바른 방식 - Hybrid 2단계 필터:
+        #    Step 1 (Coarse): ST_DWithin(geom_col, center_geom, radius_deg)
+        #                     GEOMETRY degree 단위 비교 → GIST 인덱스 활용 → ~0.63ms
+        #    Step 2 (Precise): ST_DWithin(geom_col::geography, center_geog, radius_m)
+        #                      GEOGRAPHY meter 단위 정밀 검증 → ~1.2ms 최종
+        #
+        # radius_deg: 미터 반경을 degree로 변환 (1도 ≈ 111km), 15% 버퍼로 Step1 누락 방지
+        # =====================================================================
+        radius_deg = (radius_meters / 1000) / 111.0 * 1.15
+
+        query = """
+            WITH center AS (
+                SELECT
+                    ST_SetSRID(ST_MakePoint(%s, %s), 4326) AS geom,
+                    ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography AS geog
+            )
+            SELECT
+                r.id, r.title, r.distance, r.elevation_gain,
+                ST_AsGeoJSON(r.summary_path) as geojson,
+                r.thumbnail_url,
+                COALESCE(rs.download_count, 0) as download_count
+            FROM center c
+            CROSS JOIN routes r
+            LEFT JOIN route_stats rs ON rs.route_id = r.id
+            WHERE r.status = 'PUBLIC'
+            -- [Step1] GEOMETRY bbox: GIST 인덱스로 후보군 빠르게 추출
+            AND ST_DWithin(r.summary_path, c.geom, %s)
+            -- [Step2] GEOGRAPHY exact: 정확한 meter 단위로 정밀 필터
+            AND ST_DWithin(r.summary_path::geography, c.geog, %s)
+            -- Loop 코스 (시작~끝 500m 이내): Step1/2 통과 시 자동 포함
+            -- Linear 코스 (시작 또는 끝점이 반경 내에 있어야 함)
+            AND (
+                ST_Distance(r.start_point::geography, ST_EndPoint(r.summary_path)::geography) < 500
+                OR (
+                    ST_DWithin(r.start_point, c.geom, %s)
+                    AND ST_DWithin(r.start_point::geography, c.geog, %s)
+                )
+                OR (
+                    ST_DWithin(ST_EndPoint(r.summary_path), c.geom, %s)
+                    AND ST_DWithin(ST_EndPoint(r.summary_path)::geography, c.geog, %s)
+                )
+            )
+            ORDER BY download_count DESC, r.created_at DESC
+            LIMIT %s
+        """
+        # (lon, lat) x2: CTE geom/geog 각각
+        # radius_deg, radius_m: summary_path Step1/2
+        # radius_deg, radius_m: start_point Step1/2
+        # radius_deg, radius_m: end_point Step1/2
+        cur.execute(query, (
+            lon, lat, lon, lat,
+            radius_deg, radius_meters,
+            radius_deg, radius_meters,
+            radius_deg, radius_meters,
+            limit
+        ))
+        rows = cur.fetchall()
+
+        # Power zone colors (Z1 gray → Z7 purple)
+        ZONE_COLORS = ['#9CA3AF', '#3B82F6', '#22C55E', '#EAB308', '#F97316', '#EF4444', '#A855F7']
+
+        features = []
+        for idx, row in enumerate(rows):
+            features.append({
+                "type": "Feature",
+                "geometry": json.loads(row['geojson']) if row['geojson'] else None,
+                "properties": {
+                    "id": row['id'],
+                    "title": row['title'],
+                    "distance": row['distance'],
+                    "elevation_gain": row['elevation_gain'],
+                    "thumbnail_url": row['thumbnail_url'],
+                    "zone_color": ZONE_COLORS[idx % 7]
+                }
+            })
+            
+        return {"type": "FeatureCollection", "features": features}
+
+    except Exception as e:
+        print(f"Nearby Routes Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+
 @router.get("")
 async def search_routes(
     authorization: str = Header(None),

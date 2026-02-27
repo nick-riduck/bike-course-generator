@@ -181,6 +181,12 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const [isPlaceSearchOpen, setIsPlaceSearchOpen] = useState(false);
   const [placeSearchQuery, setPlaceSearchQuery] = useState('');
 
+  // Nearby Routes State
+  const [isNearbyMode, setIsNearbyMode] = useState(false);
+  const [nearbyRoutes, setNearbyRoutes] = useState(null);
+  const [nearbyCenter, setNearbyCenter] = useState(null); // { lat, lng, radiusKm }
+  const nearbyDebounceRef = useRef(null);
+
   // Long Press State for Mobile
   const longPressTimerRef = useRef(null);
   const isLongPressRef = useRef(false);
@@ -191,6 +197,69 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const previewInvalidLoggedRef = useRef(false);
   const dragPreviewInvalidLoggedRef = useRef(false);
   const previewPanelMobileRef = useRef(null);
+
+  const makeCircleGeoJSON = (lat, lng, radiusKm, steps = 64) => {
+    const coords = [];
+    const dx = radiusKm / (111.32 * Math.cos(lat * Math.PI / 180));
+    const dy = radiusKm / 110.574;
+    for (let i = 0; i <= steps; i++) {
+      const angle = (i / steps) * 2 * Math.PI;
+      coords.push([lng + dx * Math.cos(angle), lat + dy * Math.sin(angle)]);
+    }
+    return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [coords] } };
+  };
+
+  const fetchNearbyRoutes = useCallback(async () => {
+    if (!mapRef.current) return;
+    const map = mapRef.current.getMap ? mapRef.current.getMap() : mapRef.current;
+    if (!map) return;
+
+    const center = map.getCenter();
+    const zoom = map.getZoom();
+
+    if (zoom < 9) {
+        setNearbyRoutes(null);
+        setNearbyCenter(null);
+        return;
+    }
+
+    // zoom 레벨에 따라 검색 반경 조정
+    const radius = zoom >= 13 ? 3 : zoom >= 12 ? 5 : zoom >= 11 ? 8 : zoom >= 10 ? 15 : 30;
+
+    setNearbyCenter({ lat: center.lat, lng: center.lng, radiusKm: radius });
+
+    try {
+        const res = await fetch(`/api/routes/nearby?lat=${center.lat}&lon=${center.lng}&radius=${radius}&limit=7`);
+        if (res.ok) {
+            const data = await res.json();
+            setNearbyRoutes(data);
+        }
+    } catch (e) {
+        console.error("Failed to fetch nearby routes:", e);
+    }
+  }, []);
+
+  const toggleNearby = () => {
+      setIsNearbyMode(prev => {
+          const next = !prev;
+          if (next) {
+              fetchNearbyRoutes();
+          } else {
+              setNearbyRoutes(null);
+              setNearbyCenter(null);
+          }
+          return next;
+      });
+  };
+
+  const handleMapMoveEnd = (evt) => {
+      if (isNearbyMode) {
+          if (nearbyDebounceRef.current) clearTimeout(nearbyDebounceRef.current);
+          nearbyDebounceRef.current = setTimeout(() => {
+              fetchNearbyRoutes();
+          }, 500); // 500ms debounce
+      }
+  };
 
   const handleHoverPoint = useCallback((coord) => setHoveredCoord(coord), []);
 
@@ -993,6 +1062,20 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const handleMapClick = async (e) => {
     if (previewRoute) {
         cancelPreview({ reopenSearchOnMobile: false });
+        return;
+    }
+
+    // Check for Nearby Route Click (ALWAYS check this first if layer exists)
+    if (e.features) {
+        const nearbyFeature = e.features.find(f => f.layer.id === 'nearby-routes-layer');
+        if (nearbyFeature) {
+            handlePreviewRoute(nearbyFeature.properties.id);
+            return;
+        }
+    }
+
+    // If Nearby Mode is ON, DO NOT create points. Just return.
+    if (isNearbyMode) {
         return;
     }
 
@@ -1998,6 +2081,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         onImportGPX={handleImportGPX}
         onExportGPX={handleOpenExportModal}
         isClean={isClean}
+        isNearbyMode={isNearbyMode}
+        onToggleNearby={toggleNearby}
       />
 
       {/* 2. Panels Container (Stackable) */}
@@ -2168,7 +2253,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                         {/* Top Right: Tools Container */}
             <div className={`absolute top-4 right-4 md:top-6 md:right-6 z-10 flex-col items-end gap-3 pointer-events-none ${mobilePreviewExpanded ? 'hidden md:flex' : 'flex'}`}>
                 {/* 1. Straight Line Mode Toggle */}
-                <button 
+                {!isNearbyMode && <button
                     onClick={() => setIsMockMode(!isMockMode)}
                     className={`pointer-events-auto flex items-center justify-between gap-2 md:gap-4 px-3 py-2 md:px-5 md:py-3 rounded-2xl border shadow-xl backdrop-blur-md transition-all duration-300 ${
                         isMockMode 
@@ -2190,7 +2275,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     <div className={`w-8 h-4 md:w-10 md:h-5 rounded-full relative transition-colors flex-shrink-0 ${isMockMode ? 'bg-black/20' : 'bg-gray-700'}`}>
                         <div className={`absolute top-0.5 left-0.5 w-3 h-3 md:w-4 md:h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${isMockMode ? 'translate-x-4 md:translate-x-5' : 'translate-x-0'}`} />
                     </div>
-                </button>
+                </button>}
 
                 {/* 2. Place Search Bar (Floating) */}
                 <div className={`pointer-events-auto flex items-center bg-gray-900/90 backdrop-blur-md border border-gray-700 shadow-xl rounded-full transition-all duration-300 ease-in-out h-10 md:h-12 overflow-hidden ${isPlaceSearchOpen ? 'w-64 px-4' : 'w-10 md:w-12 justify-center'}`}>
@@ -2224,27 +2309,61 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 </div>
             </div>
 
-            {/* Stats Overlay */}
-            <div className={`absolute top-4 left-4 md:top-6 md:left-6 z-10 backdrop-blur-md px-5 py-2 md:px-8 md:py-3 rounded-2xl border shadow-2xl flex gap-4 md:gap-8 items-center pointer-events-none transition-all ${previewRoute ? 'bg-riduck-primary/15 border-riduck-primary/40' : 'bg-gray-900/90 border-gray-700'}`}>
-                {previewRoute && (
-                    <span className="text-riduck-primary text-[9px] md:text-[10px] font-bold uppercase tracking-wider absolute -top-2.5 left-3 bg-gray-900 px-1.5 rounded">Preview</span>
-                )}
-                <div className="text-center">
-                    <p className="text-[8px] md:text-[10px] text-gray-400 uppercase font-bold tracking-wider">Distance</p>
-                    <p className="text-lg md:text-2xl font-mono text-white font-bold">
-                        {previewRoute ? previewDistKm.toFixed(1) : totalDist.toFixed(1)}
-                        <span className="text-xs md:text-sm text-gray-500 ml-0.5 font-sans">km</span>
-                    </p>
+            {/* Stats Overlay / Nearby Mode Badge */}
+            {isNearbyMode ? (
+                <div className="absolute top-4 left-4 md:top-6 md:left-6 z-10 flex items-center gap-2">
+                    <div className="backdrop-blur-md bg-blue-500/15 border border-blue-400/40 px-4 py-2 md:px-6 md:py-3 rounded-2xl shadow-2xl pointer-events-none">
+                        <p className="text-[9px] md:text-[10px] text-blue-300 uppercase font-bold tracking-wider mb-0.5">탐색 모드</p>
+                        <p className="text-sm md:text-base font-bold text-white leading-none">
+                            반경 {nearbyCenter ? nearbyCenter.radiusKm : '—'}km
+                            <span className="text-[10px] md:text-xs text-blue-300 font-normal ml-1.5">인기순 7개</span>
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => {
+                            if (!navigator.geolocation) return;
+                            navigator.geolocation.getCurrentPosition(
+                                (pos) => {
+                                    const { latitude, longitude } = pos.coords;
+                                    const map = mapRef.current?.getMap ? mapRef.current.getMap() : mapRef.current;
+                                    if (map) {
+                                        map.flyTo({ center: [longitude, latitude], zoom: Math.max(map.getZoom(), 12), duration: 1000 });
+                                    }
+                                },
+                                () => alert('위치 정보를 가져올 수 없습니다.')
+                            );
+                        }}
+                        className="pointer-events-auto p-2.5 md:p-3 rounded-2xl backdrop-blur-md bg-blue-500/15 border border-blue-400/40 text-blue-300 hover:bg-blue-500/30 hover:text-white shadow-2xl transition-all"
+                        title="내 위치로 이동"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </button>
                 </div>
-                <div className="w-px h-6 md:h-8 bg-gray-700"></div>
-                <div className="text-center">
-                    <p className="text-[8px] md:text-[10px] text-gray-400 uppercase font-bold tracking-wider">Ascent</p>
-                    <p className="text-lg md:text-2xl font-mono text-white font-bold">
-                        +{previewRoute ? Math.round(previewAscentM) : Math.round(totalAscent)}
-                        <span className="text-xs md:text-sm text-gray-500 ml-0.5 font-sans">m</span>
-                    </p>
+            ) : (
+                <div className={`absolute top-4 left-4 md:top-6 md:left-6 z-10 backdrop-blur-md px-5 py-2 md:px-8 md:py-3 rounded-2xl border shadow-2xl flex gap-4 md:gap-8 items-center pointer-events-none transition-all ${previewRoute ? 'bg-riduck-primary/15 border-riduck-primary/40' : 'bg-gray-900/90 border-gray-700'}`}>
+                    {previewRoute && (
+                        <span className="text-riduck-primary text-[9px] md:text-[10px] font-bold uppercase tracking-wider absolute -top-2.5 left-3 bg-gray-900 px-1.5 rounded">Preview</span>
+                    )}
+                    <div className="text-center">
+                        <p className="text-[8px] md:text-[10px] text-gray-400 uppercase font-bold tracking-wider">Distance</p>
+                        <p className="text-lg md:text-2xl font-mono text-white font-bold">
+                            {previewRoute ? previewDistKm.toFixed(1) : totalDist.toFixed(1)}
+                            <span className="text-xs md:text-sm text-gray-500 ml-0.5 font-sans">km</span>
+                        </p>
+                    </div>
+                    <div className="w-px h-6 md:h-8 bg-gray-700"></div>
+                    <div className="text-center">
+                        <p className="text-[8px] md:text-[10px] text-gray-400 uppercase font-bold tracking-wider">Ascent</p>
+                        <p className="text-lg md:text-2xl font-mono text-white font-bold">
+                            +{previewRoute ? Math.round(previewAscentM) : Math.round(totalAscent)}
+                            <span className="text-xs md:text-sm text-gray-500 ml-0.5 font-sans">m</span>
+                        </p>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Mobile Only: Sidebar Toggles (Below Stats) */}
             <div className={`absolute top-[80px] left-4 z-10 gap-2 md:hidden ${mobilePreviewExpanded ? 'hidden' : 'flex'}`}>
@@ -2303,16 +2422,44 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 onLoad={handleMapLoad}
                 onClick={handleMapClick}
                 onMouseMove={onHover}
+                onMoveEnd={handleMapMoveEnd}
                 
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
 
                 onMouseLeave={() => { setHoverInfo(null); setDragState(null); setMapHoverCoord(null); }} // Cancel drag if leave?
-                interactiveLayerIds={['route-layer']}
+                interactiveLayerIds={['route-layer', 'nearby-routes-layer']}
                 style={{ width: '100%', height: '100%' }} 
-                cursor={isLoading ? 'wait' : (dragState ? 'grabbing' : (insertCandidate ? 'grab' : 'crosshair'))}
+                cursor={isLoading ? 'wait' : (dragState ? 'grabbing' : (insertCandidate ? 'grab' : (isNearbyMode ? 'default' : 'crosshair')))}
             >
+                {nearbyCenter && (
+                    <>
+                        <Source id="nearby-radius-source" type="geojson" data={makeCircleGeoJSON(nearbyCenter.lat, nearbyCenter.lng, nearbyCenter.radiusKm)}>
+                            <Layer id="nearby-radius-fill" type="fill" paint={{ 'fill-color': '#60A5FA', 'fill-opacity': 0.06 }} />
+                            <Layer id="nearby-radius-border" type="line" paint={{ 'line-color': '#60A5FA', 'line-width': 1.5, 'line-opacity': 0.5, 'line-dasharray': [4, 3] }} />
+                        </Source>
+                        <Marker longitude={nearbyCenter.lng} latitude={nearbyCenter.lat} anchor="center">
+                            <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#60A5FA', border: '2px solid white', boxShadow: '0 0 0 3px rgba(96,165,250,0.35)' }} />
+                        </Marker>
+                    </>
+                )}
+
+                {nearbyRoutes && (
+                    <Source id="nearby-routes-source" type="geojson" data={nearbyRoutes}>
+                        <Layer
+                            id="nearby-routes-layer"
+                            type="line"
+                            layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+                            paint={{
+                                'line-color': ['get', 'zone_color'],
+                                'line-width': 4,
+                                'line-opacity': 0.85
+                            }}
+                        />
+                    </Source>
+                )}
+
                 {surfaceGeoJSON.features.length > 0 && (
                     <Source id="route-source" type="geojson" data={surfaceGeoJSON}>
                         <Layer id="route-layer" type="line" layout={{ 'line-join': 'round', 'line-cap': 'round' }} paint={{ 'line-color': ['get', 'color'], 'line-width': 6, 'line-opacity': 0.9 }} />
