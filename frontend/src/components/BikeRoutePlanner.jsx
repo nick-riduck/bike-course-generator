@@ -8,6 +8,25 @@ import SidebarNav from './SidebarNav';
 import MenuPanel from './MenuPanel';
 import SearchPanel from './SearchPanel';
 import SaveRouteModal from './SaveRouteModal';
+import ExportRouteModal from './ExportRouteModal';
+import ReactMarkdown from 'react-markdown';
+
+const formatDate = (dateString) => {
+    if (!dateString) return null;
+    const d = new Date(dateString);
+    const now = new Date();
+    if ((now - d) < 86400000) {
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const hh = String(d.getHours()).padStart(2, '0');
+        const min = String(d.getMinutes()).padStart(2, '0');
+        return `${mm}.${dd} ${hh}:${min}`;
+    }
+    const y = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}.${mm}.${dd}`;
+};
 
 const INITIAL_VIEW_STATE = {
   longitude: 126.978,
@@ -104,26 +123,12 @@ const getProjectedDistance = (segmentCoords, targetLng, targetLat) => {
     return closestPointDistance;
 };
 
-const generateGPX = (sections) => {
-  const flatSegments = sections.flatMap(s => s.segments);
-  if (flatSegments.length === 0) return null;
-  const header = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="Riduck" xmlns="http://www.topografix.com/GPX/1/1"><trk><trkseg>`;
-  const footer = `</trkseg></trk></gpx>`;
-  let trkpts = '';
-  flatSegments.forEach(seg => {
-    const coords = seg.geometry?.coordinates || [];
-    coords.forEach(coord => {
-      trkpts += `<trkpt lat="${coord[1]}" lon="${coord[0]}">${coord[2] !== undefined ? `<ele>${coord[2]}</ele>` : ''}</trkpt>`;
-    });
-  });
-  return header + trkpts + footer;
-};
-
 const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const { user, loginWithGoogle } = useAuth();
   const mapRef = useRef();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isElevationChartVisible, setIsElevationChartVisible] = useState(true);
   
   // 지하철/철도 라인 켜기
   const handleMapLoad = (e) => {
@@ -164,17 +169,528 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const [routeStats, setRouteStats] = useState({ views: 0, downloads: 0 });
   const [routeOwnerId, setRouteOwnerId] = useState(null);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [focusedPointId, setFocusedPointId] = useState(null);
+  const [mapHoverCoord, setMapHoverCoord] = useState(null);
+
+  // Preview State
+  const [previewRoute, setPreviewRoute] = useState(null);
+  const [mobilePreviewExpanded, setMobilePreviewExpanded] = useState(false);
 
   // Place Search State
   const [isPlaceSearchOpen, setIsPlaceSearchOpen] = useState(false);
   const [placeSearchQuery, setPlaceSearchQuery] = useState('');
+
+  // Nearby Routes State
+  const [isNearbyMode, setIsNearbyMode] = useState(false);
+  const [nearbyRoutes, setNearbyRoutes] = useState(null);
+  const [nearbyCenter, setNearbyCenter] = useState(null); // { lat, lng, radiusKm }
+  const nearbyDebounceRef = useRef(null);
 
   // Long Press State for Mobile
   const longPressTimerRef = useRef(null);
   const isLongPressRef = useRef(false);
   const touchStartPosRef = useRef(null);
 
+  // Animation Ref
+  const animationRef = useRef(null);
+  const previewInvalidLoggedRef = useRef(false);
+  const dragPreviewInvalidLoggedRef = useRef(false);
+  const previewPanelMobileRef = useRef(null);
+
+  const makeCircleGeoJSON = (lat, lng, radiusKm, steps = 64) => {
+    const coords = [];
+    const dx = radiusKm / (111.32 * Math.cos(lat * Math.PI / 180));
+    const dy = radiusKm / 110.574;
+    for (let i = 0; i <= steps; i++) {
+      const angle = (i / steps) * 2 * Math.PI;
+      coords.push([lng + dx * Math.cos(angle), lat + dy * Math.sin(angle)]);
+    }
+    return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [coords] } };
+  };
+
+  const fetchNearbyRoutes = useCallback(async () => {
+    if (!mapRef.current) return;
+    const map = mapRef.current.getMap ? mapRef.current.getMap() : mapRef.current;
+    if (!map) return;
+
+    const center = map.getCenter();
+    const zoom = map.getZoom();
+
+    if (zoom < 9) {
+        setNearbyRoutes(null);
+        setNearbyCenter(null);
+        return;
+    }
+
+    // zoom 레벨에 따라 검색 반경 조정
+    const radius = zoom >= 13 ? 3 : zoom >= 12 ? 5 : zoom >= 11 ? 8 : zoom >= 10 ? 15 : 30;
+
+    setNearbyCenter({ lat: center.lat, lng: center.lng, radiusKm: radius });
+
+    try {
+        const res = await fetch(`/api/routes/nearby?lat=${center.lat}&lon=${center.lng}&radius=${radius}&limit=7`);
+        if (res.ok) {
+            const data = await res.json();
+            setNearbyRoutes(data);
+        }
+    } catch (e) {
+        console.error("Failed to fetch nearby routes:", e);
+    }
+  }, []);
+
+  const toggleNearby = () => {
+      setIsNearbyMode(prev => {
+          const next = !prev;
+          if (next) {
+              fetchNearbyRoutes();
+          } else {
+              setNearbyRoutes(null);
+              setNearbyCenter(null);
+          }
+          return next;
+      });
+  };
+
+  const handleMapMoveEnd = (evt) => {
+      if (isNearbyMode) {
+          if (nearbyDebounceRef.current) clearTimeout(nearbyDebounceRef.current);
+          nearbyDebounceRef.current = setTimeout(() => {
+              fetchNearbyRoutes();
+          }, 500); // 500ms debounce
+      }
+  };
+
   const handleHoverPoint = useCallback((coord) => setHoveredCoord(coord), []);
+
+  const flyMapToPoint = useCallback((coord) => {
+    if (!coord || !Number.isFinite(coord.lng) || !Number.isFinite(coord.lat)) return;
+
+    const mapInstance = mapRef.current?.getMap ? mapRef.current.getMap() : mapRef.current;
+    if (!mapInstance || typeof mapInstance.flyTo !== 'function') return;
+
+    try {
+      const currentZoom = typeof mapInstance.getZoom === 'function' ? mapInstance.getZoom() : undefined;
+      mapInstance.flyTo({
+        center: [coord.lng, coord.lat],
+        zoom: currentZoom,
+        duration: 700,
+        essential: true
+      });
+    } catch (err) {
+      console.warn('Chart-to-map move failed:', err);
+    }
+  }, []);
+
+  const handleChartPointSelect = useCallback((coord) => {
+    if (!coord || !Number.isFinite(coord.lng) || !Number.isFinite(coord.lat)) return;
+    setFocusedPointId(null);
+    setHoveredCoord({ lng: coord.lng, lat: coord.lat });
+    flyMapToPoint(coord);
+  }, [flyMapToPoint]);
+
+  const handleMenuPointFocus = useCallback((sectionIdx, _pointIdx, point) => {
+    if (!point || !Number.isFinite(point.lng) || !Number.isFinite(point.lat)) return;
+
+    const coord = { lng: point.lng, lat: point.lat };
+    setFocusedPointId(point.id);
+    setHoveredCoord(coord);
+    setHoveredSectionIndex(sectionIdx);
+    flyMapToPoint(coord);
+  }, [flyMapToPoint]);
+
+  React.useEffect(() => {
+    if (!focusedPointId) return;
+
+    const pointExists = sections.some((section) =>
+      section.points?.some((point) => point.id === focusedPointId)
+    );
+
+    if (!pointExists) {
+      setFocusedPointId(null);
+      setHoveredCoord(null);
+    }
+  }, [sections, focusedPointId]);
+
+  const sectionsWithPointDistances = useMemo(() => {
+    if (!Array.isArray(sections)) return [];
+
+    let cumulativeDistKm = 0;
+
+    const getSegmentDistanceKm = (segment, startPoint, endPoint) => {
+      const segDist = Number(segment?.distance);
+      if (Number.isFinite(segDist) && segDist > 0) return segDist;
+      if (startPoint && endPoint) {
+        return getDistance(startPoint.lat, startPoint.lng, endPoint.lat, endPoint.lng);
+      }
+      return 0;
+    };
+
+    return sections.map((section, sectionIdx) => {
+      const points = Array.isArray(section?.points) ? section.points : [];
+      const segmentList = Array.isArray(section?.segments) ? section.segments : [];
+      const pointIdSet = new Set(points.map((p) => p.id));
+      const distanceByPointId = new globalThis.Map();
+
+      if (points.length > 0) {
+        distanceByPointId.set(points[0].id, cumulativeDistKm);
+
+        for (let i = 0; i < points.length - 1; i++) {
+          const startPoint = points[i];
+          const endPoint = points[i + 1];
+          const linkingSegment = segmentList.find(
+            (segment) => segment.startPointId === startPoint.id && segment.endPointId === endPoint.id
+          );
+
+          cumulativeDistKm += getSegmentDistanceKm(linkingSegment, startPoint, endPoint);
+          distanceByPointId.set(endPoint.id, cumulativeDistKm);
+        }
+
+        if (sectionIdx < sections.length - 1) {
+          const nextSectionFirstPoint = sections[sectionIdx + 1]?.points?.[0];
+          const lastPoint = points[points.length - 1];
+
+          if (lastPoint && nextSectionFirstPoint) {
+            const connectorSegment = segmentList.find(
+              (segment) => segment.startPointId === lastPoint.id && !pointIdSet.has(segment.endPointId)
+            );
+            cumulativeDistKm += getSegmentDistanceKm(connectorSegment, lastPoint, nextSectionFirstPoint);
+          }
+        }
+      }
+
+      return {
+        ...section,
+        points: points.map((point) => ({
+          ...point,
+          dist_km: Number((distanceByPointId.get(point.id) ?? cumulativeDistKm).toFixed(6))
+        }))
+      };
+    });
+  }, [sections]);
+
+  const handleOpenExportModal = () => {
+    if (!sections || sections.length === 0) return;
+    setIsExportModalOpen(true);
+  };
+
+  const MOBILE_PREVIEW_PANEL_ESTIMATED_H = 220; // rough estimate for step-1 fitBounds
+
+  const fitMapToSections = useCallback((sectionsToFit, customPadding = null) => {
+    if (!mapRef.current || !sectionsToFit || sectionsToFit.length === 0) return;
+
+    let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
+    let hasPoints = false;
+
+    sectionsToFit.forEach(section => {
+        // Check segments (detailed geometry)
+        section.segments?.forEach(segment => {
+            segment.geometry?.coordinates?.forEach(coord => {
+                const [lng, lat] = coord;
+                if (lng < minLng) minLng = lng;
+                if (lng > maxLng) maxLng = lng;
+                if (lat < minLat) minLat = lat;
+                if (lat > maxLat) maxLat = lat;
+                hasPoints = true;
+            });
+        });
+        // Check points (markers) - crucial if no segments yet
+        section.points?.forEach(p => {
+             const lng = p.lng;
+             const lat = p.lat;
+             if (lng < minLng) minLng = lng;
+             if (lng > maxLng) maxLng = lng;
+             if (lat < minLat) minLat = lat;
+             if (lat > maxLat) maxLat = lat;
+             hasPoints = true;
+        });
+    });
+
+    if (hasPoints) {
+        // Add some padding/buffer if it's a single point or very small area
+        if (Math.abs(maxLng - minLng) < 0.0001 && Math.abs(maxLat - minLat) < 0.0001) {
+            const buffer = 0.01;
+            minLng -= buffer; maxLng += buffer;
+            minLat -= buffer; maxLat += buffer;
+        }
+
+        try {
+            mapRef.current.fitBounds(
+                [[minLng, minLat], [maxLng, maxLat]],
+                { padding: customPadding ?? 100, duration: 1000 }
+            );
+        } catch (e) {
+            console.error("Fit bounds error:", e);
+        }
+    }
+  }, []);
+
+  const handlePreviewRoute = async (routeId) => {
+    setIsLoading(true);
+    setLoadingMsg('Loading Preview...');
+
+    const isMobile = window.innerWidth < 768;
+    // Mobile UX: Close sidebar immediately to show map
+    if (isMobile) {
+        setIsSearchOpen(false);
+        setIsMenuOpen(false);
+    }
+
+    // Mobile: step-1 padding uses estimated panel height so route lands in upper map area
+    const previewPadding = isMobile
+        ? { top: 60, bottom: MOBILE_PREVIEW_PANEL_ESTIMATED_H + 30, left: 40, right: 40 }
+        : null;
+
+    try {
+        const headers = {};
+        if (auth.currentUser) {
+            const idToken = await auth.currentUser.getIdToken();
+            headers['Authorization'] = `Bearer ${idToken}`;
+        }
+        const res = await fetch(`/api/routes/${routeId}`, { headers });
+        if (!res.ok) throw new Error("Failed to load route data");
+        const data = await res.json();
+
+        if (data.editor_state && data.editor_state.sections) {
+             // 에디터로 저장된 루트: editor_state.sections 사용
+             setPreviewRoute({
+                 id: data.route_id,
+                 data: data,
+                 sections: data.editor_state.sections
+             });
+             fitMapToSections(data.editor_state.sections, previewPadding);
+        } else if (data.points && Array.isArray(data.points.lat) && data.points.lat.length >= 2) {
+             // v1.0 columnar 포맷 (GPX 임포트 스크립트로 저장된 루트)
+             const lats = data.points.lat;
+             const lons = data.points.lon;
+             const eles = data.points.ele || lats.map(() => 0);
+             const coords = lats.map((lat, i) => [lons[i], lat, eles[i]]);
+
+             const surfColors = { 1: '#2979FF', 2: '#2979FF', 3: '#9E9E9E', 4: '#FFC400', 5: '#00E676', 6: '#8D6E63', 7: '#8D6E63', 0: '#9E9E9E' };
+             const segs = data.segments || {};
+             const displayFeatures = (segs.p_start || []).map((sIdx, i) => ({
+                 type: 'Feature',
+                 geometry: { type: 'LineString', coordinates: coords.slice(sIdx, (segs.p_end[i] || sIdx) + 1) },
+                 properties: { color: surfColors[segs.surf_id?.[i]] ?? '#9E9E9E', start_index: sIdx, end_index: segs.p_end?.[i] }
+             }));
+
+             const startPt = { id: generateId(), lng: coords[0][0], lat: coords[0][1], type: 'via', name: 'Start' };
+             const endPt   = { id: generateId(), lng: coords[coords.length - 1][0], lat: coords[coords.length - 1][1], type: 'via', name: 'End' };
+             const syntheticSections = [{
+                 id: generateId(),
+                 name: 'Route',
+                 points: [startPt, endPt],
+                 segments: [{
+                     id: generateId(),
+                     startPointId: startPt.id,
+                     endPointId: endPt.id,
+                     geometry: { type: 'LineString', coordinates: coords },
+                     distance: (data.distance || 0) / 1000,
+                     ascent: data.elevation_gain || 0,
+                     type: 'api',
+                     surfaceSegments: displayFeatures
+                 }],
+                 color: SECTION_COLORS[0]
+             }];
+
+             setPreviewRoute({ id: data.route_id, data: data, sections: syntheticSections });
+             fitMapToSections(syntheticSections, previewPadding);
+        } else {
+             alert("Invalid route data for editor.");
+        }
+    } catch (e) {
+        console.error(e);
+        alert(`Error loading preview: ${e.message}`);
+    } finally {
+        setIsLoading(false);
+        setLoadingMsg('');
+    }
+  };
+
+  const confirmPreviewLoad = () => {
+     if (!previewRoute) return;
+
+     // Check for unsaved changes
+     if (sections.some(s => s.points.length > 0)) {
+          if (!confirm("Current route will be discarded. Load this route?")) return;
+     }
+
+     const { data } = previewRoute;
+     const sectionsToLoad = previewRoute.sections;
+
+     setSections(sectionsToLoad);
+     setCurrentRouteId(data.route_id);
+     setRouteName(data.title || '');
+     setRouteDescription(data.description || '');
+     setRouteStatus(data.status || 'PUBLIC');
+     setRouteTags(data.tags || []);
+     setRouteOwnerId(data.owner_id);
+     setRouteStats(data.stats || { views: 0, downloads: 0 });
+
+     setHistory({ past: [], future: [] });
+     setIsDirty(false);
+
+     // Close panels
+     setIsMenuOpen(false);
+     setIsSearchOpen(false);
+
+     // Clear preview state
+     setPreviewRoute(null);
+     setMobilePreviewExpanded(false);
+     setIsElevationChartVisible(true);
+
+     // Wait for panel close + elevation chart open animations (~300ms) then fit
+     setTimeout(() => {
+         const isMobile = window.innerWidth < 768;
+         fitMapToSections(sectionsToLoad, {
+             top: 80,
+             bottom: 80,
+             left: isMobile ? 40 : 80,
+             right: isMobile ? 40 : 80,
+         });
+     }, 350);
+  };
+
+  const cancelPreview = (options = {}) => {
+      const { reopenSearchOnMobile = true } = options;
+      setPreviewRoute(null);
+      setMobilePreviewExpanded(false);
+      setIsElevationChartVisible(true);
+      if (sections.some(s => s.points.length > 0)) {
+          fitMapToSections(sections);
+      }
+      if (reopenSearchOnMobile && window.innerWidth < 768) {
+          setIsSearchOpen(true);
+      }
+  };
+
+  const performExport = async (filename, format) => {
+    if (!sections || sections.length === 0) return;
+
+    try {
+        // Deep clone sections to remove any potential non-serializable properties
+        const cleanSections = sectionsWithPointDistances.map(sec => ({
+            id: sec.id,
+            name: sec.name,
+            color: sec.color,
+            points: sec.points.map(p => ({
+                id: p.id,
+                lat: p.lat,
+                lng: p.lng,
+                type: p.type,
+                name: p.name,
+                dist_km: p.dist_km
+            })),
+            segments: sec.segments.map(s => ({
+                id: s.id,
+                startPointId: s.startPointId,
+                endPointId: s.endPointId,
+                geometry: s.geometry,
+                distance: s.distance,
+                ascent: s.ascent,
+                type: s.type
+            }))
+        }));
+
+        const payload = {
+            title: filename || routeName || 'Riduck Route',
+            editor_state: {
+                sections: cleanSections
+            },
+            format: format
+        };
+
+        const response = await fetch('/api/export/gpx', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || `Failed to generate ${format.toUpperCase()}`);
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let downloadFilename = `route-${Date.now()}.${format}`;
+        if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+            if (filenameMatch && filenameMatch.length === 2)
+                downloadFilename = filenameMatch[1];
+        } else {
+             const safeName = (filename || 'route').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+             downloadFilename = `${safeName}.${format}`;
+        }
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = downloadFilename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        if (currentRouteId) {
+            fetch(`/api/routes/${currentRouteId}/download`, { method: 'POST' }).catch(e => {});
+        }
+
+    } catch (e) {
+        console.error(`${format.toUpperCase()} Export Error:`, e);
+        alert(`Failed to download ${format.toUpperCase()}: ${e.message}`);
+    }
+  };
+
+  const handleSectionDownload = async (sectionIdx, format = 'gpx') => {
+    const section = sectionsWithPointDistances[sectionIdx];
+    if (!section) return;
+
+    try {
+        const payload = {
+            title: section.name || 'Riduck Section',
+            editor_state: {
+                sections: [section] // Send only the specific section
+            },
+            format: format
+        };
+
+        const response = await fetch('/api/export/gpx', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || 'Failed to generate Section GPX');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `section-${section.name || 'Export'}-${Date.now()}.gpx`;
+        if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+            if (filenameMatch && filenameMatch.length === 2)
+                filename = filenameMatch[1];
+        }
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+    } catch (e) {
+        console.error("Section GPX Export Error:", e);
+        alert(`Failed to download Section GPX: ${e.message}`);
+    }
+  };
 
   const handleTouchStart = (e) => {
       // Only single touch
@@ -248,6 +764,13 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const onHover = useCallback(event => {
     const { features, point: { x, y }, lngLat } = event;
     const hoveredFeature = features && features[0];
+    const routeFeatures = features ? features.filter(f => f.layer.id === 'route-layer') : [];
+
+    if (routeFeatures.length > 0 && lngLat && Number.isFinite(lngLat.lng) && Number.isFinite(lngLat.lat)) {
+      setMapHoverCoord({ lng: lngLat.lng, lat: lngLat.lat });
+    } else {
+      setMapHoverCoord(null);
+    }
     
     // 1. Surface Info Tooltip
     if (hoveredFeature && hoveredFeature.properties.surface) {
@@ -264,8 +787,6 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         dragStateRef.current = newDragState;
         return;
     }
-
-    const routeFeatures = features ? features.filter(f => f.layer.id === 'route-layer') : [];
 
     if (routeFeatures.length > 0) {
         const candidates = routeFeatures.map(f => ({
@@ -442,6 +963,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
       };
     } catch (e) { 
       console.error(e); 
+      alert(`Route Error: ${e.message || 'Failed to connect to route server.'}`);
       return { 
           geometry: { type: 'LineString', coordinates: [[start.lng, start.lat], [end.lng, end.lat]] }, 
           distance: 0, ascent: 0, type: 'error', surfaceSegments: [] 
@@ -538,6 +1060,25 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   }, [!!dragState, handleDragEnd]);
 
   const handleMapClick = async (e) => {
+    if (previewRoute) {
+        cancelPreview({ reopenSearchOnMobile: false });
+        return;
+    }
+
+    // Check for Nearby Route Click (ALWAYS check this first if layer exists)
+    if (e.features) {
+        const nearbyFeature = e.features.find(f => f.layer.id === 'nearby-routes-layer');
+        if (nearbyFeature) {
+            handlePreviewRoute(nearbyFeature.properties.id);
+            return;
+        }
+    }
+
+    // If Nearby Mode is ON, DO NOT create points. Just return.
+    if (isNearbyMode) {
+        return;
+    }
+
     // If panels are open on mobile, close them and do nothing else
     if (window.innerWidth < 768 && (isMenuOpen || isSearchOpen)) {
         setIsMenuOpen(false);
@@ -550,6 +1091,15 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     // If we were dragging, click might fire? Usually drag prevents click.
     // But just in case.
     if (dragState) return;
+
+    // If a point is currently focused from the sidebar, first map click cancels focus.
+    // This click should not create a new route point.
+    if (focusedPointId) {
+      setFocusedPointId(null);
+      setHoveredCoord(null);
+      setHoveredSectionIndex(null);
+      return;
+    }
 
     // Normal Click: Always Append to End
     const { lng, lat } = e.lngLat;
@@ -660,6 +1210,11 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     let updatedSections = JSON.parse(JSON.stringify(sections)); // Deep copy to avoid mutation issues
     const targetSection = updatedSections[sectionIdx];
     const targetPoint = targetSection.points[pointIdx];
+
+    if (targetPoint?.id && targetPoint.id === focusedPointId) {
+      setFocusedPointId(null);
+      setHoveredCoord(null);
+    }
     
     // 1. Remove Point from current section
     const prevPointInSec = targetSection.points[pointIdx - 1];
@@ -757,7 +1312,6 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 const realData = await fetchSegmentData(start, end, isMockMode ? 'mock' : 'real');
                 setSections(prev => {
                     const latest = JSON.parse(JSON.stringify(prev));
-                    if (!latest[sIdx]) return prev; 
                     const sec = latest[sIdx];
                     sec.segments = sec.segments.map(s => s.id === segmentId ? { ...s, ...realData } : s);
                     return latest;
@@ -821,15 +1375,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
       setSections(updatedSections);
   };
 
-  const handleSectionDownload = (sectionIdx) => {
-      const gpx = generateGPX([sections[sectionIdx]]);
-      if(gpx) { 
-        const blob = new Blob([gpx], { type: 'application/gpx+xml' }); 
-        const url = URL.createObjectURL(blob); 
-        const a = document.createElement('a'); 
-        a.href = url; a.download = `section-${sections[sectionIdx].name}-${Date.now()}.gpx`; a.click(); 
-    }
-  };
+
 
   const handlePointRename = (sectionIdx, pointIdx, newName) => {
       const updatedSections = [...sections];
@@ -899,7 +1445,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             prevSection.segments = prevSection.segments.map(s => 
                 s.endPointId === currPoint.id ? loadingSeg : s
             );
-            segmentsToFetch.push({ sectionIdx: sectionIdx - 1, segmentId: segId, start: lastPointOfPrevSection, end: currPoint });
+            segmentsToFetch.push({ sectionIdx: sectionIdx - 1, segmentId: segId, start: lastPointOfPrev, end: currPoint });
         }
     }
 
@@ -1007,21 +1553,138 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     }))
   }), [sections, hoveredSectionIndex]);
 
-  const handleDownloadGPX = () => {
-    const gpx = generateGPX(sections); 
-    if(gpx) { 
-        // Record download in backend if route is saved
-        if (currentRouteId) {
-            fetch(`/api/routes/${currentRouteId}/download`, { method: 'POST' })
-                .catch(err => console.error("Failed to record download:", err));
-        }
-
-        const blob = new Blob([gpx], { type: 'application/gpx+xml' }); 
-        const url = URL.createObjectURL(blob); 
-        const a = document.createElement('a'); 
-        a.href = url; a.download = `route-${Date.now()}.gpx`; a.click(); 
+  const previewGeoJSON = useMemo(() => {
+    if (!previewRoute) return null;
+    const invalids = [];
+    const features = previewRoute.sections.flatMap((sec, secIdx) =>
+      sec.segments
+        .map((seg, segIdx) => ({ geometry: seg.geometry, seg, secIdx, segIdx }))
+        .filter(({ geometry, seg, secIdx, segIdx }) => {
+          const geom = geometry;
+          const ok =
+            geom &&
+            geom.type === 'LineString' &&
+            Array.isArray(geom.coordinates) &&
+            geom.coordinates.length >= 2 &&
+            geom.coordinates.every(
+              (c) =>
+                Array.isArray(c) &&
+                c.length >= 2 &&
+                Number.isFinite(c[0]) &&
+                Number.isFinite(c[1])
+            );
+          if (!ok) {
+            invalids.push({
+              secIdx,
+              segIdx,
+              type: geom?.type ?? null,
+              coordinatesLen: Array.isArray(geom?.coordinates) ? geom.coordinates.length : null,
+            });
+          }
+          return ok;
+        })
+        .map(({ geometry }) => ({
+          type: 'Feature',
+          geometry,
+          properties: { type: 'preview' },
+        }))
+    );
+    if (invalids.length > 0 && !previewInvalidLoggedRef.current) {
+      console.warn('[previewGeoJSON] Dropping invalid segments', invalids.slice(0, 5));
+      previewInvalidLoggedRef.current = true;
     }
-  };
+    if (features.length === 0) return null;
+    return {
+      type: 'FeatureCollection',
+      features,
+    };
+  }, [previewRoute]);
+
+  // Animated Dash Array (Marching Ants)
+  React.useEffect(() => {
+      if (!previewRoute || !previewGeoJSON || !mapRef.current) {
+          if (animationRef.current) {
+              cancelAnimationFrame(animationRef.current);
+              animationRef.current = null;
+          }
+          return;
+      }
+
+      // Smooth marching-ants with finite dash variants (prevents LineAtlas overflow).
+      const DASH_LEN = 3;
+      const GAP_LEN = 1;
+      const STEP_COUNT = 64;
+      const STEP_MS = 50;
+      const TOTAL = DASH_LEN + GAP_LEN;
+      const makeDashFrame = (progress) => {
+          if (progress < DASH_LEN) {
+              // Shift starts within a dash segment.
+              return [DASH_LEN - progress, GAP_LEN, progress, 0];
+          }
+          // Shift starts within a gap segment.
+          const gapProgress = progress - DASH_LEN;
+          return [0, GAP_LEN - gapProgress, DASH_LEN, gapProgress];
+      };
+      const DASH_SEQUENCE = Array.from({ length: STEP_COUNT + 1 }, (_, idx) =>
+          makeDashFrame((idx / STEP_COUNT) * TOTAL)
+      );
+      let isCancelled = false;
+      let lastStep = -1;
+
+      const animateDash = (timestamp) => {
+          if (isCancelled) return;
+          const forwardStep = Math.floor(timestamp / STEP_MS) % DASH_SEQUENCE.length;
+          const step = (DASH_SEQUENCE.length - 1 - forwardStep + DASH_SEQUENCE.length) % DASH_SEQUENCE.length;
+          
+          const mapInstance = mapRef.current?.getMap ? mapRef.current.getMap() : mapRef.current;
+          
+          if (
+              step !== lastStep &&
+              mapInstance &&
+              mapInstance.getLayer &&
+              mapInstance.getLayer('preview-layer')
+          ) {
+              lastStep = step;
+              try {
+                  mapInstance.setPaintProperty('preview-layer', 'line-dasharray', DASH_SEQUENCE[step]); 
+              } catch (err) {
+                  // Keep animation loop alive if layer gets replaced during render.
+              }
+          }
+          animationRef.current = requestAnimationFrame(animateDash);
+      };
+
+      const mapInstance = mapRef.current?.getMap ? mapRef.current.getMap() : mapRef.current;
+      const startAnimation = () => {
+          if (isCancelled) return;
+          if (animationRef.current) cancelAnimationFrame(animationRef.current);
+          animationRef.current = requestAnimationFrame(animateDash);
+      };
+
+      if (mapInstance && mapInstance.isStyleLoaded && !mapInstance.isStyleLoaded()) {
+          mapInstance.once('idle', startAnimation);
+      } else {
+          startAnimation();
+      }
+
+      return () => {
+          isCancelled = true;
+          if (mapInstance && mapInstance.off) mapInstance.off('idle', startAnimation);
+          if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      };
+  }, [previewRoute, previewGeoJSON]);
+
+  // Mobile re-fit: on new preview load (120ms) or panel expand/collapse (400ms for animations)
+  React.useEffect(() => {
+      if (!previewRoute || window.innerWidth >= 768) return;
+      const delay = mobilePreviewExpanded ? 400 : 120;
+      const timer = setTimeout(() => {
+          const h = previewPanelMobileRef.current?.offsetHeight ?? MOBILE_PREVIEW_PANEL_ESTIMATED_H;
+          fitMapToSections(previewRoute.sections, { top: 60, bottom: h + 30, left: 40, right: 40 });
+      }, delay);
+      return () => clearTimeout(timer);
+  }, [previewRoute, mobilePreviewExpanded, fitMapToSections]);
+
 
   const openSaveModal = () => {
     if (!auth.currentUser) {
@@ -1057,7 +1720,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
               // Backend generates full_data using Valhalla
               full_data: null, 
               editor_state: {
-                  sections: sections
+                  sections: sectionsWithPointDistances
               }
           };
 
@@ -1119,35 +1782,154 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           }
 
           const data = await res.json();
+          const { waypoints, full_geometry, summary, display_geojson } = data;
           
-          const coords = data.full_geometry.coordinates;
-          if (!coords || coords.length < 2) throw new Error("GPX file has insufficient coordinates.");
+          if (!full_geometry || !full_geometry.coordinates || full_geometry.coordinates.length < 2) {
+              throw new Error("GPX file has insufficient coordinates.");
+          }
+          
+          let newSections = [];
+          
+          // Strategy: Reconstruct from Waypoints if available
+          if (waypoints && waypoints.length > 0) {
+              // 1. Sort waypoints by index
+              waypoints.sort((a, b) => a.index - b.index);
 
-          const startCoord = coords[0];
-          const endCoord = coords[coords.length - 1];
+              // 2. Group into sections based on 'section_start' type
+              let currentSection = null;
+              
+              // Helper to create a new section
+              const createSection = (name, color) => ({
+                  id: generateId(),
+                  name: name || `Section ${newSections.length + 1}`,
+                  points: [],
+                  segments: [],
+                  color: color || SECTION_COLORS[newSections.length % SECTION_COLORS.length]
+              });
 
-          // Use numbering 1 and 2 for points
-          const startPoint = { id: generateId(), lng: startCoord[0], lat: startCoord[1], type: 'via', name: 'Start' };
-          const endPoint = { id: generateId(), lng: endCoord[0], lat: endCoord[1], type: 'via', name: 'End' };
+              // Initial Section (if first waypoint is not a section start)
+              if (waypoints[0].type !== 'section_start') {
+                  currentSection = createSection('Imported Section', SECTION_COLORS[0]);
+                  newSections.push(currentSection);
+              }
 
-          const newSegment = {
-              geometry: data.full_geometry,
-              distance: data.summary.distance,
-              ascent: data.summary.ascent,
-              type: 'api',
-              surfaceSegments: data.display_geojson.features
-          };
+              for (const wpt of waypoints) {
+                  if (wpt.type === 'section_start') {
+                      currentSection = createSection(wpt.name, wpt.color);
+                      newSections.push(currentSection);
+                  }
+                  
+                  // Add point to current section
+                  if (currentSection) {
+                      currentSection.points.push({
+                          id: generateId(),
+                          lng: wpt.lon,
+                          lat: wpt.lat,
+                          type: wpt.type,
+                          name: wpt.name,
+                          ...(wpt.dist_km != null ? { dist_km: wpt.dist_km } : {})
+                      });
+                  }
+              }
 
-          const importedSection = {
-              id: generateId(),
-              name: 'Imported Route',
-              points: [startPoint, endPoint],
-              segments: [newSegment],
-              color: SECTION_COLORS[0]
-          };
+              // 3. Reconstruct Segments between points
+              const allCoords = full_geometry.coordinates; // [[lon, lat, ele], ...]
+              const globalFeatures = display_geojson?.features || [];
+
+              for (const section of newSections) {
+                  for (let i = 0; i < section.points.length - 1; i++) {
+                      const p1 = section.points[i];
+                      const p2 = section.points[i+1];
+                      
+                      const wpt1 = waypoints.find(w => w.lon === p1.lng && w.lat === p1.lat); 
+                      const wpt2 = waypoints.find(w => w.lon === p2.lng && w.lat === p2.lat);
+                      
+                      let segmentGeo = { type: 'LineString', coordinates: [[p1.lng, p1.lat], [p2.lng, p2.lat]] };
+                      let dist = 0;
+                      let ascent = 0;
+                      let surfaceSegments = [];
+
+                      if (wpt1 && wpt2) {
+                          const idx1 = wpt1.index;
+                          const idx2 = wpt2.index;
+                          
+                          if (idx1 < idx2 && idx2 < allCoords.length) {
+                              // A. Geometry Slicing (Preserve Elevation!)
+                              const sliced = allCoords.slice(idx1, idx2 + 1);
+                              segmentGeo = { type: 'LineString', coordinates: sliced };
+                              
+                              // B. Calculate Stats
+                              for (let k = 0; k < sliced.length - 1; k++) {
+                                  const c1 = sliced[k];
+                                  const c2 = sliced[k+1];
+                                  dist += getDistance(c1[1], c1[0], c2[1], c2[0]);
+                                  
+                                  // Ascent (using elevation if available)
+                                  if (c1.length > 2 && c2.length > 2) {
+                                      const diff = c2[2] - c1[2];
+                                      if (diff > 0) ascent += diff;
+                                  }
+                              }
+
+                              // C. Map Surface Info
+                              // Find features that overlap with [idx1, idx2]
+                              surfaceSegments = globalFeatures.filter(f => {
+                                  const sIdx = f.properties.start_index;
+                                  const eIdx = f.properties.end_index;
+                                  if (sIdx === undefined || eIdx === undefined) return false;
+                                  
+                                  // Check overlap: Feature interval [sIdx, eIdx] overlaps with Segment interval [idx1, idx2]
+                                  return Math.max(idx1, sIdx) <= Math.min(idx2, eIdx);
+                              }).map(f => {
+                                  // Pass through the feature. 
+                                  // Note: The feature geometry might extend beyond this segment, 
+                                  // but for visualization it provides the correct surface type and color.
+                                  // If precise clipping is needed, we would slice f.geometry.coordinates here.
+                                  return f; 
+                              });
+                          }
+                      }
+
+                      section.segments.push({
+                          id: generateId(),
+                          startPointId: p1.id,
+                          endPointId: p2.id,
+                          geometry: segmentGeo,
+                          distance: dist,
+                          ascent: ascent,
+                          type: 'api',
+                          surfaceSegments: surfaceSegments
+                      });
+                  }
+              }
+              
+          } else {
+              // Fallback: Use Start and End of the entire track
+              const startCoord = full_geometry.coordinates[0];
+              const endCoord = full_geometry.coordinates[full_geometry.coordinates.length - 1];
+
+              const startPoint = { id: generateId(), lng: startCoord[0], lat: startCoord[1], type: 'via', name: 'Start' };
+              const endPoint = { id: generateId(), lng: endCoord[0], lat: endCoord[1], type: 'via', name: 'End' };
+
+              const newSegment = {
+                  geometry: full_geometry,
+                  distance: summary.distance,
+                  ascent: summary.ascent,
+                  type: 'api',
+                  surfaceSegments: display_geojson.features
+              };
+
+              newSections = [{
+                  id: generateId(),
+                  name: 'Imported Route',
+                  points: [startPoint, endPoint],
+                  segments: [newSegment],
+                  color: SECTION_COLORS[0]
+              }];
+          }
 
           saveToHistory(sections);
-          setSections([importedSection]);
+          setSections(newSections);
           
           setCurrentRouteId(null);
           setRouteName('Imported GPX');
@@ -1157,15 +1939,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           setRouteOwnerId(null);
           setRouteStats({ views: 0, downloads: 0 });
 
-          // Focus map
-          if (mapRef.current) {
-              const lons = coords.map(c => c[0]);
-              const lats = coords.map(c => c[1]);
-              mapRef.current.fitBounds([
-                  [Math.min(...lons), Math.min(...lats)],
-                  [Math.max(...lons), Math.max(...lats)]
-              ], { padding: 50, duration: 1000 });
-          }
+          // Focus map using helper
+          fitMapToSections(newSections);
 
           setIsMenuOpen(false);
           alert("GPX imported successfully!");
@@ -1215,6 +1990,10 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
               setIsDirty(false); // Freshly loaded
               setIsMenuOpen(false);
               setIsSearchOpen(false);
+              
+              // Focus Map
+              fitMapToSections(data.editor_state.sections);
+
               if (!skipConfirm) alert("Route loaded!");
           } else {
               alert("This route data is missing editor state (Legacy format?). Cannot load into editor.");
@@ -1272,6 +2051,24 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
   const isClean = sections.length === 1 && sections[0].points.length === 0;
 
+  // Preview stats: prefer DB values (same source as Library), fallback to editor_state sums.
+  const previewDistLocalKm = previewRoute && Array.isArray(previewRoute.sections)
+    ? previewRoute.sections.reduce((acc, sec) => acc + (sec.segments || []).reduce((sAcc, s) => sAcc + (Number(s.distance) || 0), 0), 0)
+    : 0;
+
+  const previewAscentLocalM = previewRoute && Array.isArray(previewRoute.sections)
+    ? previewRoute.sections.reduce((acc, sec) => acc + (sec.segments || []).reduce((sAcc, s) => sAcc + (Number(s.ascent) || 0), 0), 0)
+    : 0;
+
+  const previewDistKm = previewRoute && Number.isFinite(Number(previewRoute?.data?.distance))
+    ? Number(previewRoute.data.distance) / 1000
+    : previewDistLocalKm;
+
+  const previewAscentM = previewRoute && Number.isFinite(Number(previewRoute?.data?.elevation_gain))
+    ? Number(previewRoute.data.elevation_gain)
+    : previewAscentLocalM;
+
+
   return (
     <div className="flex w-full h-full relative overflow-hidden">
       {/* 1. Left Sidebar Navigation (Toolbar) */}
@@ -1282,8 +2079,10 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         onToggleSearch={toggleSearch} 
         onNewRoute={handleNewRoute}
         onImportGPX={handleImportGPX}
-        onExportGPX={handleDownloadGPX}
+        onExportGPX={handleOpenExportModal}
         isClean={isClean}
+        isNearbyMode={isNearbyMode}
+        onToggleNearby={toggleNearby}
       />
 
       {/* 2. Panels Container (Stackable) */}
@@ -1302,8 +2101,10 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     onRedo={handleRedo}
                     onClear={() => { saveToHistory(sections); setSections([{ id: generateId(), name: 'Section 1', points: [], segments: [], color: SECTION_COLORS[0] }]); }}
                     onSave={openSaveModal}
-                    onDownloadGPX={handleDownloadGPX}
+                    onDownloadGPX={handleOpenExportModal}
                     sections={sections}
+                    focusedPointId={focusedPointId}
+                    onPointFocus={handleMenuPointFocus}
                     onPointRemove={handlePointRemove}
                     onPointRename={handlePointRename}
                     onSplitSection={handleSplitSection}
@@ -1321,12 +2122,125 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
         {/* Search Panel */}
         <div className={`
-            ${isSearchOpen ? 'w-80 border-r border-gray-800 pointer-events-auto shadow-2xl' : 'w-0'} 
+            ${isSearchOpen ? 'w-80 border-r border-gray-800 pointer-events-auto shadow-2xl' : 'w-0'}
             h-full bg-gray-900 overflow-hidden transition-all duration-300 ease-in-out
         `}>
              <div className="w-80 h-full"> {/* Inner Fixed Width Container */}
-                <SearchPanel onLoadRoute={handleLoadRoute} />
+                <SearchPanel onLoadRoute={handlePreviewRoute} activePreviewId={previewRoute?.id ?? null} />
              </div>
+        </div>
+
+        {/* Desktop Preview Detail Panel (md+) - slides in next to search panel */}
+        <div className={`
+            hidden md:block
+            ${previewRoute ? 'w-80 border-r border-gray-800 pointer-events-auto' : 'w-0'}
+            h-full bg-gray-900 overflow-hidden transition-all duration-300 ease-in-out flex-shrink-0
+        `}>
+            {previewRoute && (
+            <div className="w-80 h-full flex flex-col">
+                {/* Fixed: Title + X + meta info */}
+                <div className="px-4 pt-4 pb-3 flex flex-col gap-3 shrink-0 border-b border-gray-800">
+                    {/* Number + Title + X */}
+                    <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                            {previewRoute.data.route_num && (
+                                <span className="text-[11px] text-gray-500 font-mono">#{previewRoute.data.route_num}</span>
+                            )}
+                            <h2 className="text-white font-bold text-base leading-snug mt-0.5">{previewRoute.data.title || 'Untitled Route'}</h2>
+                        </div>
+                        <button
+                            onClick={() => cancelPreview()}
+                            className="text-gray-500 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-800 shrink-0 mt-0.5"
+                            title="Close preview"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+
+                    {/* Author + Date */}
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                            {previewRoute.data.author_image
+                                ? <img src={previewRoute.data.author_image} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                                : <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center shrink-0">
+                                    <svg className="w-3.5 h-3.5 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/></svg>
+                                  </div>
+                            }
+                            <span className="text-sm text-gray-300 font-medium truncate">{previewRoute.data.author_name || '—'}</span>
+                        </div>
+                        <div className="text-right text-[11px] text-gray-500 font-mono shrink-0">
+                            {previewRoute.data.created_at && <div>{formatDate(previewRoute.data.created_at)}</div>}
+                            {previewRoute.data.updated_at && previewRoute.data.updated_at !== previewRoute.data.created_at && (
+                                <div className="text-[10px]">ed. {formatDate(previewRoute.data.updated_at)}</div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Tags */}
+                    {previewRoute.data.tags?.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                            {previewRoute.data.tags.map(tag => (
+                                <span key={tag} className="bg-gray-800 text-gray-300 text-[11px] px-2 py-0.5 rounded-full border border-gray-700">{tag}</span>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-gray-800/60 rounded-xl px-3 py-2.5">
+                            <div className="text-[10px] text-gray-500 font-medium mb-0.5">Distance</div>
+                            <div className="text-white font-bold text-sm font-mono">{previewDistKm.toFixed(1)}<span className="text-xs text-gray-400 font-normal ml-0.5">km</span></div>
+                        </div>
+                        <div className="bg-gray-800/60 rounded-xl px-3 py-2.5">
+                            <div className="text-[10px] text-gray-500 font-medium mb-0.5">Elevation</div>
+                            <div className="text-white font-bold text-sm font-mono">+{Math.round(previewAscentM)}<span className="text-xs text-gray-400 font-normal ml-0.5">m</span></div>
+                        </div>
+                    </div>
+
+                    {/* View/Download counts */}
+                    {(previewRoute.data.stats?.views > 0 || previewRoute.data.stats?.downloads > 0) && (
+                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                            <span className="flex items-center gap-1">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                {previewRoute.data.stats.views.toLocaleString()}
+                            </span>
+                            <span className="flex items-center gap-1">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                {previewRoute.data.stats.downloads.toLocaleString()}
+                            </span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Scrollable: Description only */}
+                {previewRoute.data.description ? (
+                    <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-3">
+                        <div className="prose prose-sm prose-invert max-w-none">
+                            <ReactMarkdown>{previewRoute.data.description}</ReactMarkdown>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex-1" />
+                )}
+
+                {/* Action Buttons */}
+                <div className="px-4 pb-4 pt-2 shrink-0 border-t border-gray-800 grid grid-cols-2 gap-3">
+                    <button
+                        onClick={() => cancelPreview()}
+                        className="py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-sm transition-all active:scale-[0.98]"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={confirmPreviewLoad}
+                        className="py-2.5 rounded-xl bg-riduck-primary hover:bg-riduck-primary/90 text-white font-bold text-sm shadow-lg shadow-riduck-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+                    >
+                        Load Route
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+                    </button>
+                </div>
+            </div>
+            )}
         </div>
       </div>
 
@@ -1337,9 +2251,9 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         {/* Map Area */}
         <div className="flex-1 relative">
                         {/* Top Right: Tools Container */}
-            <div className="absolute top-4 right-4 md:top-6 md:right-6 z-10 flex flex-col items-end gap-3 pointer-events-none">
+            <div className={`absolute top-4 right-4 md:top-6 md:right-6 z-10 flex-col items-end gap-3 pointer-events-none ${mobilePreviewExpanded ? 'hidden md:flex' : 'flex'}`}>
                 {/* 1. Straight Line Mode Toggle */}
-                <button 
+                {!isNearbyMode && <button
                     onClick={() => setIsMockMode(!isMockMode)}
                     className={`pointer-events-auto flex items-center justify-between gap-2 md:gap-4 px-3 py-2 md:px-5 md:py-3 rounded-2xl border shadow-xl backdrop-blur-md transition-all duration-300 ${
                         isMockMode 
@@ -1361,7 +2275,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     <div className={`w-8 h-4 md:w-10 md:h-5 rounded-full relative transition-colors flex-shrink-0 ${isMockMode ? 'bg-black/20' : 'bg-gray-700'}`}>
                         <div className={`absolute top-0.5 left-0.5 w-3 h-3 md:w-4 md:h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${isMockMode ? 'translate-x-4 md:translate-x-5' : 'translate-x-0'}`} />
                     </div>
-                </button>
+                </button>}
 
                 {/* 2. Place Search Bar (Floating) */}
                 <div className={`pointer-events-auto flex items-center bg-gray-900/90 backdrop-blur-md border border-gray-700 shadow-xl rounded-full transition-all duration-300 ease-in-out h-10 md:h-12 overflow-hidden ${isPlaceSearchOpen ? 'w-64 px-4' : 'w-10 md:w-12 justify-center'}`}>
@@ -1395,21 +2309,64 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 </div>
             </div>
 
-            {/* Stats Overlay */}
-            <div className="absolute top-4 left-4 md:top-6 md:left-6 z-10 bg-gray-900/90 backdrop-blur-md px-5 py-2 md:px-8 md:py-3 rounded-2xl border border-gray-700 shadow-2xl flex gap-4 md:gap-8 items-center pointer-events-none transition-all">
-                <div className="text-center">
-                    <p className="text-[8px] md:text-[10px] text-gray-400 uppercase font-bold tracking-wider">Distance</p>
-                    <p className="text-lg md:text-2xl font-mono text-white font-bold">{totalDist.toFixed(1)}<span className="text-xs md:text-sm text-gray-500 ml-0.5 font-sans">km</span></p>
+            {/* Stats Overlay / Nearby Mode Badge */}
+            {isNearbyMode ? (
+                <div className="absolute top-4 left-4 md:top-6 md:left-6 z-10 flex items-center gap-2">
+                    <div className="backdrop-blur-md bg-blue-500/15 border border-blue-400/40 px-4 py-2 md:px-6 md:py-3 rounded-2xl shadow-2xl pointer-events-none">
+                        <p className="text-[9px] md:text-[10px] text-blue-300 uppercase font-bold tracking-wider mb-0.5">탐색 모드</p>
+                        <p className="text-sm md:text-base font-bold text-white leading-none">
+                            반경 {nearbyCenter ? nearbyCenter.radiusKm : '—'}km
+                            <span className="text-[10px] md:text-xs text-blue-300 font-normal ml-1.5">인기순 7개</span>
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => {
+                            if (!navigator.geolocation) return;
+                            navigator.geolocation.getCurrentPosition(
+                                (pos) => {
+                                    const { latitude, longitude } = pos.coords;
+                                    const map = mapRef.current?.getMap ? mapRef.current.getMap() : mapRef.current;
+                                    if (map) {
+                                        map.flyTo({ center: [longitude, latitude], zoom: Math.max(map.getZoom(), 12), duration: 1000 });
+                                    }
+                                },
+                                () => alert('위치 정보를 가져올 수 없습니다.')
+                            );
+                        }}
+                        className="pointer-events-auto p-2.5 md:p-3 rounded-2xl backdrop-blur-md bg-blue-500/15 border border-blue-400/40 text-blue-300 hover:bg-blue-500/30 hover:text-white shadow-2xl transition-all"
+                        title="내 위치로 이동"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </button>
                 </div>
-                <div className="w-px h-6 md:h-8 bg-gray-700"></div>
-                <div className="text-center">
-                    <p className="text-[8px] md:text-[10px] text-gray-400 uppercase font-bold tracking-wider">Ascent</p>
-                    <p className="text-lg md:text-2xl font-mono text-white font-bold">{Math.round(totalAscent)}<span className="text-xs md:text-sm text-gray-500 ml-0.5 font-sans">m</span></p>
+            ) : (
+                <div className={`absolute top-4 left-4 md:top-6 md:left-6 z-10 backdrop-blur-md px-5 py-2 md:px-8 md:py-3 rounded-2xl border shadow-2xl flex gap-4 md:gap-8 items-center pointer-events-none transition-all ${previewRoute ? 'bg-riduck-primary/15 border-riduck-primary/40' : 'bg-gray-900/90 border-gray-700'}`}>
+                    {previewRoute && (
+                        <span className="text-riduck-primary text-[9px] md:text-[10px] font-bold uppercase tracking-wider absolute -top-2.5 left-3 bg-gray-900 px-1.5 rounded">Preview</span>
+                    )}
+                    <div className="text-center">
+                        <p className="text-[8px] md:text-[10px] text-gray-400 uppercase font-bold tracking-wider">Distance</p>
+                        <p className="text-lg md:text-2xl font-mono text-white font-bold">
+                            {previewRoute ? previewDistKm.toFixed(1) : totalDist.toFixed(1)}
+                            <span className="text-xs md:text-sm text-gray-500 ml-0.5 font-sans">km</span>
+                        </p>
+                    </div>
+                    <div className="w-px h-6 md:h-8 bg-gray-700"></div>
+                    <div className="text-center">
+                        <p className="text-[8px] md:text-[10px] text-gray-400 uppercase font-bold tracking-wider">Ascent</p>
+                        <p className="text-lg md:text-2xl font-mono text-white font-bold">
+                            +{previewRoute ? Math.round(previewAscentM) : Math.round(totalAscent)}
+                            <span className="text-xs md:text-sm text-gray-500 ml-0.5 font-sans">m</span>
+                        </p>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Mobile Only: Sidebar Toggles (Below Stats) */}
-            <div className="absolute top-[80px] left-4 z-10 flex gap-2 md:hidden">
+            <div className={`absolute top-[80px] left-4 z-10 gap-2 md:hidden ${mobilePreviewExpanded ? 'hidden' : 'flex'}`}>
                 <button 
                     onClick={handleNewRoute}
                     disabled={isClean}
@@ -1436,7 +2393,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     </svg>
                 </button>
                 <label className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all bg-gray-900/90 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800 cursor-pointer flex items-center justify-center`}>
-                    <input type="file" accept=".gpx" className="hidden" onChange={(e) => {
+                    <input type="file" accept=".gpx,.tcx" className="hidden" onChange={(e) => {
                         const file = e.target.files[0];
                         if (file) {
                             handleImportGPX(file);
@@ -1448,7 +2405,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     </svg>
                 </label>
                 <button 
-                    onClick={handleDownloadGPX}
+                    onClick={handleOpenExportModal}
                     disabled={isClean}
                     className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isClean ? 'bg-gray-800/50 border-gray-800 text-gray-600 opacity-50 cursor-not-allowed' : 'bg-gray-900/90 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800'}`}
                 >
@@ -1465,19 +2422,63 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 onLoad={handleMapLoad}
                 onClick={handleMapClick}
                 onMouseMove={onHover}
+                onMoveEnd={handleMapMoveEnd}
                 
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
 
-                onMouseLeave={() => { setHoverInfo(null); setDragState(null); }} // Cancel drag if leave?
-                interactiveLayerIds={['route-layer']}
+                onMouseLeave={() => { setHoverInfo(null); setDragState(null); setMapHoverCoord(null); }} // Cancel drag if leave?
+                interactiveLayerIds={['route-layer', 'nearby-routes-layer']}
                 style={{ width: '100%', height: '100%' }} 
-                cursor={isLoading ? 'wait' : (dragState ? 'grabbing' : (insertCandidate ? 'grab' : 'crosshair'))}
+                cursor={isLoading ? 'wait' : (dragState ? 'grabbing' : (insertCandidate ? 'grab' : (isNearbyMode ? 'default' : 'crosshair')))}
             >
+                {nearbyCenter && (
+                    <>
+                        <Source id="nearby-radius-source" type="geojson" data={makeCircleGeoJSON(nearbyCenter.lat, nearbyCenter.lng, nearbyCenter.radiusKm)}>
+                            <Layer id="nearby-radius-fill" type="fill" paint={{ 'fill-color': '#60A5FA', 'fill-opacity': 0.06 }} />
+                            <Layer id="nearby-radius-border" type="line" paint={{ 'line-color': '#60A5FA', 'line-width': 1.5, 'line-opacity': 0.5, 'line-dasharray': [4, 3] }} />
+                        </Source>
+                        <Marker longitude={nearbyCenter.lng} latitude={nearbyCenter.lat} anchor="center">
+                            <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#60A5FA', border: '2px solid white', boxShadow: '0 0 0 3px rgba(96,165,250,0.35)' }} />
+                        </Marker>
+                    </>
+                )}
+
+                {nearbyRoutes && (
+                    <Source id="nearby-routes-source" type="geojson" data={nearbyRoutes}>
+                        <Layer
+                            id="nearby-routes-layer"
+                            type="line"
+                            layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+                            paint={{
+                                'line-color': ['get', 'zone_color'],
+                                'line-width': 4,
+                                'line-opacity': 0.85
+                            }}
+                        />
+                    </Source>
+                )}
+
                 {surfaceGeoJSON.features.length > 0 && (
                     <Source id="route-source" type="geojson" data={surfaceGeoJSON}>
                         <Layer id="route-layer" type="line" layout={{ 'line-join': 'round', 'line-cap': 'round' }} paint={{ 'line-color': ['get', 'color'], 'line-width': 6, 'line-opacity': 0.9 }} />
+                    </Source>
+                )}
+
+                {previewGeoJSON && (
+                    <Source id="preview-source" type="geojson" data={previewGeoJSON}>
+                        <Layer 
+                            id="preview-layer" 
+                            type="line" 
+                            layout={{ 'line-join': 'round', 'line-cap': 'butt' }} 
+                            paint={{ 
+                                'line-color': '#FF4081', // Pink/Magenta
+                                'line-width': 5, 
+                                'line-opacity': 0.9,
+                                'line-dasharray': [3, 1] // [dash length, gap length] relative to line-width
+                            }} 
+                        />
                     </Source>
                 )}
                 
@@ -1490,6 +2491,24 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                      const startP = sec.points.find(p => p.id === segment.startPointId);
                      const endP = sec.points.find(p => p.id === segment.endPointId);
                      if (!startP || !endP) return null;
+                     if (
+                         !Number.isFinite(startP.lng) ||
+                         !Number.isFinite(startP.lat) ||
+                         !Number.isFinite(endP.lng) ||
+                         !Number.isFinite(endP.lat) ||
+                         !Number.isFinite(dragState.lng) ||
+                         !Number.isFinite(dragState.lat)
+                     ) {
+                         if (!dragPreviewInvalidLoggedRef.current) {
+                             console.warn('[drag-preview] Invalid coordinates', {
+                                 start: [startP.lng, startP.lat],
+                                 mid: [dragState.lng, dragState.lat],
+                                 end: [endP.lng, endP.lat],
+                             });
+                             dragPreviewInvalidLoggedRef.current = true;
+                         }
+                         return null;
+                     }
 
                      const previewGeoJson = {
                          type: 'Feature',
@@ -1549,6 +2568,20 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     </Marker>
                 )}
 
+                {hoveredCoord && Number.isFinite(hoveredCoord.lng) && Number.isFinite(hoveredCoord.lat) && (
+                    <Marker
+                        longitude={hoveredCoord.lng}
+                        latitude={hoveredCoord.lat}
+                        anchor="center"
+                        draggable={false}
+                    >
+                        <div className="pointer-events-none relative flex items-center justify-center">
+                            <div className="absolute h-7 w-7 rounded-full border border-riduck-primary/40 bg-riduck-primary/10"></div>
+                            <div className="h-3 w-3 rounded-full border-2 border-white bg-riduck-primary shadow-lg shadow-riduck-primary/40"></div>
+                        </div>
+                    </Marker>
+                )}
+
                 {sections.flatMap((sec, sIdx) => sec.points.map((p, pIdx, arr) => (
                     <Marker 
                         key={`${sec.id}-${p.id}`} 
@@ -1558,13 +2591,23 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                         draggable={true}
                         onDragEnd={(evt) => handlePointMove(sIdx, pIdx, evt)}
                     >
+                    {(() => {
+                      const isFocusedPoint = focusedPointId === p.id;
+                      return (
                     <div 
-                      className={`group flex items-center justify-center w-6 h-6 rounded-full border-2 border-white shadow-lg cursor-pointer text-white text-xs font-black z-50 hover:scale-110 transition-transform`} 
+                      className={`group relative flex items-center justify-center w-6 h-6 rounded-full border-2 border-white cursor-pointer text-white text-xs font-black z-50 transition-transform ${
+                        isFocusedPoint ? 'scale-125 shadow-[0_0_0_2px_rgba(42,158,146,0.35),0_0_14px_rgba(42,158,146,0.65)]' : 'shadow-lg hover:scale-110'
+                      }`} 
                       style={{ backgroundColor: sIdx === 0 && pIdx === 0 ? '#10B981' : (sIdx === sections.length - 1 && pIdx === arr.length - 1 ? '#EF4444' : sec.color) }}
                       onClick={(e) => handlePointRemove(sIdx, pIdx, e)}
                     >
+                        {isFocusedPoint && (
+                          <span className="pointer-events-none absolute -inset-2 rounded-full border border-riduck-primary/60 animate-ping"></span>
+                        )}
                         <span className="group-hover:hidden">{pIdx + 1}</span><span className="hidden group-hover:block">✕</span>
                     </div>
+                      );
+                    })()}
                     </Marker>
                 )))}
                 {ambiguityPopup && (
@@ -1642,11 +2685,183 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     </div>
                 )}
             </Map>
+
+            {/* Preview Control UI — Mobile only (floating bottom sheet) */}
+            {previewRoute && (
+                <div
+                    ref={previewPanelMobileRef}
+                    className="md:hidden absolute inset-x-0 bottom-0 z-30 pointer-events-auto animate-fadeInUp"
+                    onClick={() => { setIsSearchOpen(false); setIsMenuOpen(false); }}
+                >
+                    <div className={`bg-gray-900/97 backdrop-blur-xl border-t border-gray-700/60 shadow-2xl rounded-t-2xl flex flex-col ${mobilePreviewExpanded ? 'max-h-[57vh] overflow-hidden' : ''}`}>
+                        {/* Drag handle */}
+                        <div className="w-8 h-1 bg-gray-700 rounded-full mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
+
+                        {/* Fixed info area */}
+                        <div className="px-4 pt-4 pb-3 flex flex-col gap-3 shrink-0">
+                            {/* Title + X */}
+                            <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                    {previewRoute.data.route_num && (
+                                        <span className="text-[11px] text-gray-500 font-mono">#{previewRoute.data.route_num}</span>
+                                    )}
+                                    <h3 className="text-white font-bold text-base leading-snug">{previewRoute.data.title || 'Untitled Route'}</h3>
+                                </div>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); cancelPreview(); }}
+                                    className="text-gray-500 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-800 shrink-0 mt-0.5"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                            </div>
+
+                            {/* Author + Date */}
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                    {previewRoute.data.author_image
+                                        ? <img src={previewRoute.data.author_image} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
+                                        : <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center shrink-0">
+                                            <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/></svg>
+                                          </div>
+                                    }
+                                    <span className="text-sm text-gray-400 truncate">{previewRoute.data.author_name || '—'}</span>
+                                </div>
+                                <div className="text-right text-xs text-gray-500 font-mono shrink-0">
+                                    {previewRoute.data.created_at && <div>{formatDate(previewRoute.data.created_at)}</div>}
+                                    {previewRoute.data.updated_at && previewRoute.data.updated_at !== previewRoute.data.created_at && (
+                                        <div className="text-[11px]">ed. {formatDate(previewRoute.data.updated_at)}</div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Stats */}
+                            <div className="flex items-center gap-3 text-sm font-mono">
+                                <span className="text-white font-bold">{previewDistKm.toFixed(1)}<span className="text-gray-400 font-normal ml-0.5">km</span></span>
+                                <span className="text-gray-600">·</span>
+                                <span className="text-white font-bold">+{Math.round(previewAscentM)}<span className="text-gray-400 font-normal ml-0.5">m</span></span>
+                                {previewRoute.data.stats?.views > 0 && (
+                                    <>
+                                        <span className="text-gray-600">·</span>
+                                        <span className="text-gray-400 flex items-center gap-0.5">
+                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                            {previewRoute.data.stats.views.toLocaleString()}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Tags (always visible) */}
+                            {previewRoute.data.tags?.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5">
+                                    {previewRoute.data.tags.map(tag => (
+                                        <span key={tag} className="bg-gray-800 text-gray-300 text-xs px-2 py-0.5 rounded-full border border-gray-700">{tag}</span>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Show detail / Hide */}
+                            {previewRoute.data.description && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const next = !mobilePreviewExpanded;
+                                        setMobilePreviewExpanded(next);
+                                        setIsElevationChartVisible(!next);
+                                    }}
+                                    className="text-sm text-riduck-primary font-medium flex items-center gap-1"
+                                >
+                                    {mobilePreviewExpanded ? 'Hide' : 'Show detail'}
+                                    <svg className={`w-3 h-3 transition-transform ${mobilePreviewExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Scrollable: Description only */}
+                        {mobilePreviewExpanded && previewRoute.data.description && (
+                            <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pb-2 min-h-0">
+                                <div className="prose prose-sm prose-invert max-w-none text-sm">
+                                    <ReactMarkdown>{previewRoute.data.description}</ReactMarkdown>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="px-4 pb-4 pt-2 grid grid-cols-2 gap-3 shrink-0 border-t border-gray-800">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); cancelPreview(); }}
+                                className="py-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-sm transition-all active:scale-[0.98]"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); confirmPreviewLoad(); }}
+                                className="py-3 rounded-xl bg-riduck-primary hover:bg-riduck-primary/90 text-white font-bold text-sm shadow-lg shadow-riduck-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+                            >
+                                Load Route
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
 
-        {/* Elevation Chart (Bottom Fixed with Padding) */}
-        <div className="h-40 md:h-52 border-t border-gray-800 bg-gray-900/90 backdrop-blur-md relative z-10 px-4 pb-6 pt-2 shrink-0">
-            <ElevationChart segments={sections.flatMap(s => s.segments)} onHoverPoint={handleHoverPoint} />
+        {/* Elevation Chart Panel (Collapsible) */}
+        <div className="relative z-20 shrink-0">
+            <div
+                id="elevation-chart-panel"
+                className={`relative overflow-hidden bg-gray-900/90 backdrop-blur-md transition-all duration-300 ease-in-out ${
+                    isElevationChartVisible ? 'h-40 md:h-52 opacity-100' : 'h-0 opacity-0'
+                }`}
+            >
+                <div className={`h-full px-4 transition-all duration-300 ${isElevationChartVisible ? 'pt-4 pb-0' : 'pt-0 pb-0'}`}>
+                    <ElevationChart
+                        segments={previewRoute
+                            ? previewRoute.sections.flatMap(s => s.segments)
+                            : sections.flatMap(s => s.segments)}
+                        checkpoints={previewRoute
+                            ? []
+                            : sectionsWithPointDistances.flatMap(s => s.points)}
+                        onHoverPoint={handleHoverPoint}
+                        onSelectPoint={handleChartPointSelect}
+                        mapHoverCoord={mapHoverCoord}
+                    />
+                </div>
+            </div>
+
+            <button
+                type="button"
+                onClick={() => setIsElevationChartVisible(prev => !prev)}
+                aria-expanded={isElevationChartVisible}
+                aria-controls="elevation-chart-panel"
+                className="group flex w-full items-center justify-center gap-1.5 border-t border-gray-800 bg-gray-900/95 py-1.5 text-[11px] font-bold text-gray-400 transition hover:bg-gray-800/80 hover:text-white"
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className={`h-3.5 w-3.5 transition-transform duration-300 ${isElevationChartVisible ? '' : 'rotate-180'}`}
+                >
+                    <path
+                        fillRule="evenodd"
+                        d="M4.47 7.97a.75.75 0 011.06 0L10 12.44l4.47-4.47a.75.75 0 111.06 1.06l-5 5a.75.75 0 01-1.06 0l-5-5a.75.75 0 010-1.06z"
+                        clipRule="evenodd"
+                    />
+                </svg>
+                {isElevationChartVisible ? 'Hide Elevation' : 'Show Elevation'}
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className={`h-3.5 w-3.5 transition-transform duration-300 ${isElevationChartVisible ? '' : 'rotate-180'}`}
+                >
+                    <path
+                        fillRule="evenodd"
+                        d="M4.47 7.97a.75.75 0 011.06 0L10 12.44l4.47-4.47a.75.75 0 111.06 1.06l-5 5a.75.75 0 01-1.06 0l-5-5a.75.75 0 010-1.06z"
+                        clipRule="evenodd"
+                    />
+                </svg>
+            </button>
         </div>
 
         {/* Save Route Modal */}
@@ -1664,6 +2879,13 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 status: routeStatus,
                 tags: routeTags
             }}
+        />
+        
+        <ExportRouteModal
+            isOpen={isExportModalOpen}
+            onClose={() => setIsExportModalOpen(false)}
+            onExport={performExport}
+            initialTitle={routeName}
         />
       </div>
     </div>

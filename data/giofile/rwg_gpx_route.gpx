@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx xmlns:gpxdata="http://www.cluetrust.com/XML/GPXDATA/1/0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.topografix.com/GPX/1/1" version="1.1" creator="http://ridewithgps.com/" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd http://www.cluetrust.com/XML/GPXDATA/1/0 http://www.cluetrust.com/Schemas/gpxdata10.xsd">
+  <metadata>
+    <name>로드 트레이닝 Ep.3 : 팔당대교 </name>
+    <link href="https://ridewithgps.com/routes/42134533">
+      <text>로드 트레이닝 Ep.3 : 팔당대교 </text>
+    </link>
+    <time>2023-03-03T08:24:47Z</time>
+  </metadata>
+  <rte>
+    <name>로드 트레이닝 Ep.3 : 팔당대교 </name>
+    <rtept lat="37.510125" lon="127.018688">
+      <name>Start</name>
+      <cmt>Start of route</cmt>
+    </rtept>
+    <rtept lat="37.51946" lon="127.07085">
+      <name>Slight Left</name>
+      <cmt>Hangang (riv.) Bicycle Path로 좌측 유지</cmt>
+    </rtept>
+    <rtept lat="37.51962" lon="127.07169">
+      <name>Slight Right</name>
+      <cmt>Hangang (riv.) Bicycle Path로 우측 유지</cmt>
+    </rtept>
+    <rtept lat="37.51908" lon="127.07498">
+      <name>Sharp Right</name>
+      <cmt>Hangang (riv.) Bicycle Path로 오른쪽 방향</cmt>
+    </rtept>
+    <rtept lat="37.5191" lon="127.07487">
+      <name>Uturn</name>
+      <cmt>Hangang (riv.) Bicycle Path로 유턴</cmt>
+    </rtept>
+    <rtept lat="37.51822" lon="127.08245">
+      <name>Slight Right</name>
+      <cmt>Hangang (riv.) Bicycle Path로 우측 유지</cmt>
+    </rtept>
+    <rtept lat="37.51831" lon="127.08455">
+      <name>Sharp Left</name>
+      <cmt>Hangang (riv.) Bicycle Path로 왼쪽 방향</cmt>
+    </rtept>
+    <rtept lat="37.5183" lon="127.08444">
+      <name>Uturn</name>
+      <cmt>Hangang (riv.) Bicycle Path로 유턴</cmt>
+    </rtept>
+    <rtept lat="37.52312" lon="127.10073">
+      <name>Right</name>
+      <cmt>Hangang (Riv.) Bicycle Path로 우회전</cmt>
+    </rtept>
+    <rtept lat="37.5232" lon="127.10085">
+      <name>Right</name>
+      <cmt>Hangang (Riv.) Bicycle Path로 우회전</cmt>
+    </rtept>
+    <rtept lat="37.52445" lon="127.10211">
+      <name>Straight</name>
+      <cmt>Hangang (Riv.) Bicycle Path(으)로 계속 이동</cmt>
+    </rtept>
+    <rtept lat="37.53629" lon="127.11153">
+      <name>Sharp Left</name>
+      <cmt>Hangang (Riv.) Bicycle Path로 왼쪽 방향</cmt>
+    </rtept>
+    <rtept lat="37.54509" lon="127.11964">
+      <name>Straight</name>
+      <cmt>Hangang (Riv.) Bicycle Path(으)로 계속 이동</cmt>
+    </rtept>
+    <rtept lat="37.56459" lon="127.13176">
+      <name>Slight Left</name>
+      <cmt>Hangang (Riv.) Bicycle Path로 좌측 유지</cmt>
+    </rtept>
+    <rtept lat="37.58048" lon="127.17879">
+      <name>Right</name>
+      <cmt>Hangang (riv.) Bicycle Path로 우회전</cmt>
+    </rtept>
+    <rtept lat="37.57846" lon="127.20295">
+      <name>Uturn</name>
+      <cmt>Hangang (riv.) Bicycle Path로 유턴</cmt>
+    </rtept>
+    <rtept lat="37.579189" lon="127.20232">
+      <name>Uturn</name>
+      <cmt>Hangang (riv.) Bicycle Path로 유턴</cmt>
+    </rtept>
+    <rtept lat="37.57109" lon="127.20957">
+      <name>Uturn</name>
+      <cmt>Hangang (riv.) Bicycle Path로 유턴</cmt>
+    </rtept>
+    <rtept lat="37.57165" lon="127.20932">
+      <name>Uturn</name>
+      <cmt>Hangang (riv.) Bicycle Path로 유턴</cmt>
+    </rtept>
+    <rtept lat="37.56845" lon="127.21137">
+      <name>Slight Left</name>
+      <cmt>Hangang (Riv.) Bicycle Path로 좌측 유지</cmt>
+    </rtept>
+    <rtept lat="37.56802" lon="127.21183">
+      <name>Sharp Left</name>
+      <cmt>Hangang (riv.) Bicycle Path로 왼쪽 방향</cmt>
+    </rtept>
+    <rtept lat="37.56873" lon="127.21134">
+      <name>Uturn</name>
+      <cmt>Hangang (riv.) Bicycle Path로 유턴</cmt>
+    </rtept>
+    <rtept lat="37.56845" lon="127.21137">
+      <name>Straight</name>
+      <cmt>Hangang (riv.) Bicycle Path(으)로 계속 이동</cmt>
+    </rtept>
+    <rtept lat="37.54923" lon="127.21838">
+      <name>Slight Left</name>
+      <cmt>Hangang (riv.) Bicycle Path로 좌측 유지</cmt>
+    </rtept>
+    <rtept lat="37.54943" lon="127.21962">
+      <name>Slight Left</name>
+      <cmt>Hangang (riv.) Bicycle Path로 좌측 유지</cmt>
+    </rtept>
+    <rtept lat="37.55251" lon="127.22152">
+      <name>Sharp Left</name>
+      <cmt>Hangang (riv.) Bicycle Path로 왼쪽 방향</cmt>
+    </rtept>
+    <rtept lat="37.55243" lon="127.22147">
+      <name>Uturn</name>
+      <cmt>Hangang (riv.) Bicycle Path로 유턴</cmt>
+    </rtept>
+    <rtept lat="37.54449" lon="127.23243">
+      <name>Slight Left</name>
+      <cmt>Hangang (riv.) Bicycle Path로 좌측 유지</cmt>
+    </rtept>
+    <rtept lat="37.54418" lon="127.23301">
+      <name>Left</name>
+      <cmt>Hangang (riv.) Bicycle Path로 좌회전</cmt>
+    </rtept>
+    <rtept lat="37.5424" lon="127.23845">
+      <name>Right</name>
+      <cmt>Hangang (riv.) Bicycle Path로 우회전</cmt>
+    </rtept>
+    <rtept lat="37.543819" lon="127.23531">
+      <name>Slight Left</name>
+      <cmt>Paldang Bridge로 좌측 유지</cmt>
+    </rtept>
+    <rtept lat="37.544759" lon="127.2361">
+      <name>Straight</name>
+      <cmt>Paldang Bridge, 45(으)로 계속 이동</cmt>
+    </rtept>
+    <rtept lat="37.54661" lon="127.23848">
+      <name>Slight Right</name>
+      <cmt>Paldang Bridge로 우측 유지</cmt>
+    </rtept>
+    <rtept lat="37.54741" lon="127.23963">
+      <name>Slight Right</name>
+      <cmt>Paldang Bridge로 우측 유지</cmt>
+    </rtept>
+    <rtept lat="37.54678" lon="127.24154">
+      <name>Left</name>
+      <cmt>팔당대교 출입로로 좌회전</cmt>
+    </rtept>
+    <rtept lat="37.54658" lon="127.24188">
+      <name>Slight Left</name>
+      <cmt>Hangang (Riv.) Bicycle Path로 왼쪽 방향</cmt>
+    </rtept>
+    <rtept lat="37.54484" lon="127.24526">
+      <name>Left</name>
+      <cmt>좌회전</cmt>
+    </rtept>
+    <rtept lat="37.54512" lon="127.24639">
+      <name>Left</name>
+      <cmt>Paldang-ro, 16로 좌회전</cmt>
+    </rtept>
+    <rtept lat="37.54651" lon="127.24306">
+      <name>Right</name>
+      <cmt>우회전</cmt>
+    </rtept>
+    <rtept lat="37.54658" lon="127.24312">
+      <name>Left</name>
+      <cmt>좌회전</cmt>
+    </rtept>
+    <rtept lat="37.54658" lon="127.24312">
+      <name>Right</name>
+      <cmt>우회전</cmt>
+    </rtept>
+    <rtept lat="37.54651" lon="127.24306">
+      <name>Left</name>
+      <cmt>Paldang-ro, 16로 좌회전</cmt>
+    </rtept>
+    <rtept lat="37.54512" lon="127.24639">
+      <name>Right</name>
+      <cmt>우회전</cmt>
+    </rtept>
+    <rtept lat="37.54484" lon="127.24526">
+      <name>Right</name>
+      <cmt>Hangang (riv.) Bicycle Path로 우회전</cmt>
+    </rtept>
+    <rtept lat="37.54658" lon="127.24188">
+      <name>Slight Right</name>
+      <cmt>팔당대교 출입로로 우측 유지</cmt>
+    </rtept>
+    <rtept lat="37.54678" lon="127.24154">
+      <name>Right</name>
+      <cmt>팔당대교 출입로로 우회전</cmt>
+    </rtept>
+    <rtept lat="37.54742" lon="127.23972">
+      <name>Slight Left</name>
+      <cmt>팔당대교로 좌측 유지</cmt>
+    </rtept>
+    <rtept lat="37.5424" lon="127.23845">
+      <name>Left</name>
+      <cmt>Hangang (riv.) Bicycle Path로 좌회전</cmt>
+    </rtept>
+    <rtept lat="37.54418" lon="127.23301">
+      <name>Right</name>
+      <cmt>Hangang (riv.) Bicycle Path로 우회전</cmt>
+    </rtept>
+    <rtept lat="37.54449" lon="127.23243">
+      <name>Slight Right</name>
+      <cmt>Hangang (riv.) Bicycle Path로 오른쪽 방향</cmt>
+    </rtept>
+    <rtept lat="37.54892" lon="127.2185">
+      <name>Right</name>
+      <cmt>한강 자전거길로 우회전</cmt>
+    </rtept>
+    <rtept lat="37.58048" lon="127.17879">
+      <name>Slight Left</name>
+      <cmt>Hangang (Riv.) Bicycle Path로 좌측 유지</cmt>
+    </rtept>
+    <rtept lat="37.57106" lon="127.15778">
+      <name>Straight</name>
+      <cmt>Hangang (Riv.) Bicycle Path(으)로 계속 이동</cmt>
+    </rtept>
+    <rtept lat="37.52985" lon="127.10759">
+      <name>Straight</name>
+      <cmt>Hangang (Riv.) Bicycle Path(으)로 계속 이동</cmt>
+    </rtept>
+    <rtept lat="37.524769" lon="127.10235">
+      <name>Straight</name>
+      <cmt>Hangang (Riv.) Bicycle Path(으)로 계속 이동</cmt>
+    </rtept>
+    <rtept lat="37.5232" lon="127.10085">
+      <name>Right</name>
+      <cmt>Hangang (Riv.) Bicycle Path로 우회전</cmt>
+    </rtept>
+    <rtept lat="37.52312" lon="127.10073">
+      <name>Right</name>
+      <cmt>Hangang (riv.) Bicycle Path로 우회전</cmt>
+    </rtept>
+    <rtept lat="37.5322" lon="127.02389">
+      <name>Straight</name>
+      <cmt>Hangang (riv.) Bicycle Path(으)로 계속 이동</cmt>
+    </rtept>
+    <rtept lat="37.51769" lon="127.00753">
+      <name>Left</name>
+      <cmt>신잠원나들목 출입로로 좌회전</cmt>
+    </rtept>
+    <rtept lat="37.51708" lon="127.00814">
+      <name>Right</name>
+      <cmt>Jamwon-ro로 우회전</cmt>
+    </rtept>
+    <rtept lat="37.51649" lon="127.00874">
+      <name>Left</name>
+      <cmt>좌회전</cmt>
+    </rtept>
+    <rtept lat="37.51746" lon="127.00985">
+      <name>Right</name>
+      <cmt>우회전</cmt>
+    </rtept>
+    <rtept lat="37.51709" lon="127.01044">
+      <name>Straight</name>
+      <cmt>Naruteo-ro(으)로 계속 이동</cmt>
+    </rtept>
+    <rtept lat="37.51491" lon="127.01567">
+      <name>Right</name>
+      <cmt>Naruteo-ro 8-gil로 우회전</cmt>
+    </rtept>
+    <rtept lat="37.50986" lon="127.01628">
+      <name>End</name>
+      <cmt>End of route</cmt>
+    </rtept>
+  </rte>
+</gpx>

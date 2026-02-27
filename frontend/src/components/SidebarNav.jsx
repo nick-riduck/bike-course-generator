@@ -8,7 +8,9 @@ const SidebarNav = ({
   onNewRoute, 
   isClean,
   onImportGPX,
-  onExportGPX
+  onExportGPX,
+  isNearbyMode,
+  onToggleNearby
 }) => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -54,12 +56,24 @@ const SidebarNav = ({
         </svg>
       </button>
 
+      {/* Nearby Mode Toggle */}
+      <button 
+        onClick={onToggleNearby}
+        className={`p-3 rounded-xl transition-colors ${isNearbyMode ? 'bg-riduck-primary text-white shadow-lg shadow-riduck-primary/20' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+        title="Explore Nearby"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4a7 7 0 017 7m0 0a7 7 0 01-7 7m7-7v14m-7-7H4m10 0a7 7 0 01-7-7m0 0a7 7 0 017-7" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      </button>
+
       {/* Divider */}
       <div className="w-8 h-px bg-gray-800 my-2"></div>
 
       {/* Import GPX */}
       <label className="flex items-center justify-center cursor-pointer p-3 rounded-xl text-gray-400 hover:text-white hover:bg-gray-800 transition-colors" title="Import GPX">
-        <input type="file" accept=".gpx" className="hidden" onChange={handleFileChange} />
+        <input type="file" accept=".gpx,.tcx" className="hidden" onChange={handleFileChange} />
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
         </svg>

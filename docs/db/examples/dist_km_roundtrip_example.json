@@ -1,0 +1,74 @@
+{
+  "version": "1.0",
+  "meta": {
+    "creator": "Riduck Unified Parser",
+    "surface_map": {
+      "1": "asphalt",
+      "5": "cycleway"
+    }
+  },
+  "stats": {
+    "distance": 5000.0,
+    "ascent": 120.0
+  },
+  "points": {
+    "lat": [37.500000, 37.505000, 37.510000],
+    "lon": [127.000000, 127.005000, 127.010000],
+    "ele": [10.0, 35.0, 80.0],
+    "dist": [0.0, 2500.0, 5000.0],
+    "grade": [0.0, 0.01, 0.018],
+    "surf": [1, 1, 5]
+  },
+  "segments": {
+    "p_start": [0, 1],
+    "p_end": [1, 2],
+    "length": [2500.0, 2500.0],
+    "avg_grade": [0.01, 0.018],
+    "surf_id": [1, 5],
+    "avg_head": [45.0, 44.0]
+  },
+  "editor_state": {
+    "sections": [
+      {
+        "id": "s1_uuid",
+        "name": "Warmup",
+        "color": "#00ff00",
+        "points": [
+          {
+            "id": "p_start",
+            "type": "section_start",
+            "lat": 37.500000,
+            "lng": 127.000000,
+            "name": "Warmup",
+            "dist_km": 0.000000
+          },
+          {
+            "id": "p_via_1",
+            "type": "via",
+            "lat": 37.505000,
+            "lng": 127.005000,
+            "name": "Aid",
+            "dist_km": 2.500000
+          }
+        ],
+        "segments": []
+      },
+      {
+        "id": "s2_uuid",
+        "name": "Main Climb",
+        "color": "#ff0000",
+        "points": [
+          {
+            "id": "p_start_2",
+            "type": "section_start",
+            "lat": 37.510000,
+            "lng": 127.010000,
+            "name": "Main Climb",
+            "dist_km": 5.000000
+          }
+        ],
+        "segments": []
+      }
+    ]
+  }
+}

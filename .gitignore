@@ -41,3 +41,8 @@ debug_output.txt
 
 # Local Storage (Test Data)
 backend/storage/
+
+# Ignore large data and logs
+frontend/server_log.txt
+data/
+suimi_gpx/

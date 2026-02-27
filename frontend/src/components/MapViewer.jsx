@@ -42,6 +42,7 @@ const material = {
 };
 
 const MapViewer = () => {
+  const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   const Z_SCALE = 5.0;
 
   const triangleData = DUMMY_COURSE.flatMap(d => {

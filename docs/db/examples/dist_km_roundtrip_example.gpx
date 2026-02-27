@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx
+  version="1.1"
+  creator="Riduck"
+  xmlns="http://www.topografix.com/GPX/1/1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:riduck="https://riduck.dev/xmlns/1"
+  xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+  <metadata>
+    <name>dist_km_roundtrip_example</name>
+  </metadata>
+
+  <wpt lat="37.500000" lon="127.000000">
+    <name>Warmup</name>
+    <sym>Riduck_Section_Start</sym>
+    <desc>Color:#00ff00;Riduck_DistKm=0.000000</desc>
+    <extensions>
+      <riduck:dist_km>0.000000</riduck:dist_km>
+    </extensions>
+  </wpt>
+
+  <wpt lat="37.505000" lon="127.005000">
+    <name>Aid</name>
+    <sym>Waypoint</sym>
+    <desc>Riduck_DistKm=2.500000</desc>
+    <extensions>
+      <riduck:dist_km>2.500000</riduck:dist_km>
+    </extensions>
+  </wpt>
+
+  <wpt lat="37.510000" lon="127.010000">
+    <name>Main Climb</name>
+    <sym>Riduck_Section_Start</sym>
+    <desc>Color:#ff0000;Riduck_DistKm=5.000000</desc>
+    <extensions>
+      <riduck:dist_km>5.000000</riduck:dist_km>
+    </extensions>
+  </wpt>
+
+  <trk>
+    <name>dist_km_roundtrip_example</name>
+    <trkseg>
+      <trkpt lat="37.500000" lon="127.000000"><ele>10.0</ele></trkpt>
+      <trkpt lat="37.505000" lon="127.005000"><ele>35.0</ele></trkpt>
+      <trkpt lat="37.510000" lon="127.010000"><ele>80.0</ele></trkpt>
+    </trkseg>
+  </trk>
+</gpx>
