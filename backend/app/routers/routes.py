@@ -156,12 +156,46 @@ async def create_route(route: RouteCreateRequest, authorization: str = Header(No
         print(f"Save Route Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/tags")
+async def get_tags():
+    conn = get_db_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            SELECT t.slug, t.names, COUNT(rt.route_id) as count
+            FROM tags t
+            INNER JOIN route_tags rt ON rt.tag_id = t.id
+            INNER JOIN routes r ON r.id = rt.route_id AND r.status = 'PUBLIC'
+            GROUP BY t.id, t.slug, t.names
+            ORDER BY count DESC
+        """)
+        rows = cur.fetchall()
+        return [
+            {
+                "slug": row["slug"],
+                "name": row["names"].get("ko", row["slug"]) if isinstance(row["names"], dict) else row["slug"],
+                "count": row["count"]
+            }
+            for row in rows
+        ]
+    except Exception as e:
+        print(f"Tags Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+
 @router.get("/nearby")
 async def get_nearby_routes(
     lat: float,
     lon: float,
     radius: float = 5.0, # km
-    limit: int = 7
+    limit: int = 7,
+    min_distance: Optional[int] = None,  # km
+    max_distance: Optional[int] = None,  # km
+    min_elevation: Optional[int] = None, # m
+    max_elevation: Optional[int] = None, # m
+    tags: Optional[str] = None           # comma-separated slugs
 ):
     conn = get_db_conn()
     cur = conn.cursor()
@@ -187,7 +221,45 @@ async def get_nearby_routes(
         # =====================================================================
         radius_deg = (radius_meters / 1000) / 111.0 * 1.15
 
-        query = """
+        # Build dynamic filters
+        # SQL 파라미터 순서: CTE(4) → spatial(6) → tag_join params → extra_where params → limit
+        extra_where = ""
+        where_params = []
+
+        if min_distance is not None:
+            extra_where += " AND r.distance >= %s"
+            where_params.append(min_distance * 1000)  # km → m
+        if max_distance is not None:
+            extra_where += " AND r.distance <= %s"
+            where_params.append(max_distance * 1000)
+        if min_elevation is not None:
+            extra_where += " AND r.elevation_gain >= %s"
+            where_params.append(min_elevation)
+        if max_elevation is not None:
+            extra_where += " AND r.elevation_gain <= %s"
+            where_params.append(max_elevation)
+
+        tag_join = ""
+        tag_params = []
+        if tags:
+            tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+            if tag_list:
+                placeholders = ", ".join(["%s"] * len(tag_list))
+                tag_join = f"""
+                    INNER JOIN route_tags rt_filter ON rt_filter.route_id = r.id
+                    INNER JOIN tags t_filter ON t_filter.id = rt_filter.tag_id
+                        AND t_filter.slug IN ({placeholders})
+                """
+                tag_params = tag_list
+
+        # 순서 맞춰서 조립: CTE → spatial → tag JOIN → WHERE filters → limit
+        all_params = [lon, lat, lon, lat, radius_deg, radius_meters,
+                      radius_deg, radius_meters, radius_deg, radius_meters]
+        all_params.extend(tag_params)
+        all_params.extend(where_params)
+        all_params.append(limit)
+
+        query = f"""
             WITH center AS (
                 SELECT
                     ST_SetSRID(ST_MakePoint(%s, %s), 4326) AS geom,
@@ -201,6 +273,7 @@ async def get_nearby_routes(
             FROM center c
             CROSS JOIN routes r
             LEFT JOIN route_stats rs ON rs.route_id = r.id
+            {tag_join}
             WHERE r.status = 'PUBLIC'
             -- [Step1] GEOMETRY bbox: GIST 인덱스로 후보군 빠르게 추출
             AND ST_DWithin(r.summary_path, c.geom, %s)
@@ -219,20 +292,11 @@ async def get_nearby_routes(
                     AND ST_DWithin(ST_EndPoint(r.summary_path)::geography, c.geog, %s)
                 )
             )
+            {extra_where}
             ORDER BY download_count DESC, r.created_at DESC
             LIMIT %s
         """
-        # (lon, lat) x2: CTE geom/geog 각각
-        # radius_deg, radius_m: summary_path Step1/2
-        # radius_deg, radius_m: start_point Step1/2
-        # radius_deg, radius_m: end_point Step1/2
-        cur.execute(query, (
-            lon, lat, lon, lat,
-            radius_deg, radius_meters,
-            radius_deg, radius_meters,
-            radius_deg, radius_meters,
-            limit
-        ))
+        cur.execute(query, all_params)
         rows = cur.fetchall()
 
         # Power zone colors (Z1 gray → Z7 purple)

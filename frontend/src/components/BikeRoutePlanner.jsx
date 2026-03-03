@@ -9,6 +9,7 @@ import MenuPanel from './MenuPanel';
 import SearchPanel from './SearchPanel';
 import SaveRouteModal from './SaveRouteModal';
 import ExportRouteModal from './ExportRouteModal';
+import NearbyFilterModal, { DEFAULT_FILTERS } from './NearbyFilterModal';
 import ReactMarkdown from 'react-markdown';
 
 const formatDate = (dateString) => {
@@ -185,6 +186,9 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const [isNearbyMode, setIsNearbyMode] = useState(false);
   const [nearbyRoutes, setNearbyRoutes] = useState(null);
   const [nearbyCenter, setNearbyCenter] = useState(null); // { lat, lng, radiusKm }
+  const [nearbyFilters, setNearbyFilters] = useState({ ...DEFAULT_FILTERS });
+  const [isNearbyFilterOpen, setIsNearbyFilterOpen] = useState(false);
+  const nearbyFiltersRef = useRef(nearbyFilters);
   const nearbyDebounceRef = useRef(null);
 
   // Long Press State for Mobile
@@ -229,7 +233,17 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     setNearbyCenter({ lat: center.lat, lng: center.lng, radiusKm: radius });
 
     try {
-        const res = await fetch(`/api/routes/nearby?lat=${center.lat}&lon=${center.lng}&radius=${radius}&limit=7`);
+        const f = nearbyFiltersRef.current;
+        const params = new URLSearchParams({
+            lat: center.lat, lon: center.lng, radius, limit: f.limit
+        });
+        if (f.minDistance !== '') params.set('min_distance', f.minDistance);
+        if (f.maxDistance !== '') params.set('max_distance', f.maxDistance);
+        if (f.minElevation !== '') params.set('min_elevation', f.minElevation);
+        if (f.maxElevation !== '') params.set('max_elevation', f.maxElevation);
+        if (f.tags.length > 0) params.set('tags', f.tags.join(','));
+
+        const res = await fetch(`/api/routes/nearby?${params}`);
         if (res.ok) {
             const data = await res.json();
             setNearbyRoutes(data);
@@ -2312,13 +2326,21 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             {/* Stats Overlay / Nearby Mode Badge */}
             {isNearbyMode ? (
                 <div className="absolute top-4 left-4 md:top-6 md:left-6 z-10 flex items-center gap-2">
-                    <div className="backdrop-blur-md bg-blue-500/15 border border-blue-400/40 px-4 py-2 md:px-6 md:py-3 rounded-2xl shadow-2xl pointer-events-none">
+                    <button
+                        onClick={() => setIsNearbyFilterOpen(true)}
+                        className="relative backdrop-blur-md bg-blue-500/15 border border-blue-400/40 px-4 py-2 md:px-6 md:py-3 rounded-2xl shadow-2xl cursor-pointer hover:bg-blue-500/25 transition-colors text-left"
+                    >
+                        {(nearbyFilters.minDistance !== '' || nearbyFilters.maxDistance !== '' ||
+                          nearbyFilters.minElevation !== '' || nearbyFilters.maxElevation !== '' ||
+                          nearbyFilters.tags.length > 0 || nearbyFilters.limit !== 7) && (
+                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-400 rounded-full border-2 border-gray-900" />
+                        )}
                         <p className="text-[9px] md:text-[10px] text-blue-300 uppercase font-bold tracking-wider mb-0.5">탐색 모드</p>
                         <p className="text-sm md:text-base font-bold text-white leading-none">
                             반경 {nearbyCenter ? nearbyCenter.radiusKm : '—'}km
-                            <span className="text-[10px] md:text-xs text-blue-300 font-normal ml-1.5">인기순 7개</span>
+                            <span className="text-[10px] md:text-xs text-blue-300 font-normal ml-1.5">인기순 {nearbyFilters.limit}개</span>
                         </p>
-                    </div>
+                    </button>
                     <button
                         onClick={() => {
                             if (!navigator.geolocation) return;
@@ -2886,6 +2908,20 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             onClose={() => setIsExportModalOpen(false)}
             onExport={performExport}
             initialTitle={routeName}
+        />
+
+        <NearbyFilterModal
+            isOpen={isNearbyFilterOpen}
+            onClose={() => setIsNearbyFilterOpen(false)}
+            currentFilters={nearbyFilters}
+            onApply={(filters) => {
+                setNearbyFilters(filters);
+                nearbyFiltersRef.current = filters;
+                // Re-fetch with new filters
+                if (isNearbyMode) {
+                    fetchNearbyRoutes();
+                }
+            }}
         />
       </div>
     </div>
