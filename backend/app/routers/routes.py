@@ -333,7 +333,13 @@ async def search_routes(
     q: Optional[str] = None,
     page: int = 1,
     limit: int = 10,
-    sort: str = 'latest'
+    sort: str = 'latest',
+    order: str = 'desc',  # 'asc' or 'desc'
+    min_distance: Optional[int] = None,  # km
+    max_distance: Optional[int] = None,  # km
+    min_elevation: Optional[int] = None, # m
+    max_elevation: Optional[int] = None, # m
+    tags: Optional[str] = None           # comma-separated slugs
 ):
     user_id = None
     if authorization:
@@ -377,18 +383,39 @@ async def search_routes(
             params.append(search_term)
             params.append(search_term)
 
+        if min_distance is not None:
+            query += " AND r.distance >= %s"
+            params.append(min_distance * 1000)
+        if max_distance is not None:
+            query += " AND r.distance <= %s"
+            params.append(max_distance * 1000)
+        if min_elevation is not None:
+            query += " AND r.elevation_gain >= %s"
+            params.append(min_elevation)
+        if max_elevation is not None:
+            query += " AND r.elevation_gain <= %s"
+            params.append(max_elevation)
+
         query += " GROUP BY r.id, u.id, rs.view_count, rs.download_count"
+
+        if tags:
+            tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+            if tag_list:
+                placeholders = ", ".join(["%s"] * len(tag_list))
+                query += f" HAVING ARRAY_AGG(t.slug) FILTER (WHERE t.slug IS NOT NULL) && ARRAY[{placeholders}]::varchar[]"
+                params.extend(tag_list)
         
+        direction = "ASC" if order == 'asc' else "DESC"
         if sort == 'updated':
-            query += " ORDER BY r.updated_at DESC, r.id DESC"
+            query += f" ORDER BY r.updated_at {direction}, r.id DESC"
         elif sort == 'popular':
-            query += " ORDER BY download_count DESC, r.created_at DESC, r.id DESC"
+            query += f" ORDER BY download_count {direction}, r.created_at DESC, r.id DESC"
         elif sort == 'distance':
-            query += " ORDER BY r.distance DESC, r.id DESC"
+            query += f" ORDER BY r.distance {direction}, r.id DESC"
         elif sort == 'elevation':
-            query += " ORDER BY r.elevation_gain DESC, r.id DESC"
+            query += f" ORDER BY r.elevation_gain {direction}, r.id DESC"
         else: # latest default
-            query += " ORDER BY r.created_at DESC, r.id DESC"
+            query += f" ORDER BY r.created_at {direction}, r.id DESC"
         
         query += " LIMIT %s OFFSET %s"
         params.append(limit)

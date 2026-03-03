@@ -218,7 +218,14 @@ class ValhallaClient:
     def _get_route_shape(self, start_pt, end_pt) -> List[Tuple[float, float]]:
         payload = {
             "locations": [{"lat": start_pt['lat'], "lon": start_pt['lon']}, {"lat": end_pt['lat'], "lon": end_pt['lon']}],
-            "costing": "bicycle"
+            "costing": "bicycle",
+            "costing_options": {
+                "bicycle": {
+                    "bicycle_type": "Road",     # 로드 바이크 기준 (포장도로 선호)
+                    "use_tracks": 0,           # 산길/임도(Tracks) 사용 금지
+                    "avoid_unpaved": 1.0        # 미포장 도로 회피 최대화
+                }
+            }
         }
         with httpx.Client(timeout=10.0) as client:
             resp = client.post(f"{self.url}/route", json=payload)
@@ -421,6 +428,14 @@ class ValhallaClient:
             "locations": [{"lat": start_pt['lat'], "lon": start_pt['lon']}, {"lat": end_pt['lat'], "lon": end_pt['lon']}],
             "costing": costing
         }
+        if costing == "bicycle":
+            payload["costing_options"] = {
+                "bicycle": {
+                    "bicycle_type": "Road",
+                    "use_tracks": 0,
+                    "avoid_unpaved": 1.0
+                }
+            }
         with httpx.Client(timeout=10.0) as client:
             try:
                 resp = client.post(f"{self.url}/route", json=payload)
@@ -431,7 +446,13 @@ class ValhallaClient:
                 return []
 
     def _trace_subset(self, points, mode="bicycle", strict=False):
-        """부분 경로에 대해 trace_attributes 호출"""
+        """
+        부분 경로에 대해 trace_attributes 호출.
+        
+        [주의] 사용자의 실제 주행 기록(GPX)을 도로망에 매칭하는 과정이므로, 
+        억지로 특정 도로를 피하게 하는 costing_options는 적용하지 않습니다. 
+        (기록된 경로가 산길일 경우 억지로 도로로 튀는 현상을 방지하기 위함)
+        """
         if not points: return {"edges": [], "shape": []}
         
         # 파라미터 설정

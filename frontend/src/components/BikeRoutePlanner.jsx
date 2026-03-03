@@ -186,9 +186,9 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const [isNearbyMode, setIsNearbyMode] = useState(false);
   const [nearbyRoutes, setNearbyRoutes] = useState(null);
   const [nearbyCenter, setNearbyCenter] = useState(null); // { lat, lng, radiusKm }
-  const [nearbyFilters, setNearbyFilters] = useState({ ...DEFAULT_FILTERS });
+  const [routeFilters, setRouteFilters] = useState({ ...DEFAULT_FILTERS });
   const [isNearbyFilterOpen, setIsNearbyFilterOpen] = useState(false);
-  const nearbyFiltersRef = useRef(nearbyFilters);
+  const routeFiltersRef = useRef(routeFilters);
   const nearbyDebounceRef = useRef(null);
 
   // Long Press State for Mobile
@@ -201,6 +201,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const previewInvalidLoggedRef = useRef(false);
   const dragPreviewInvalidLoggedRef = useRef(false);
   const previewPanelMobileRef = useRef(null);
+  const pendingNearbyAfterSaveRef = useRef(false);
 
   const makeCircleGeoJSON = (lat, lng, radiusKm, steps = 64) => {
     const coords = [];
@@ -233,7 +234,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     setNearbyCenter({ lat: center.lat, lng: center.lng, radiusKm: radius });
 
     try {
-        const f = nearbyFiltersRef.current;
+        const f = routeFiltersRef.current;
         const params = new URLSearchParams({
             lat: center.lat, lon: center.lng, radius, limit: f.limit
         });
@@ -254,16 +255,28 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   }, []);
 
   const toggleNearby = () => {
-      setIsNearbyMode(prev => {
-          const next = !prev;
-          if (next) {
-              fetchNearbyRoutes();
-          } else {
-              setNearbyRoutes(null);
-              setNearbyCenter(null);
+      if (!isNearbyMode) {
+          // Turning ON nearby mode
+          const hasRoute = sections.some(s => s.points.length > 0);
+          if (hasRoute) {
+              const wantSave = confirm("현재 경로가 있습니다. 저장하시겠습니까?\n(확인: 저장 후 탐색 모드, 취소: 저장 없이 탐색 모드)");
+              if (wantSave) {
+                  pendingNearbyAfterSaveRef.current = true;
+                  openSaveModal();
+                  return;
+              }
+              // User chose not to save — reset and enter nearby mode
+              resetRoute();
           }
-          return next;
-      });
+          setIsNearbyMode(true);
+          fetchNearbyRoutes();
+      } else {
+          // Turning OFF nearby mode
+          if (nearbyDebounceRef.current) clearTimeout(nearbyDebounceRef.current);
+          setNearbyRoutes(null);
+          setNearbyCenter(null);
+          setIsNearbyMode(false);
+      }
   };
 
   const handleMapMoveEnd = (evt) => {
@@ -1769,6 +1782,14 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           setIsDirty(false); // Changes saved
           setIsMenuOpen(false);
           setIsSearchOpen(false);
+
+          // If nearby mode was pending after save, activate it now
+          if (pendingNearbyAfterSaveRef.current) {
+              pendingNearbyAfterSaveRef.current = false;
+              resetRoute();
+              setIsNearbyMode(true);
+              fetchNearbyRoutes();
+          }
       } catch (e) {
           console.error(e);
           alert(`Error saving route: ${e.message}`);
@@ -2046,10 +2067,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     });
   };
 
-  const handleNewRoute = () => {
-    if (sections.some(s => s.points.length > 0)) {
-        if (!confirm("Your unsaved changes will be lost. Create a new route?")) return;
-    }
+  const resetRoute = () => {
     setSections([{ id: generateId(), name: 'Section 1', points: [], segments: [], color: SECTION_COLORS[0] }]);
     setRouteName('');
     setRouteDescription('');
@@ -2061,6 +2079,13 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     setIsDirty(false);
     setIsMenuOpen(false);
     setIsSearchOpen(false);
+  };
+
+  const handleNewRoute = () => {
+    if (sections.some(s => s.points.length > 0)) {
+        if (!confirm("Your unsaved changes will be lost. Create a new route?")) return;
+    }
+    resetRoute();
   };
 
   const isClean = sections.length === 1 && sections[0].points.length === 0;
@@ -2140,7 +2165,15 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             h-full bg-gray-900 overflow-hidden transition-all duration-300 ease-in-out
         `}>
              <div className="w-80 h-full"> {/* Inner Fixed Width Container */}
-                <SearchPanel onLoadRoute={handlePreviewRoute} activePreviewId={previewRoute?.id ?? null} />
+                <SearchPanel
+                    onLoadRoute={handlePreviewRoute}
+                    activePreviewId={previewRoute?.id ?? null}
+                    routeFilters={routeFilters}
+                    onFiltersChange={(filters) => {
+                        setRouteFilters(filters);
+                        routeFiltersRef.current = filters;
+                    }}
+                />
              </div>
         </div>
 
@@ -2330,15 +2363,15 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                         onClick={() => setIsNearbyFilterOpen(true)}
                         className="relative backdrop-blur-md bg-blue-500/15 border border-blue-400/40 px-4 py-2 md:px-6 md:py-3 rounded-2xl shadow-2xl cursor-pointer hover:bg-blue-500/25 transition-colors text-left"
                     >
-                        {(nearbyFilters.minDistance !== '' || nearbyFilters.maxDistance !== '' ||
-                          nearbyFilters.minElevation !== '' || nearbyFilters.maxElevation !== '' ||
-                          nearbyFilters.tags.length > 0 || nearbyFilters.limit !== 7) && (
+                        {(routeFilters.minDistance !== '' || routeFilters.maxDistance !== '' ||
+                          routeFilters.minElevation !== '' || routeFilters.maxElevation !== '' ||
+                          routeFilters.tags.length > 0 || routeFilters.limit !== 7) && (
                             <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-400 rounded-full border-2 border-gray-900" />
                         )}
                         <p className="text-[9px] md:text-[10px] text-blue-300 uppercase font-bold tracking-wider mb-0.5">탐색 모드</p>
                         <p className="text-sm md:text-base font-bold text-white leading-none">
                             반경 {nearbyCenter ? nearbyCenter.radiusKm : '—'}km
-                            <span className="text-[10px] md:text-xs text-blue-300 font-normal ml-1.5">인기순 {nearbyFilters.limit}개</span>
+                            <span className="text-[10px] md:text-xs text-blue-300 font-normal ml-1.5">인기순 {routeFilters.limit}개</span>
                         </p>
                     </button>
                     <button
@@ -2467,8 +2500,9 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     </>
                 )}
 
-                {nearbyRoutes && (
+                {isNearbyMode && nearbyRoutes && (
                     <Source id="nearby-routes-source" type="geojson" data={nearbyRoutes}>
+                        {/* 
                         <Layer
                             id="nearby-routes-layer"
                             type="line"
@@ -2477,6 +2511,27 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                                 'line-color': ['get', 'zone_color'],
                                 'line-width': 4,
                                 'line-opacity': 0.85
+                            }}
+                        /> 
+                        */}
+                        <Layer
+                            id="nearby-routes-layer-casing"
+                            type="line"
+                            layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+                            paint={{
+                                'line-color': '#FFFFFF',
+                                'line-width': 7,
+                                'line-opacity': 0.8
+                            }}
+                        />
+                        <Layer
+                            id="nearby-routes-layer"
+                            type="line"
+                            layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+                            paint={{
+                                'line-color': ['get', 'zone_color'],
+                                'line-width': 4,
+                                'line-opacity': 1.0
                             }}
                         />
                     </Source>
@@ -2889,7 +2944,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         {/* Save Route Modal */}
         <SaveRouteModal 
             isOpen={isSaveModalOpen}
-            onClose={() => setIsSaveModalOpen(false)}
+            onClose={() => { setIsSaveModalOpen(false); pendingNearbyAfterSaveRef.current = false; }}
             onSave={handleSaveRoute}
             isLoading={isLoading}
             isOwner={user && (routeOwnerId === user.uid || routeOwnerId === user.id)}
@@ -2913,10 +2968,10 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         <NearbyFilterModal
             isOpen={isNearbyFilterOpen}
             onClose={() => setIsNearbyFilterOpen(false)}
-            currentFilters={nearbyFilters}
+            currentFilters={routeFilters}
             onApply={(filters) => {
-                setNearbyFilters(filters);
-                nearbyFiltersRef.current = filters;
+                setRouteFilters(filters);
+                routeFiltersRef.current = filters;
                 // Re-fetch with new filters
                 if (isNearbyMode) {
                     fetchNearbyRoutes();
