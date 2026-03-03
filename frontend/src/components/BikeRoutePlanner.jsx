@@ -11,6 +11,7 @@ import SaveRouteModal from './SaveRouteModal';
 import ExportRouteModal from './ExportRouteModal';
 import NearbyFilterModal, { DEFAULT_FILTERS } from './NearbyFilterModal';
 import ReactMarkdown from 'react-markdown';
+import { getPointTier, POINT_TYPE_CONFIG, TIER_STYLES } from '../utils/waypointTypes';
 
 const formatDate = (dateString) => {
     if (!dateString) return null;
@@ -181,6 +182,11 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   // Place Search State
   const [isPlaceSearchOpen, setIsPlaceSearchOpen] = useState(false);
   const [placeSearchQuery, setPlaceSearchQuery] = useState('');
+  const [placeSearchResults, setPlaceSearchResults] = useState([]);
+  const [placeSearchLoading, setPlaceSearchLoading] = useState(false);
+  const placeSearchTimerRef = useRef(null);
+  const [placeSearchPulse, setPlaceSearchPulse] = useState(null); // { lon, lat }
+  const pulseTimerRef = useRef(null);
 
   // Nearby Routes State
   const [isNearbyMode, setIsNearbyMode] = useState(false);
@@ -255,6 +261,9 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   }, []);
 
   const toggleNearby = () => {
+      // Clear place search state on mode switch
+      closePlaceSearch();
+
       if (!isNearbyMode) {
           // Turning ON nearby mode
           const hasRoute = sections.some(s => s.points.length > 0);
@@ -307,6 +316,103 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     } catch (err) {
       console.warn('Chart-to-map move failed:', err);
     }
+  }, []);
+
+  // Place Search Logic
+  const COORD_REGEX = /^[-]?\d{1,3}\.\d+[,\s]+[-]?\d{1,3}\.\d+$/;
+
+  const performPlaceSearch = useCallback(async (query) => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setPlaceSearchResults([]);
+      return;
+    }
+
+    setPlaceSearchLoading(true);
+    try {
+      if (COORD_REGEX.test(trimmed)) {
+        // Coordinate input → Nominatim reverse geocoding
+        const parts = trimmed.split(/[,\s]+/).map(Number);
+        const [lat, lon] = parts;
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=ko`
+        );
+        const data = await res.json();
+        if (data && data.display_name) {
+          setPlaceSearchResults([{
+            name: data.display_name.split(',')[0],
+            address: data.display_name,
+            lat: parseFloat(data.lat),
+            lon: parseFloat(data.lon),
+          }]);
+        } else {
+          setPlaceSearchResults([]);
+        }
+      } else {
+        // Text search → Photon autocomplete
+        const res = await fetch(
+          `https://photon.komoot.io/api/?q=${encodeURIComponent(trimmed)}&limit=5`
+        );
+        const data = await res.json();
+        if (data.features && data.features.length > 0) {
+          setPlaceSearchResults(data.features.map(f => {
+            const p = f.properties;
+            const [lon, lat] = f.geometry.coordinates;
+            const nameParts = [p.name, p.city, p.state, p.country].filter(Boolean);
+            return {
+              name: p.name || nameParts[0] || 'Unknown',
+              address: nameParts.join(', '),
+              lat,
+              lon,
+            };
+          }));
+        } else {
+          setPlaceSearchResults([]);
+        }
+      }
+    } catch (err) {
+      console.warn('Place search failed:', err);
+      setPlaceSearchResults([]);
+    } finally {
+      setPlaceSearchLoading(false);
+    }
+  }, []);
+
+  const handlePlaceSearchInput = useCallback((value) => {
+    setPlaceSearchQuery(value);
+    if (placeSearchTimerRef.current) clearTimeout(placeSearchTimerRef.current);
+    placeSearchTimerRef.current = setTimeout(() => {
+      performPlaceSearch(value);
+    }, 300);
+  }, [performPlaceSearch]);
+
+  const handlePlaceSelect = useCallback((result) => {
+    const mapInstance = mapRef.current?.getMap ? mapRef.current.getMap() : mapRef.current;
+    if (mapInstance && typeof mapInstance.flyTo === 'function') {
+      const currentZoom = typeof mapInstance.getZoom === 'function' ? mapInstance.getZoom() : 12;
+      mapInstance.flyTo({
+        center: [result.lon, result.lat],
+        zoom: Math.max(currentZoom, 14),
+        duration: 1000,
+        essential: true,
+      });
+    }
+    // Show pulse at location
+    if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
+    setPlaceSearchPulse({ lon: result.lon, lat: result.lat });
+    pulseTimerRef.current = setTimeout(() => setPlaceSearchPulse(null), 3000);
+
+    setPlaceSearchResults([]);
+    setPlaceSearchQuery('');
+    setIsPlaceSearchOpen(false);
+  }, []);
+
+  const closePlaceSearch = useCallback(() => {
+    setPlaceSearchResults([]);
+    setPlaceSearchQuery('');
+    setIsPlaceSearchOpen(false);
+    setPlaceSearchPulse(null);
+    if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
   }, []);
 
   const handleChartPointSelect = useCallback((coord) => {
@@ -1410,6 +1516,13 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
       setSections(updatedSections);
   };
 
+  const handlePointTypeChange = (sectionIdx, pointIdx, newType) => {
+      saveToHistory(sections);
+      const updatedSections = [...sections];
+      updatedSections[sectionIdx].points[pointIdx].type = newType;
+      setSections(updatedSections);
+  };
+
   const handlePointMove = async (sectionIdx, pointIdx, evt) => {
     const { lng, lat } = evt.lngLat;
     saveToHistory(sections);
@@ -2152,6 +2265,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     onSectionMerge={handleSectionMerge}
                     onSectionRename={handleSectionRename}
                     onSectionDownload={handleSectionDownload}
+                    onPointTypeChange={handlePointTypeChange}
                     onImportGPX={handleImportGPX}
                     isMockMode={isMockMode}
                     setIsMockMode={setIsMockMode}
@@ -2325,34 +2439,63 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 </button>}
 
                 {/* 2. Place Search Bar (Floating) */}
-                <div className={`pointer-events-auto flex items-center bg-gray-900/90 backdrop-blur-md border border-gray-700 shadow-xl rounded-full transition-all duration-300 ease-in-out h-10 md:h-12 overflow-hidden ${isPlaceSearchOpen ? 'w-64 px-4' : 'w-10 md:w-12 justify-center'}`}>
-                    
-                    {/* Input Field (Visible only when open) */}
-                    <input 
-                        type="text"
-                        placeholder="Not supported yet (미지원)"
-                        value={placeSearchQuery}
-                        onChange={(e) => setPlaceSearchQuery(e.target.value)}
-                        disabled
-                        className={`bg-transparent text-gray-500 text-sm outline-none transition-all duration-300 h-full ${isPlaceSearchOpen ? 'flex-1 opacity-100' : 'w-0 opacity-0'}`}
-                    />
+                <div className="pointer-events-auto relative">
+                    <div className={`flex items-center bg-gray-900/90 backdrop-blur-md border border-gray-700 shadow-xl rounded-full transition-all duration-300 ease-in-out h-10 md:h-12 overflow-hidden ${isPlaceSearchOpen ? 'w-64 md:w-80 px-4' : 'w-10 md:w-12 justify-center'}`}>
 
-                    {/* Toggle Button (Magnifying Glass) */}
-                    <button 
-                        onClick={() => {
-                            if (!isPlaceSearchOpen) {
-                                setIsPlaceSearchOpen(true);
-                            } else {
-                                alert("Place search is not supported yet (미지원).");
-                                setIsPlaceSearchOpen(false);
-                            }
-                        }}
-                        className={`text-gray-400 hover:text-white transition-colors shrink-0 flex items-center justify-center ${isPlaceSearchOpen ? 'ml-2' : ''}`}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isPlaceSearchOpen && placeSearchQuery ? "M6 18L18 6M6 6l12 12" : "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"} />
-                        </svg>
-                    </button>
+                        {/* Input Field (Visible only when open) */}
+                        <input
+                            type="text"
+                            placeholder="장소 검색 또는 좌표 입력"
+                            value={placeSearchQuery}
+                            onChange={(e) => handlePlaceSearchInput(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    if (placeSearchTimerRef.current) clearTimeout(placeSearchTimerRef.current);
+                                    performPlaceSearch(placeSearchQuery);
+                                }
+                            }}
+                            className={`bg-transparent text-white text-sm outline-none transition-all duration-300 h-full placeholder-gray-500 ${isPlaceSearchOpen ? 'flex-1 opacity-100' : 'w-0 opacity-0'}`}
+                        />
+
+                        {/* Loading Spinner */}
+                        {placeSearchLoading && isPlaceSearchOpen && (
+                            <div className="ml-1 shrink-0">
+                                <div className="w-4 h-4 border-2 border-gray-500 border-t-white rounded-full animate-spin" />
+                            </div>
+                        )}
+
+                        {/* Toggle Button (Magnifying Glass / Close) */}
+                        <button
+                            onClick={() => {
+                                if (!isPlaceSearchOpen) {
+                                    setIsPlaceSearchOpen(true);
+                                } else {
+                                    closePlaceSearch();
+                                }
+                            }}
+                            className={`text-gray-400 hover:text-white transition-colors shrink-0 flex items-center justify-center ${isPlaceSearchOpen ? 'ml-2' : ''}`}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isPlaceSearchOpen && placeSearchQuery ? "M6 18L18 6M6 6l12 12" : "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"} />
+                            </svg>
+                        </button>
+                    </div>
+
+                    {/* Search Results Dropdown */}
+                    {isPlaceSearchOpen && placeSearchResults.length > 0 && (
+                        <div className="absolute top-full mt-2 left-0 right-0 bg-gray-900/95 backdrop-blur-md border border-gray-700 rounded-xl shadow-2xl overflow-hidden z-50">
+                            {placeSearchResults.map((result, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => handlePlaceSelect(result)}
+                                    className="w-full text-left px-4 py-3 hover:bg-gray-700/50 transition-colors border-b border-gray-800 last:border-b-0"
+                                >
+                                    <div className="text-white text-sm font-medium truncate">{result.name}</div>
+                                    <div className="text-gray-400 text-xs truncate mt-0.5">{result.address}</div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -2398,7 +2541,10 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     </button>
                 </div>
             ) : (
-                <div className={`absolute top-4 left-4 md:top-6 md:left-6 z-10 backdrop-blur-md px-5 py-2 md:px-8 md:py-3 rounded-2xl border shadow-2xl flex gap-4 md:gap-8 items-center pointer-events-none transition-all ${previewRoute ? 'bg-riduck-primary/15 border-riduck-primary/40' : 'bg-gray-900/90 border-gray-700'}`}>
+                <div 
+                    className={`absolute top-4 left-4 md:top-6 md:left-6 z-10 backdrop-blur-md px-5 py-2 md:px-8 md:py-3 rounded-2xl border shadow-2xl flex gap-4 md:gap-8 items-center transition-all duration-300 ${previewRoute ? 'bg-riduck-primary/15 border-riduck-primary/40 pointer-events-none' : isClean ? 'bg-gray-900/90 border-gray-700 pointer-events-none' : 'bg-gray-900/90 border-riduck-primary/50 shadow-[0_0_12px_rgba(42,158,146,0.25)] pointer-events-auto cursor-pointer hover:border-riduck-primary/80 hover:shadow-[0_0_18px_rgba(42,158,146,0.4)] hover:bg-gray-800/90 active:scale-[0.98]'}`}
+                    onClick={!previewRoute ? openSaveModal : undefined}
+                >
                     {previewRoute && (
                         <span className="text-riduck-primary text-[9px] md:text-[10px] font-bold uppercase tracking-wider absolute -top-2.5 left-3 bg-gray-900 px-1.5 rounded">Preview</span>
                     )}
@@ -2488,6 +2634,12 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 style={{ width: '100%', height: '100%' }} 
                 cursor={isLoading ? 'wait' : (dragState ? 'grabbing' : (insertCandidate ? 'grab' : (isNearbyMode ? 'default' : 'crosshair')))}
             >
+                {placeSearchPulse && (
+                    <Marker longitude={placeSearchPulse.lon} latitude={placeSearchPulse.lat} anchor="center">
+                        <div className="place-search-pulse" />
+                    </Marker>
+                )}
+
                 {nearbyCenter && (
                     <>
                         <Source id="nearby-radius-source" type="geojson" data={makeCircleGeoJSON(nearbyCenter.lat, nearbyCenter.lng, nearbyCenter.radiusKm)}>
@@ -2520,8 +2672,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                             layout={{ 'line-join': 'round', 'line-cap': 'round' }}
                             paint={{
                                 'line-color': '#FFFFFF',
-                                'line-width': 7,
-                                'line-opacity': 0.8
+                                'line-width': previewRoute ? 5 : 7,
+                                'line-opacity': previewRoute ? 0.2 : 0.8
                             }}
                         />
                         <Layer
@@ -2530,8 +2682,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                             layout={{ 'line-join': 'round', 'line-cap': 'round' }}
                             paint={{
                                 'line-color': ['get', 'zone_color'],
-                                'line-width': 4,
-                                'line-opacity': 1.0
+                                'line-width': previewRoute ? 3 : 4,
+                                'line-opacity': previewRoute ? 0.4 : 1.0
                             }}
                         />
                     </Source>
@@ -2659,34 +2811,49 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     </Marker>
                 )}
 
-                {sections.flatMap((sec, sIdx) => sec.points.map((p, pIdx, arr) => (
-                    <Marker 
-                        key={`${sec.id}-${p.id}`} 
-                        longitude={p.lng} 
-                        latitude={p.lat} 
+                {sections.flatMap((sec, sIdx) => sec.points.map((p, pIdx, arr) => {
+                    const isFirst = sIdx === 0 && pIdx === 0;
+                    const isLast = sIdx === sections.length - 1 && pIdx === arr.length - 1;
+                    const tier = getPointTier(p, isFirst, isLast);
+                    const tierStyle = TIER_STYLES[tier];
+                    const typeConfig = POINT_TYPE_CONFIG[p.type] || POINT_TYPE_CONFIG.via;
+                    const IconComponent = typeConfig.icon;
+                    const markerColor = isFirst ? '#10B981' : isLast ? '#EF4444'
+                      : typeConfig.color || sec.color;
+
+                    return (
+                    <Marker
+                        key={`${sec.id}-${p.id}`}
+                        longitude={p.lng}
+                        latitude={p.lat}
                         anchor="center"
                         draggable={true}
                         onDragEnd={(evt) => handlePointMove(sIdx, pIdx, evt)}
                     >
                     {(() => {
                       const isFocusedPoint = focusedPointId === p.id;
+                      const showIcon = tier === 'large' && p.type !== 'via' && p.type !== 'section_start';
                       return (
-                    <div 
-                      className={`group relative flex items-center justify-center w-6 h-6 rounded-full border-2 border-white cursor-pointer text-white text-xs font-black z-50 transition-transform ${
+                    <div
+                      className={`group relative flex items-center justify-center ${tierStyle.map} rounded-full border-2 border-white cursor-pointer text-white font-black z-50 transition-transform ${
                         isFocusedPoint ? 'scale-125 shadow-[0_0_0_2px_rgba(42,158,146,0.35),0_0_14px_rgba(42,158,146,0.65)]' : 'shadow-lg hover:scale-110'
-                      }`} 
-                      style={{ backgroundColor: sIdx === 0 && pIdx === 0 ? '#10B981' : (sIdx === sections.length - 1 && pIdx === arr.length - 1 ? '#EF4444' : sec.color) }}
+                      }`}
+                      style={{ backgroundColor: markerColor }}
                       onClick={(e) => handlePointRemove(sIdx, pIdx, e)}
                     >
                         {isFocusedPoint && (
                           <span className="pointer-events-none absolute -inset-2 rounded-full border border-riduck-primary/60 animate-ping"></span>
                         )}
-                        <span className="group-hover:hidden">{pIdx + 1}</span><span className="hidden group-hover:block">✕</span>
+                        <span className="group-hover:hidden">
+                          {showIcon ? <IconComponent size={14} strokeWidth={2.5} /> : pIdx + 1}
+                        </span>
+                        <span className="hidden group-hover:block">✕</span>
                     </div>
                       );
                     })()}
                     </Marker>
-                )))}
+                    );
+                }))}
                 {ambiguityPopup && (
                     <Popup
                         longitude={ambiguityPopup.lng}
