@@ -1,0 +1,27 @@
+{
+  "type": "permanents",
+  "code": "PT-26",
+  "name": "청평호와 호명산",
+  "distance": "257km",
+  "elevation": "3,096m",
+  "time_limit": "17:08",
+  "start": "서울 여의도",
+  "end": "서울 여의도",
+  "designer": "장남식",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT26.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1mZ4ziasfMox51cCuyx--RmP2d4wYQPLK?usp=sharing"
+    },
+    {
+      "text": "구글 지도 경로 (Google map)",
+      "url": "https://drive.google.com/open?id=1__TnsltVj64DCzGO4R8Q3wbKkZQjx4Z2&usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/41616106"
+    }
+  ]
+}

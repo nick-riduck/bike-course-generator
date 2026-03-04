@@ -1,0 +1,7 @@
+Course: 섬안의 섬, 섬안의 산 (PT-58)
+Distance: 203km, Elev: 2,950m
+URL: http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT58.htm
+----------------------------------------
+
+PT-58 코스는 우도로 가는 배를 타고 3km 왕복으로 다녀와야 합니다. 배가 출항하지 않거나 제주 본섬으로 복귀하지 못할 것 같으면(저녁에는 배가 운항하지 않음) 대체 코스를 선택해야 합니다. 출발 전에 기본 코스 및 대체 코스에 대한 GPX 파일과 퍼머넌트 시트를 준비하는 것이 좋습니다. 대체 코스에 대한 지도 및 문서는 "ALT"(대체) 폴더를 클릭하면 다운받을 수 있습니다.
+The course of PT-58 includes a ferry ride of 2 x 3 km, to the island of Udo. If the ferry is not sailing or if it will be risky to be able to go back to the main island (the ferry is not operating in the evening) then the alternative course should be taken. It is wise to prepare for both and bring a permanent sheet for both the main course and the alternative course. To access the maps and documents for the alternative course, click on the buttons marked "ALT".

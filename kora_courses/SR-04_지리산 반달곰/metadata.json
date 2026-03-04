@@ -1,0 +1,27 @@
+{
+  "type": "superrando",
+  "code": "SR-04",
+  "name": "지리산 반달곰",
+  "distance": "602km",
+  "elevation": "14,284 m",
+  "time_limit": "영동역",
+  "start": "영동역",
+  "end": "김진학",
+  "designer": "",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/superrando/info-SR04.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "GPX 파일/컨트롤 정보/지도",
+      "url": "https://drive.google.com/drive/folders/138IUc-bmXMIy1QL8BFtTg44V1iaPuOo6?usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/34641811"
+    },
+    {
+      "text": "Start/Finish 지도보기(VIEW)",
+      "url": "http://kko.to/9fE1lXaDM"
+    }
+  ]
+}

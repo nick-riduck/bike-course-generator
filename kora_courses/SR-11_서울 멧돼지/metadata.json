@@ -1,0 +1,27 @@
+{
+  "type": "superrando",
+  "code": "SR-11",
+  "name": "서울 멧돼지",
+  "distance": "603km",
+  "elevation": "10,669 m",
+  "time_limit": "서울",
+  "start": "서울",
+  "end": "장성준",
+  "designer": "",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/superrando/info-SR11.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "GPX 파일/컨트롤 정보/지도",
+      "url": "https://drive.google.com/drive/folders/1_y-eC5hjeV1Qwhj15x0VHvAdexo_E3fZ?usp=drive_link"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/48422759"
+    },
+    {
+      "text": "Start/Finish 지도보기 (VIEW)",
+      "url": "https://kko.to/78-cMFzJI2"
+    }
+  ]
+}

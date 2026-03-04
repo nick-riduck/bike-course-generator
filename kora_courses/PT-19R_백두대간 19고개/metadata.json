@@ -1,0 +1,31 @@
+{
+  "type": "permanents",
+  "code": "PT-19R",
+  "name": "백두대간 19고개",
+  "distance": "457km",
+  "elevation": "10,351m",
+  "time_limit": "30:28",
+  "start": "간성",
+  "end": "태백",
+  "designer": "김영삼",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT19R.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1-zw4jAlVBgLm_0RJBZ7t4Oxv1awgHmNR?usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/34766878"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/MNzO7KsDj"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/qFxsoHj0o"
+    }
+  ]
+}

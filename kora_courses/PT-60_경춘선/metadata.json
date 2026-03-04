@@ -1,0 +1,31 @@
+{
+  "type": "permanents",
+  "code": "PT-60",
+  "name": "경춘선",
+  "distance": "200km",
+  "elevation": "2,824m",
+  "time_limit": "13:20",
+  "start": "서울 당산",
+  "end": "춘천",
+  "designer": "김회진",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT60.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1rGyBOta4tP9vgjzyaYLNjhznplrQmgA6?usp=sharing"
+    },
+    {
+      "text": "구글 지도 경로 (Google map)",
+      "url": "https://drive.google.com/open?id=1ca700gvOZhbMdtAsMhnEdaplPu0&usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/44226263"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/MT6YaHjjM"
+    }
+  ]
+}

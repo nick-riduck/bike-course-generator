@@ -1,0 +1,27 @@
+{
+  "type": "permanents",
+  "code": "PT-156",
+  "name": "아공청천 2",
+  "distance": "210km",
+  "elevation": "3,527m",
+  "time_limit": "14:00",
+  "start": "아산 온양",
+  "end": "아산 온양",
+  "designer": "원광식",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT156.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1lzUHXn1QueXZcds-yc-6Mt4eEr0IU6De?usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/41309418"
+    },
+    {
+      "text": "Start/Finish 지도보기 (VIEW)",
+      "url": "http://kko.to/SH0wT-XKa"
+    }
+  ]
+}

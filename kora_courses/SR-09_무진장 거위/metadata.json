@@ -1,0 +1,27 @@
+{
+  "type": "superrando",
+  "code": "SR-09",
+  "name": "무진장 거위",
+  "distance": "603km",
+  "elevation": "11,443 m",
+  "time_limit": "전주",
+  "start": "전주",
+  "end": "조영남",
+  "designer": "",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/superrando/info-SR09.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "GPX 파일/컨트롤 정보/지도",
+      "url": "https://drive.google.com/drive/folders/1ITbNqJ4p0nwiFBXFpOEJKYMl_Ol5PX6u?usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/37170702"
+    },
+    {
+      "text": "Start/Finish 지도보기 (VIEW)",
+      "url": "http://kko.to/QRqc774fM"
+    }
+  ]
+}

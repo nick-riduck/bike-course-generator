@@ -1,0 +1,31 @@
+{
+  "type": "superrando",
+  "code": "SR-12",
+  "name": "용솟음-R",
+  "distance": "610km",
+  "elevation": "10,750 m",
+  "time_limit": "양평",
+  "start": "부산",
+  "end": "김영삼",
+  "designer": "",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/superrando/info-SR12.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "모든 서류 / all documents",
+      "url": "https://drive.google.com/drive/folders/1jagL99PInp0J4PaaeRA4w5kA-tCyLpj1?usp=drive_link"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/51704927"
+    },
+    {
+      "text": "Start 지도보기 (VIEW)",
+      "url": "https://kko.to/9WWCpO8Bus"
+    },
+    {
+      "text": "Finish 지도보기 (VIEW)",
+      "url": "https://kko.to/NXuQudVscM"
+    }
+  ]
+}

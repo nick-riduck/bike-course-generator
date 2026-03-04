@@ -1,0 +1,27 @@
+{
+  "type": "superrando",
+  "code": "SR-08",
+  "name": "하얀 너구리",
+  "distance": "601km",
+  "elevation": "11,354 m",
+  "time_limit": "용문",
+  "start": "용문",
+  "end": "장성준",
+  "designer": "",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/superrando/info-SR08.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "GPX 파일/컨트롤 정보/지도",
+      "url": "https://drive.google.com/drive/folders/1ZYsXXcgO8EIZu9htJEZILior3Oh_qRun?usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/36932145"
+    },
+    {
+      "text": "Start/Finish 지도보기 (VIEW)",
+      "url": "http://kko.to/swINNmT4M"
+    }
+  ]
+}

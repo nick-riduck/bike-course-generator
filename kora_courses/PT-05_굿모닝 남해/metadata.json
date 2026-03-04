@@ -1,0 +1,35 @@
+{
+  "type": "permanents",
+  "code": "PT-05",
+  "name": "굿모닝 남해",
+  "distance": "202km",
+  "elevation": "2,163m",
+  "time_limit": "13:28",
+  "start": "부산 사상",
+  "end": "부산 사상",
+  "designer": "Jan Boonstra",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT05.htm",
+  "description": "PT-05 퍼머넌트는 부산 사상 시외버스터미널에서 시작하는 이 코스는 낙동강 서쪽 둑을 따라 남쪽으로 직진합니다. 15km를 가면 남서쪽으로 바다를 볼 수 있습니다. 그곳에서 첫 번째 컨트롤 사진을 찍으셔야 합니다. 여기서 진해까지 남해의 조선소와 부두들을 지나고 구불구불 해안도를 탑니다. 해안가의 바위들 사이에 숨겨져 있는 시간이 멈춘 듯한 어촌마을들도 지나갑니다. 진해와 창원이 바로 보이고 중앙으로 마산이 가로지르는 것과는 꽤 대조적입니다. 이제 코스는 낙동강으로 이어집니다. 칠원의 세 번째 컨트롤을 지나고 반포에서 강을 가로질러 밀양으로 향합니다. 밀양댐을 끼고 굽어지는 오르막은 이 브레베에서 가장 아름다운 곳입니다. 162km를 달려서 가장 높은 지점인 해발 390m에 도착합니다. 지금부터는 더 이상은 오르막은 없고 완동까지 멋진 내리막이 있습니다. 낙동강 자전거길이 코스의 마지막을 장식합니다.\nAfter starting at the Seobu (Sasang) bus terminal in Busan, the course goes straight south along the west bank of the Nakdong River. After 15 kilometers you can already greet the sea in east, south and west direction! There, a picture is required at the first control. Then until Jinhae, views of the Southsea are sometimes exchanged for shipbuiding industry and ports but the route remains winding along the shoreline most of the time. Hidden in bays between rocky outcrops, there are numerous fishing villages where time seems to have stood still. This is a coast of big contrasts. While the cities of Jinhae and Changwon are merely touched, Masan has to be passed right through the center. The course now goes to the Nakdong River, passing control 3 at Chilwon and crossing the river at Bonpo to head for Miryang. Then the most scenic part of this brevet is coming when the road winds uphill along Miryang Lake. After 162 km the highest point is reached at an elevation of 390m above sea level. From then on: no more climbing and after a wonderful descent to Wondong, it's the Nakdong River biketrail that forms the last part of this course.",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1PW6qijBTru4arP2YhERbLbW1hXOoRZnC?usp=sharing"
+    },
+    {
+      "text": "구글 지도 경로 (Google map)",
+      "url": "https://drive.google.com/open?id=1PBZry2fenqILhPzRLLj-hBUFrI0&usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/41616039"
+    },
+    {
+      "text": "RwGPS 경로 일시적인 우회 / Temporary detour",
+      "url": "https://ridewithgps.com/routes/52772828"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/_BgtCp0j0"
+    }
+  ]
+}

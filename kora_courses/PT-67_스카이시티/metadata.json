@@ -1,0 +1,31 @@
+{
+  "type": "permanents",
+  "code": "PT-67",
+  "name": "스카이시티",
+  "distance": "200km",
+  "elevation": "1,972m",
+  "time_limit": "13:20",
+  "start": "인천",
+  "end": "인천",
+  "designer": "Jason Ham",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT67.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1L0b214QFmUM_OikgF7YRlhyFLI8-I31Y?usp=sharing"
+    },
+    {
+      "text": "구글 지도 경로 (Google map)",
+      "url": "https://drive.google.com/open?id=13VqkMejDtwYs1aICnp1L_902Ogo&usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/41308517"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/6l2nkM0jB"
+    }
+  ]
+}

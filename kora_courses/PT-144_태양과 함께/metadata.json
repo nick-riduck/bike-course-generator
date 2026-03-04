@@ -1,0 +1,27 @@
+{
+  "type": "permanents",
+  "code": "PT-144",
+  "name": "태양과 함께",
+  "distance": "294km",
+  "elevation": "2,947m",
+  "time_limit": "19:36",
+  "start": "정동진",
+  "end": "정서진",
+  "designer": "김창우",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT144.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1iSfYmsPreSlssJWBQvz4FrcaVSp0sRJZ?usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/40986911"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/mNTPHHjjp"
+    }
+  ]
+}

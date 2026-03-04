@@ -1,0 +1,43 @@
+{
+  "type": "permanents",
+  "code": "PT-118",
+  "name": "부산-서울",
+  "distance": "440km",
+  "elevation": "3,696m",
+  "time_limit": "29:20",
+  "start": "부산",
+  "end": "서울(광나루)",
+  "designer": "Jan Boonstra",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT118.htm",
+  "description": "코스의 일부 구간을 촬영한 동영상이 제공됩니다. (HD 화질)\nSome parts of the course are recorded on continuous video and are available for viewing (HD quality):\nkm 120 - km 164 (신녕-봉양 / Sinnyeong-Bongyang)\nkm 232 - km 237 (문경 / Mungyeong)\nkm 324 - km 394 (생극-양평 Saenggeuk - Yangpyeong)",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1tsoHBpftm6y4iIER-k0OZDOZtIvO7_OC?usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/41788561"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/q7riBHjjp"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/UbfBzT00H"
+    },
+    {
+      "text": "km 120 - km 164 (신녕-봉양 / Sinnyeong-Bongyang)",
+      "url": "https://drive.google.com/file/d/1sKezpFQNbbh_45Jru33-VD6EoAf1Sou1/view?usp=sharing"
+    },
+    {
+      "text": "km 232 - km 237 (문경 / Mungyeong)",
+      "url": "https://drive.google.com/file/d/1Ui8qVNhgaaq-EgcpSGDQ8jeaL_ByWOMY/view?usp=sharing"
+    },
+    {
+      "text": "km 324 - km 394 (생극-양평 Saenggeuk - Yangpyeong)",
+      "url": "https://drive.google.com/file/d/169g_ldSZZwGy8NnJexo-Gvyk_FBh0NoS/view?usp=sharing"
+    }
+  ]
+}

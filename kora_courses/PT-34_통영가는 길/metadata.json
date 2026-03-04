@@ -1,0 +1,31 @@
+{
+  "type": "permanents",
+  "code": "PT-34",
+  "name": "통영가는 길",
+  "distance": "212km",
+  "elevation": "2,967m",
+  "time_limit": "14:08",
+  "start": "거창",
+  "end": "통영",
+  "designer": "김영삼",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT34.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1468aZ7SMtZYfQoepQRU9YFOQVWf-Dv9Z?usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/41323591"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/LBGYrhSDM"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/lRExzwGbol"
+    }
+  ]
+}

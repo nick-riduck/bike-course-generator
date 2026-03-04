@@ -1,0 +1,27 @@
+{
+  "type": "permanents",
+  "code": "PT-192",
+  "name": "남한강과 유명산",
+  "distance": "225 km",
+  "elevation": "2,685 m",
+  "time_limit": "15:00",
+  "start": "용인",
+  "end": "용인",
+  "designer": "오동주",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT192.htm",
+  "description": "이천의 탁 트인 복하천 자전거도로를 지나서 이포보에서 한숨 돌리고 나면 푸른빛 남한강 자전거도로가 나옵니다. 남한강의 멋진 풍경을 지나서 유명산을 오르고나면 이번엔 북한강 자전거도로가 나옵니다. 남한강과 북한강을 모두 둘러 볼 수 있으며, 중간 중간 업힐도 포함되어 있어 지루할 틈이 없는 코스입니다. 복귀할 때는 안전한 분당 자전거도로를 이용합니다.\n추의\n광주 시청 앞을 지나는 회안대로는 차량 통행이 많으므로 주의를 요하며 필히 후미등을 모두 밝게 켜고 주행해야 합니다.\nAfter passing through Icheon's open Bokhacheon bicycle path and taking a breather at Ipobo, you will come to the blue Namhan River bicycle path. After passing by the wonderful scenery of the Namhan River and climbing Yumyeong Mountain, you will come to the Bukhangang River Bike Path. You can look around both the Namhan River and the Bukhan River, and it includes uphills in the middle, so there is no time to get bored. When returning, use the safe Bundang bicycle path.\nCAUTION:\nThere is a lot of traffic on Hoean-daero that passes in front of Gwangju City Hall, so be careful and drive with all taillights turned on brightly.",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/17kxkKMc6_-PQf7eBRAwyTVejLM6VI1ed?usp=drive_link"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/48621510"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/0UgbJ69bXT"
+    }
+  ]
+}

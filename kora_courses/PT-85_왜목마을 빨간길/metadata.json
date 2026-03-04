@@ -1,0 +1,31 @@
+{
+  "type": "permanents",
+  "code": "PT-85",
+  "name": "왜목마을 빨간길",
+  "distance": "210km",
+  "elevation": "1,257m",
+  "time_limit": "14:00",
+  "start": "오산",
+  "end": "평택",
+  "designer": "신광철",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT85.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트(Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/11bijdNtf9ct6VyG-A1BIZjWQUczMtnSM?usp=sharing"
+    },
+    {
+      "text": "구글 지도 경로 (Google map)",
+      "url": "https://drive.google.com/open?id=1U8JhEdyFdeabznJC3nf0Sk6_KvF8xvjF&usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/41422198"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/0AnZPQh00"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "type": "superrando",
+  "code": "SR-01",
+  "name": "슈퍼삐약이",
+  "distance": "601km",
+  "elevation": "10,287m",
+  "time_limit": "서울 반포",
+  "start": "서울 반포",
+  "end": "김회진",
+  "designer": "",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/superrando/info-SR01.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "모든 서류 / all documents",
+      "url": "https://drive.google.com/open?id=1Ne4w4YqEhGgFOQ534QRZD2QL7R6jR_xr"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/43049677"
+    },
+    {
+      "text": "Start/Finish 지도보기 (VIEW)",
+      "url": "http://kko.to/jzfSwJhnwG"
+    }
+  ]
+}

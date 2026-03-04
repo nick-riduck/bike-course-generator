@@ -1,0 +1,31 @@
+{
+  "type": "permanents",
+  "code": "PT-19",
+  "name": "12개령 7고개",
+  "distance": "450km",
+  "elevation": "9,097m",
+  "time_limit": "30:00",
+  "start": "태백",
+  "end": "속초",
+  "designer": "김영삼",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT19.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1IhORmLQyDKrO30b4zUZBNyWRyKDzfisI?usp=sharing"
+    },
+    {
+      "text": "구글 지도 경로 (Google map)",
+      "url": "https://drive.google.com/open?id=1vMXbSEKKKqLv0VRmCpw1STBIflA&usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/41473004"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/qFxsoHj0o"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "type": "permanents",
+  "code": "PT-137",
+  "name": "돌고돌아 안동",
+  "distance": "211km",
+  "elevation": "2,852m",
+  "time_limit": "14:04",
+  "start": "영월",
+  "end": "안동",
+  "designer": "권영민",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT137.htm",
+  "description": "이 퍼머넌트는 서울에서 남쪽의 항구도시 통영까지 4개의 구간으로 이어지는 스페셜 시리즈 \"강에서 바다로\" 의 세 번째 구간입니다. 이 코스는 한국의 아름다운 경치와 시골 길의 정취를 보여주기 위해 만들어졌습니다. 4개의 퍼머넌트를 1년 이내에 완주하면 특별 인증서가 수여됩니다. 해당되는 4개의 퍼머넌트는 PT-72, PT-137, PT-174, PT-34 입니다. 두번째 구간 PT-137는 PT-75로 대체할 수 있습니다.\nThis permanent is the third section of a special series called \"River to Ocean\", connecting Seoul with the southern port city of Tongyeong in 4 sections. The course is designed to show the best of what Korea has to offer to a randonneur regarding countryside and scenic beauty. A special award is given to the rider who completes the four series within the period of one year. The 4 sections of this series are PT-72, PT-137, PT-174, PT-34. The second section PT-137 can be replaced by PT-75.",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1k63SI9-utJI2ab-5Kqtx1buYEqqd2Kph?usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/41669474"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/jitO4Hj0M"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/THxeK3bYB"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "type": "permanents",
+  "code": "PT-206",
+  "name": "김밥천국",
+  "distance": "284 km",
+  "elevation": "3,038m",
+  "time_limit": "18:56",
+  "start": "광나루",
+  "end": "김천",
+  "designer": "김영삼",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT206.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1k5BdNSmy3mb23MiEHz9388Zyu8bRzAY7?usp=drive_link"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/53328433"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/aqEl2AcfH"
+    }
+  ]
+}

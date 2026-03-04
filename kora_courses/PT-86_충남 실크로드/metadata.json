@@ -1,0 +1,31 @@
+{
+  "type": "permanents",
+  "code": "PT-86",
+  "name": "충남 실크로드",
+  "distance": "215km",
+  "elevation": "1,861m",
+  "time_limit": "14:20",
+  "start": "세종",
+  "end": "세종",
+  "designer": "윤기호",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT86.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1IruQNMkTftC4QFmORvwvF5Wpp2SSGrD2?usp=sharing"
+    },
+    {
+      "text": "구글 지도 경로 (Google map)",
+      "url": "https://drive.google.com/open?id=1g4wFc-rZVX_sLp1dG0rD1SXezBPcxgzN&usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/41670462"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/eOe1ZobjH"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "type": "permanents",
+  "code": "PT-57",
+  "name": "제주 둘레길",
+  "distance": "224km",
+  "elevation": "1,588m",
+  "time_limit": "14:56",
+  "start": "제주시",
+  "end": "제주시",
+  "designer": "장중원",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT57.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1wPJQPa8AvZ2cloj0G043W6gaqqhCvKjc?usp=sharing"
+    },
+    {
+      "text": "구글 지도 경로 (Google map)",
+      "url": "https://drive.google.com/open?id=1qOO8bmwf9JFzZHvFRNzePoimHL0&usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/41308436"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/-3-C4H00M"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "type": "superrando",
+  "code": "SR-05",
+  "name": "긴꼬리산양",
+  "distance": "603km",
+  "elevation": "10,440 m",
+  "time_limit": "청주",
+  "start": "양평",
+  "end": "김길섭",
+  "designer": "",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/superrando/info-SR05.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "모든 서류 / all documents",
+      "url": "https://drive.google.com/drive/folders/1N4IwUebb2WHiOCYbmNSpU8n1ejn-c44E?usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/43114013"
+    },
+    {
+      "text": "Start 지도보기 (VIEW)",
+      "url": "http://kko.to/lddtcubYo"
+    },
+    {
+      "text": "Finish 지도보기 (VIEW)",
+      "url": "http://kko.to/yM5hPusDo"
+    }
+  ]
+}

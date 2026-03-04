@@ -1,0 +1,35 @@
+{
+  "type": "permanents",
+  "code": "PT-20",
+  "name": "태백, 바람의언덕",
+  "distance": "393km",
+  "elevation": "9,277m",
+  "time_limit": "26:12",
+  "start": "삼척",
+  "end": "춘양",
+  "designer": "김영삼",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT20.htm",
+  "description": "CP 6 출입금지로 인증받지 못할 경우\n에는, CP 6 PLAN-B 에서 인증을 받으셔야 합니다.\nPT20_PlanB.gpx 코스 파일을 이용하세요.\nIn case the access to CP 6 is blocked, you must check control at CP 6 PLAN-B and follow the course of PT20_PlanB.gpx.\nCP06 노나무재 / Nonamujae (PLAN-B alternative)",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1uYlZYA2uxLVmbRy_MvVO4h3csR30j-xS?usp=sharing"
+    },
+    {
+      "text": "구글 지도 경로 (Google map)",
+      "url": "https://drive.google.com/open?id=1Ca4jJXWCBR6T8OnHngpp5YoCXm0&usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/46692009"
+    },
+    {
+      "text": "Plan B: RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/46692115"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "https://kko.to/LKgyZx0vjw"
+    }
+  ]
+}

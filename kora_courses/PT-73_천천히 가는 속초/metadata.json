@@ -1,0 +1,35 @@
+{
+  "type": "permanents",
+  "code": "PT-73",
+  "name": "천천히 가는 속초",
+  "distance": "214km",
+  "elevation": "2,577m",
+  "time_limit": "14:16",
+  "start": "서울 광나루",
+  "end": "속초",
+  "designer": "김영삼",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT73.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1E8jJNcmNQX4Uf72HZt5ddF1BOpckev9w?usp=sharing"
+    },
+    {
+      "text": "구글 지도 경로 (Google map)",
+      "url": "https://drive.google.com/open?id=10km-agfIa4NBoqk1yCtlPNseANqRtRiw&usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/36499547"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/UbfBzT00H"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/kbC1XKZfp"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "type": "permanents",
+  "code": "PT-124",
+  "name": "고흥 발리슛",
+  "distance": "206km",
+  "elevation": "2,371m",
+  "time_limit": "13:44",
+  "start": "순천",
+  "end": "순천",
+  "designer": "김영삼",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT124.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/16YUq9X3HbPMKE47PeGlnDPP0F54IZs6u?usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/41557212"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/e_IPvTqjT"
+    }
+  ]
+}

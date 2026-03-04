@@ -1,0 +1,31 @@
+{
+  "type": "permanents",
+  "code": "PT-117",
+  "name": "서울-부산",
+  "distance": "440km",
+  "elevation": "3,746m",
+  "time_limit": "29:20",
+  "start": "서울(광나루)",
+  "end": "부산",
+  "designer": "Jan Boonstra",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT117.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1FOklB_hmN4o5MPzeGkJjKo0cKelzcuwj?usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/41554283"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/UbfBzT00H"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/q7riBHjjp"
+    }
+  ]
+}
