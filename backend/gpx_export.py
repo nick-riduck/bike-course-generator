@@ -7,6 +7,32 @@ import math
 RIDUCK_NS = 'https://riduck.dev/xmlns/1'
 ET.register_namespace('riduck', RIDUCK_NS)
 
+INTERNAL_TO_GPX_SYM = {
+    'turn_left': 'Turn Left',
+    'turn_right': 'Turn Right',
+    'straight': 'Straight',
+    'u_turn': 'U-Turn',
+    'food': 'Restaurant',
+    'water': 'Drinking Water',
+    'summit': 'Summit',
+    'danger': 'Danger',
+    'info': 'Information',
+}
+
+INTERNAL_TO_TCX_MAP = {
+    'turn_left': 'Left',
+    'turn_right': 'Right',
+    'straight': 'Straight',
+    'food': 'Food',
+    'water': 'Water',
+    'summit': 'Summit',
+    'danger': 'Danger',
+    'info': 'Generic',
+    'via': 'Generic',
+    'section_start': 'Generic',
+    'u_turn': 'Generic',
+}
+
 class GpxExporter:
     def __init__(self, data: Dict[str, Any]):
         """
@@ -70,14 +96,26 @@ class GpxExporter:
                     sym = ET.SubElement(wpt, "sym")
                     sym.text = "Riduck_Section_Start"
                 else:
-                    # Regular Point (Via)
+                    # Regular Point
                     p_name = point.get('name', '')
                     if p_name:
                         n = ET.SubElement(wpt, "name")
                         n.text = p_name
+
+                    point_type = point.get('type', 'via')
+                    desc_parts = []
+                    if point_type and point_type != 'via':
+                        desc_parts.append(f"Riduck_Type:{point_type}")
+                        # Also set <sym> for external tool compatibility
+                        gpx_sym = INTERNAL_TO_GPX_SYM.get(point_type)
+                        if gpx_sym:
+                            sym_el = ET.SubElement(wpt, "sym")
+                            sym_el.text = gpx_sym
                     if dist_km_str:
+                        desc_parts.append(f"Riduck_DistKm={dist_km_str}")
+                    if desc_parts:
                         desc = ET.SubElement(wpt, "desc")
-                        desc.text = f"Riduck_DistKm={dist_km_str}"
+                        desc.text = ";".join(desc_parts)
 
                 # extensions: riduck:dist_km (primary)
                 if dist_km_str:
@@ -257,19 +295,28 @@ class TcxExporter:
                 dist_km_str = f"{float(dist_km):.6f}" if dist_km is not None else None
 
                 # Determine Type & Notes
-                pt_type = "Generic"
+                point_type = point.get('type', 'via')
+                pt_type = INTERNAL_TO_TCX_MAP.get(point_type, 'Generic')
                 notes = ""
 
                 if p_idx == 0:
                     # Section Start
                     name = section.get('name', name or f'Section {s_idx+1}')
                     color = section.get('color', '#2a9e92')
-                    notes = f"Riduck_Section:Color={color}" + (f";Riduck_DistKm={dist_km_str}" if dist_km_str else "")
+                    notes = f"Riduck_Section:Color={color}"
+                    if point_type not in ('section_start', 'via'):
+                        notes += f";Riduck_Type:{point_type}"
+                    if dist_km_str:
+                        notes += f";Riduck_DistKm={dist_km_str}"
                 else:
                     # Intermediate Point
                     if not name: name = "Point"
+                    notes_parts = []
+                    if point_type not in ('via',):
+                        notes_parts.append(f"Riduck_Type:{point_type}")
                     if dist_km_str:
-                        notes = f"Riduck_DistKm={dist_km_str}"
+                        notes_parts.append(f"Riduck_DistKm={dist_km_str}")
+                    notes = ";".join(notes_parts)
 
                 # Create Element
                 cp = ET.SubElement(course, "CoursePoint")

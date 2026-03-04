@@ -10,3 +10,5 @@ python-dotenv
 psycopg2-binary
 Pillow
 google-cloud-storage
+google-genai
+pgvector

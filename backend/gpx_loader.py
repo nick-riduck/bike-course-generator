@@ -188,6 +188,21 @@ class GpxLoader(BaseTrackLoader):
 
         RIDUCK_NS = 'https://riduck.dev/xmlns/1'
 
+        GPX_SYM_MAP = {
+            'Turn Left': 'turn_left',
+            'Turn Right': 'turn_right',
+            'Straight': 'straight',
+            'U-Turn': 'u_turn',
+            'Restaurant': 'food',
+            'Food': 'food',
+            'Water': 'water',
+            'Drinking Water': 'water',
+            'Summit': 'summit',
+            'Danger': 'danger',
+            'Caution': 'danger',
+            'Information': 'info',
+        }
+
         for wpt in wpts:
             lat = float(wpt.attrib['lat'])
             lon = float(wpt.attrib['lon'])
@@ -200,6 +215,15 @@ class GpxLoader(BaseTrackLoader):
             if "Riduck" in sym:
                 color_match = re.search(r"Color:(#[0-9a-fA-F]{6})", desc)
                 if color_match: color = color_match.group(1)
+
+            # Determine waypoint type
+            if "Riduck_Section_Start" in sym:
+                wpt_type = "section_start"
+            elif "Riduck_Type:" in desc:
+                type_match = re.search(r"Riduck_Type:(\w+)", desc)
+                wpt_type = type_match.group(1) if type_match else 'via'
+            else:
+                wpt_type = GPX_SYM_MAP.get(sym, 'via')
 
             # dist_km: extensions 우선, desc fallback
             dist_km = None
@@ -217,7 +241,7 @@ class GpxLoader(BaseTrackLoader):
 
             self.parsed_waypoints.append({
                 "lat": lat, "lon": lon, "name": name, "sym": sym, "color": color,
-                "type": "section_start" if "Riduck_Section_Start" in sym else "via",
+                "type": wpt_type,
                 "dist_km": dist_km
             })
 
@@ -309,6 +333,18 @@ class TcxLoader(BaseTrackLoader):
                 except (ValueError, AttributeError):
                     continue
                 
+                TCX_POINT_TYPE_MAP = {
+                    'Left': 'turn_left',
+                    'Right': 'turn_right',
+                    'Straight': 'straight',
+                    'Food': 'food',
+                    'Water': 'water',
+                    'Summit': 'summit',
+                    'Danger': 'danger',
+                    'Valley': 'info',
+                    'Generic': 'via',
+                }
+
                 # Riduck Specific Parsing from Notes
                 color = "#2a9e92"
                 is_section_start = False
@@ -317,6 +353,15 @@ class TcxLoader(BaseTrackLoader):
                     is_section_start = True
                     color_match = re.search(r"Color:(#[0-9a-fA-F]{6})", notes)
                     if color_match: color = color_match.group(1)
+
+                # Determine waypoint type
+                if is_section_start:
+                    wpt_type = "section_start"
+                elif notes and "Riduck_Type:" in notes:
+                    type_match = re.search(r"Riduck_Type:(\w+)", notes)
+                    wpt_type = type_match.group(1) if type_match else 'via'
+                else:
+                    wpt_type = TCX_POINT_TYPE_MAP.get(pt_type, 'via')
 
                 # dist_km: Extensions 우선, Notes fallback
                 RIDUCK_NS = 'https://riduck.dev/xmlns/1'
@@ -335,7 +380,7 @@ class TcxLoader(BaseTrackLoader):
 
                 self.parsed_waypoints.append({
                     "lat": lat, "lon": lon, "name": name, "sym": pt_type, "color": color,
-                    "type": "section_start" if is_section_start else "via",
+                    "type": wpt_type,
                     "dist_km": dist_km
                 })
 
