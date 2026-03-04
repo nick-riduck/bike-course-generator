@@ -16,7 +16,7 @@ const formatRelativeTime = (dateString) => {
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
-const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChange }) => {
+const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChange, refreshTrigger }) => {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'my', 'favorites'
@@ -40,6 +40,10 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
   const [allTags, setAllTags] = useState([]);
   const [tagQuery, setTagQuery] = useState('');
   const [showTagDropdown, setShowTagDropdown] = useState(false);
+  const [tagSuggestions, setTagSuggestions] = useState([]);
+  const [searchTagSuggestions, setSearchTagSuggestions] = useState([]);
+  const tagDebounceRef = useRef(null);
+  const searchTagDebounceRef = useRef(null);
   const tagInputRef = useRef(null);
   const tagDropdownRef = useRef(null);
   const searchInputRef = useRef(null);
@@ -80,15 +84,26 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
       return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const filteredTags = allTags.filter(t =>
-      routeFilters && !routeFilters.tags.includes(t.slug) &&
-      (tagQuery === '' || t.name.includes(tagQuery) || t.slug.includes(tagQuery))
+  // Semantic tag search for filter panel
+  const fetchTagSuggestions = useCallback(async (query, setter) => {
+      try {
+          const url = query.trim()
+              ? `/api/routes/tags/search?q=${encodeURIComponent(query.trim())}`
+              : '/api/routes/tags/search';
+          const res = await fetch(url);
+          if (res.ok) setter(await res.json());
+      } catch (err) {
+          console.error('Tag search error:', err);
+      }
+  }, []);
+
+  const filteredTags = tagSuggestions.filter(t =>
+      routeFilters && !routeFilters.tags.includes(t.slug)
   );
 
-  const searchFilteredTags = searchQuery.trim() ? allTags.filter(t =>
-      routeFilters && !routeFilters.tags.includes(t.slug) &&
-      (t.name.includes(searchQuery) || t.slug.includes(searchQuery))
-  ) : [];
+  const searchFilteredTags = searchTagSuggestions.filter(t =>
+      routeFilters && !routeFilters.tags.includes(t.slug)
+  );
 
   // 2. Fetch Data Logic
   const fetchData = useCallback(async (pageNum, isReset = false) => {
@@ -162,7 +177,7 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
     setHasMoreMy(true);
     setHasMorePublic(true);
     fetchData(1, true);
-  }, [user, searchQuery, activeTab, sortOption, sortOrder, routeFilters, fetchData]);
+  }, [user, searchQuery, activeTab, sortOption, sortOrder, routeFilters, fetchData, refreshTrigger]);
 
   // 3. Infinite Scroll Handler
   const handleScroll = useCallback(() => {
@@ -401,7 +416,16 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
             ref={searchInputRef}
             type="text"
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setShowSearchTagDropdown(true); }}
+            onChange={(e) => {
+                const val = e.target.value;
+                setSearchQuery(val);
+                setShowSearchTagDropdown(true);
+                if (searchTagDebounceRef.current) clearTimeout(searchTagDebounceRef.current);
+                searchTagDebounceRef.current = setTimeout(() => {
+                    if (val.trim()) fetchTagSuggestions(val, setSearchTagSuggestions);
+                    else setSearchTagSuggestions([]);
+                }, 300);
+            }}
             onFocus={() => { if (searchQuery.trim()) setShowSearchTagDropdown(true); }}
             placeholder="Search routes..."
             className="w-full bg-gray-800 text-gray-200 px-4 py-2.5 rounded-xl border border-gray-700 focus:outline-none focus:border-riduck-primary text-xs"
@@ -416,7 +440,10 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
                     className="w-full text-left px-2.5 py-1.5 text-[11px] text-gray-300 hover:bg-gray-700 hover:text-white flex justify-between"
                 >
                   <span>#{tag.name}</span>
-                  <span className="text-[9px] text-gray-600">{tag.count}</span>
+                  <span className="flex items-center gap-1.5">
+                    {tag.similarity != null && <span className="text-[9px] text-gray-500">{Math.round(tag.similarity * 100)}%</span>}
+                    <span className="text-[9px] text-gray-600">{tag.count}</span>
+                  </span>
                 </button>
               ))}
             </div>
@@ -494,8 +521,14 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
               <div className="relative mt-1">
                 <input ref={tagInputRef} type="text" placeholder="태그 검색..."
                     value={tagQuery}
-                    onChange={e => { setTagQuery(e.target.value); setShowTagDropdown(true); }}
-                    onFocus={() => setShowTagDropdown(true)}
+                    onChange={e => {
+                        const val = e.target.value;
+                        setTagQuery(val);
+                        setShowTagDropdown(true);
+                        if (tagDebounceRef.current) clearTimeout(tagDebounceRef.current);
+                        tagDebounceRef.current = setTimeout(() => fetchTagSuggestions(val, setTagSuggestions), 300);
+                    }}
+                    onFocus={() => { setShowTagDropdown(true); if (!tagSuggestions.length) fetchTagSuggestions(tagQuery, setTagSuggestions); }}
                     className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder-gray-600 focus:outline-none focus:border-riduck-primary"
                 />
                 {showTagDropdown && filteredTags.length > 0 && (
@@ -506,7 +539,10 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
                           className="w-full text-left px-2.5 py-1.5 text-[11px] text-gray-300 hover:bg-gray-700 hover:text-white flex justify-between"
                       >
                         <span>{tag.name}</span>
-                        <span className="text-[9px] text-gray-600">{tag.count}</span>
+                        <span className="flex items-center gap-1.5">
+                          {tag.similarity != null && <span className="text-[9px] text-gray-500">{Math.round(tag.similarity * 100)}%</span>}
+                          <span className="text-[9px] text-gray-600">{tag.count}</span>
+                        </span>
                       </button>
                     ))}
                   </div>

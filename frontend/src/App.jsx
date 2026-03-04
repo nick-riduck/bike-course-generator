@@ -61,7 +61,7 @@ function Layout() {
         <div className="flex items-center gap-4 overflow-hidden flex-1 mr-4">
             <div className="flex items-center gap-2 md:gap-3 shrink-0">
                 <h1 className="text-lg md:text-2xl font-bold text-riduck-primary tracking-tight truncate">
-                Riduck <span className="text-white font-light">Planner</span>
+                Course <span className="text-white font-light">Planner</span>
                 </h1>
                 <span className="text-[10px] text-gray-500 border border-gray-700 px-1.5 py-0.5 rounded uppercase tracking-wider hidden sm:inline-block">Alpha</span>
             </div>

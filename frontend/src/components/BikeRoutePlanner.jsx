@@ -168,16 +168,19 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const [routeStatus, setRouteStatus] = useState('PUBLIC');
   const [routeTags, setRouteTags] = useState([]);
   const [currentRouteId, setCurrentRouteId] = useState(null);
+  const [routeUuid, setRouteUuid] = useState(null);
   const [routeStats, setRouteStats] = useState({ views: 0, downloads: 0 });
   const [routeOwnerId, setRouteOwnerId] = useState(null);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [searchRefreshTrigger, setSearchRefreshTrigger] = useState(0);
   const [focusedPointId, setFocusedPointId] = useState(null);
   const [mapHoverCoord, setMapHoverCoord] = useState(null);
 
   // Preview State
   const [previewRoute, setPreviewRoute] = useState(null);
   const [mobilePreviewExpanded, setMobilePreviewExpanded] = useState(false);
+  const [previewLinkCopied, setPreviewLinkCopied] = useState(false);
 
   // Place Search State
   const [isPlaceSearchOpen, setIsPlaceSearchOpen] = useState(false);
@@ -187,6 +190,10 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const placeSearchTimerRef = useRef(null);
   const [placeSearchPulse, setPlaceSearchPulse] = useState(null); // { lon, lat }
   const pulseTimerRef = useRef(null);
+
+  // More Menu State (Mobile)
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef(null);
 
   // Nearby Routes State
   const [isNearbyMode, setIsNearbyMode] = useState(false);
@@ -432,6 +439,22 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     flyMapToPoint(coord);
   }, [flyMapToPoint]);
 
+  // Close more menu on outside click
+  React.useEffect(() => {
+    if (!moreMenuOpen) return;
+    const handleClickOutside = (e) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
+        setMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [moreMenuOpen]);
+
   React.useEffect(() => {
     if (!focusedPointId) return;
 
@@ -503,7 +526,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   }, [sections]);
 
   const handleOpenExportModal = () => {
-    if (!sections || sections.length === 0) return;
+    const hasSections = previewRoute ? previewRoute.sections.length > 0 : sections.some(s => s.points.length > 0);
+    if (!hasSections) return;
     setIsExportModalOpen(true);
   };
 
@@ -667,6 +691,14 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
      setIsMenuOpen(false);
      setIsSearchOpen(false);
 
+     // Exit nearby mode if active
+     if (isNearbyMode) {
+         if (nearbyDebounceRef.current) clearTimeout(nearbyDebounceRef.current);
+         setIsNearbyMode(false);
+         setNearbyRoutes(null);
+         setNearbyCenter(null);
+     }
+
      // Clear preview state
      setPreviewRoute(null);
      setMobilePreviewExpanded(false);
@@ -684,10 +716,25 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
      }, 350);
   };
 
+  const copyShareLink = () => {
+      const identifier = previewRoute
+          ? (previewRoute.data.uuid || previewRoute.data.route_id)
+          : ((routeStatus === 'LINK_ONLY' && routeUuid) ? routeUuid : currentRouteId);
+      if (!identifier) return;
+      const shareUrl = `${window.location.origin}/route/${identifier}`;
+      navigator.clipboard.writeText(shareUrl).then(() => {
+          setPreviewLinkCopied(true);
+          setTimeout(() => setPreviewLinkCopied(false), 2000);
+      }).catch(() => {
+          alert('Failed to copy link.');
+      });
+  };
+
   const cancelPreview = (options = {}) => {
       const { reopenSearchOnMobile = true } = options;
       setPreviewRoute(null);
       setMobilePreviewExpanded(false);
+      setPreviewLinkCopied(false);
       setIsElevationChartVisible(true);
       if (sections.some(s => s.points.length > 0)) {
           fitMapToSections(sections);
@@ -698,11 +745,13 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   };
 
   const performExport = async (filename, format) => {
-    if (!sections || sections.length === 0) return;
+    const sourceSections = previewRoute ? previewRoute.sections : sectionsWithPointDistances;
+    const sourceRouteId = previewRoute ? previewRoute.data.route_id : currentRouteId;
+    if (!sourceSections || sourceSections.length === 0) return;
 
     try {
         // Deep clone sections to remove any potential non-serializable properties
-        const cleanSections = sectionsWithPointDistances.map(sec => ({
+        const cleanSections = sourceSections.map(sec => ({
             id: sec.id,
             name: sec.name,
             color: sec.color,
@@ -748,14 +797,20 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         const url = window.URL.createObjectURL(blob);
         
         const contentDisposition = response.headers.get('Content-Disposition');
-        let downloadFilename = `route-${Date.now()}.${format}`;
+        let downloadFilename;
         if (contentDisposition) {
-            const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-            if (filenameMatch && filenameMatch.length === 2)
-                downloadFilename = filenameMatch[1];
-        } else {
-             const safeName = (filename || 'route').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-             downloadFilename = `${safeName}.${format}`;
+            // RFC 5987: filename*=UTF-8''encoded_name
+            const starMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/i);
+            if (starMatch) {
+                downloadFilename = decodeURIComponent(starMatch[1]);
+            } else {
+                const plainMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+                if (plainMatch) downloadFilename = plainMatch[1];
+            }
+        }
+        if (!downloadFilename) {
+            const safeName = (filename || 'route').replace(/[^a-z0-9가-힣]/gi, '_');
+            downloadFilename = `${safeName}.${format}`;
         }
 
         const a = document.createElement('a');
@@ -766,8 +821,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
 
-        if (currentRouteId) {
-            fetch(`/api/routes/${currentRouteId}/download`, { method: 'POST' }).catch(e => {});
+        if (sourceRouteId) {
+            fetch(`/api/routes/${sourceRouteId}/download`, { method: 'POST' }).catch(() => {});
         }
 
     } catch (e) {
@@ -804,11 +859,19 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         const url = window.URL.createObjectURL(blob);
         
         const contentDisposition = response.headers.get('Content-Disposition');
-        let filename = `section-${section.name || 'Export'}-${Date.now()}.gpx`;
+        let filename;
         if (contentDisposition) {
-            const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-            if (filenameMatch && filenameMatch.length === 2)
-                filename = filenameMatch[1];
+            const starMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/i);
+            if (starMatch) {
+                filename = decodeURIComponent(starMatch[1]);
+            } else {
+                const plainMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+                if (plainMatch) filename = plainMatch[1];
+            }
+        }
+        if (!filename) {
+            const safeName = (section.name || 'section').replace(/[^a-z0-9가-힣]/gi, '_');
+            filename = `${safeName}.${format}`;
         }
 
         const a = document.createElement('a');
@@ -1883,10 +1946,12 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           }
 
           const result = await res.json();
+          console.log('[Save] response:', result, 'route_id:', result.route_id, 'uuid:', result.uuid);
           alert(modalData.isOverwrite ? "Route updated!" : "Route saved successfully!");
           
           // Update local state with saved metadata
           setCurrentRouteId(result.route_id);
+          setRouteUuid(result.uuid || null);
           setRouteName(modalData.title);
           setRouteDescription(modalData.description);
           setRouteStatus(modalData.status);
@@ -1895,6 +1960,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           setIsDirty(false); // Changes saved
           setIsMenuOpen(false);
           setIsSearchOpen(false);
+          setSearchRefreshTrigger(prev => prev + 1);
 
           // If nearby mode was pending after save, activate it now
           if (pendingNearbyAfterSaveRef.current) {
@@ -2080,6 +2146,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           setSections(newSections);
           
           setCurrentRouteId(null);
+          setRouteUuid(null);
           setRouteName('Imported GPX');
           setRouteDescription('Imported from GPX file');
           setRouteStatus('PUBLIC');
@@ -2122,29 +2189,68 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           
           const data = await res.json();
           
+          let loadedSections = null;
+
           if (data.editor_state && data.editor_state.sections) {
-              setSections(data.editor_state.sections);
-              
+              loadedSections = data.editor_state.sections;
+          } else if (data.points && Array.isArray(data.points.lat) && data.points.lat.length >= 2) {
+              // v1.0 columnar format fallback (imported routes without editor_state)
+              const lats = data.points.lat;
+              const lons = data.points.lon;
+              const eles = data.points.ele || lats.map(() => 0);
+              const coords = lats.map((lat, i) => [lons[i], lat, eles[i]]);
+
+              const surfColors = { 1: '#2979FF', 2: '#2979FF', 3: '#9E9E9E', 4: '#FFC400', 5: '#00E676', 6: '#8D6E63', 7: '#8D6E63', 0: '#9E9E9E' };
+              const segs = data.segments || {};
+              const displayFeatures = (segs.p_start || []).map((sIdx, i) => ({
+                  type: 'Feature',
+                  geometry: { type: 'LineString', coordinates: coords.slice(sIdx, (segs.p_end[i] || sIdx) + 1) },
+                  properties: { color: surfColors[segs.surf_id?.[i]] ?? '#9E9E9E', start_index: sIdx, end_index: segs.p_end?.[i] }
+              }));
+
+              const startPt = { id: generateId(), lng: coords[0][0], lat: coords[0][1], type: 'via', name: 'Start' };
+              const endPt   = { id: generateId(), lng: coords[coords.length - 1][0], lat: coords[coords.length - 1][1], type: 'via', name: 'End' };
+              loadedSections = [{
+                  id: generateId(),
+                  name: 'Route',
+                  points: [startPt, endPt],
+                  segments: [{
+                      id: generateId(),
+                      startPointId: startPt.id,
+                      endPointId: endPt.id,
+                      geometry: { type: 'LineString', coordinates: coords },
+                      distance: (data.distance || 0) / 1000,
+                      ascent: data.elevation_gain || 0,
+                      type: 'api',
+                      surfaceSegments: displayFeatures
+                  }],
+                  color: SECTION_COLORS[0]
+              }];
+          }
+
+          if (loadedSections) {
+              setSections(loadedSections);
+
               // Update all metadata to enable Correct Fork/Overwrite behavior
               setCurrentRouteId(data.route_id);
+              setRouteUuid(data.uuid || null);
               setRouteName(data.title || '');
               setRouteDescription(data.description || '');
               setRouteStatus(data.status || 'PUBLIC');
               setRouteTags(data.tags || []);
               setRouteOwnerId(data.owner_id);
               setRouteStats(data.stats || { views: 0, downloads: 0 });
-              
-              setHistory({ past: [], future: [] }); // Reset history
-              setIsDirty(false); // Freshly loaded
+
+              setHistory({ past: [], future: [] });
+              setIsDirty(false);
               setIsMenuOpen(false);
               setIsSearchOpen(false);
-              
-              // Focus Map
-              fitMapToSections(data.editor_state.sections);
+
+              fitMapToSections(loadedSections);
 
               if (!skipConfirm) alert("Route loaded!");
           } else {
-              alert("This route data is missing editor state (Legacy format?). Cannot load into editor.");
+              alert("Invalid route data: no editor state or points data found.");
           }
 
       } catch (e) {
@@ -2156,10 +2262,10 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
       }
   };
 
-  // Auto-load route from URL
+  // Auto-load route from URL (preview mode)
   React.useEffect(() => {
     if (initialRouteId) {
-      handleLoadRoute(initialRouteId, true);
+      handlePreviewRoute(initialRouteId);
     }
   }, [initialRouteId]);
 
@@ -2187,6 +2293,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     setRouteStatus('PUBLIC');
     setRouteTags([]);
     setCurrentRouteId(null);
+    setRouteUuid(null);
     setRouteOwnerId(null);
     setHistory({ past: [], future: [] });
     setIsDirty(false);
@@ -2198,6 +2305,15 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     if (sections.some(s => s.points.length > 0)) {
         if (!confirm("Your unsaved changes will be lost. Create a new route?")) return;
     }
+    // Exit nearby mode if active
+    if (isNearbyMode) {
+        if (nearbyDebounceRef.current) clearTimeout(nearbyDebounceRef.current);
+        setIsNearbyMode(false);
+        setNearbyRoutes(null);
+        setNearbyCenter(null);
+    }
+    setPreviewRoute(null);
+    setMobilePreviewExpanded(false);
     resetRoute();
   };
 
@@ -2245,8 +2361,10 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             h-full bg-gray-900 overflow-hidden transition-all duration-300 ease-in-out
         `}>
             <div className="w-80 h-full"> {/* Inner Fixed Width Container */}
-                <MenuPanel 
+                <MenuPanel
                     currentRouteId={currentRouteId}
+                    routeUuid={routeUuid}
+                    routeStatus={routeStatus}
                     routeStats={routeStats}
                     history={history}
                     onUndo={handleUndo}
@@ -2287,6 +2405,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                         setRouteFilters(filters);
                         routeFiltersRef.current = filters;
                     }}
+                    refreshTrigger={searchRefreshTrigger}
                 />
              </div>
         </div>
@@ -2305,7 +2424,13 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                             {previewRoute.data.route_num && (
-                                <span className="text-[11px] text-gray-500 font-mono">#{previewRoute.data.route_num}</span>
+                                <button
+                                    onClick={copyShareLink}
+                                    className={`text-[11px] font-mono transition-colors cursor-pointer hover:text-riduck-primary ${previewLinkCopied ? 'text-green-400' : 'text-gray-500'}`}
+                                    title={previewLinkCopied ? 'Copied!' : 'Copy share link'}
+                                >
+                                    {previewLinkCopied ? 'Copied!' : `#${previewRoute.data.route_num}`}
+                                </button>
                             )}
                             <h2 className="text-white font-bold text-base leading-snug mt-0.5">{previewRoute.data.title || 'Untitled Route'}</h2>
                         </div>
@@ -2358,19 +2483,42 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                         </div>
                     </div>
 
-                    {/* View/Download counts */}
-                    {(previewRoute.data.stats?.views > 0 || previewRoute.data.stats?.downloads > 0) && (
+                    {/* View/Download counts + Export button */}
+                    <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4 text-xs text-gray-500">
-                            <span className="flex items-center gap-1">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                {previewRoute.data.stats.views.toLocaleString()}
-                            </span>
-                            <span className="flex items-center gap-1">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                                {previewRoute.data.stats.downloads.toLocaleString()}
-                            </span>
+                            {(previewRoute.data.stats?.views > 0 || previewRoute.data.stats?.downloads > 0) && (<>
+                                <span className="flex items-center gap-1">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                    {previewRoute.data.stats.views.toLocaleString()}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                    {previewRoute.data.stats.downloads.toLocaleString()}
+                                </span>
+                            </>)}
                         </div>
-                    )}
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={copyShareLink}
+                                className={`flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg hover:bg-gray-800 ${previewLinkCopied ? 'text-green-400' : 'text-gray-400 hover:text-riduck-primary'}`}
+                                title={previewLinkCopied ? 'Copied!' : 'Copy share link'}
+                            >
+                                {previewLinkCopied ? (
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+                                ) : (
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                                )}
+                            </button>
+                            <button
+                                onClick={handleOpenExportModal}
+                                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-riduck-primary transition-colors px-2 py-1 rounded-lg hover:bg-gray-800"
+                                title="Export GPX/TCX"
+                            >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                GPX/TCX
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Scrollable: Description only */}
@@ -2438,8 +2586,27 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     </div>
                 </button>}
 
-                {/* 2. Place Search Bar (Floating) */}
-                <div className="pointer-events-auto relative">
+                {/* 2. Share + Place Search Bar (Floating) */}
+                <div className="pointer-events-auto relative flex items-center gap-2">
+                    {/* Share Link */}
+                    {(previewRoute || currentRouteId) && !isPlaceSearchOpen && (
+                        <button
+                            onClick={copyShareLink}
+                            className={`flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-full shadow-xl backdrop-blur-md transition-all active:scale-95 ${
+                                previewLinkCopied
+                                    ? 'bg-green-500/90 text-white border border-green-500'
+                                    : 'bg-gray-900/90 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500'
+                            }`}
+                            title={previewLinkCopied ? 'Copied!' : 'Copy share link'}
+                        >
+                            {previewLinkCopied ? (
+                                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+                            ) : (
+                                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                            )}
+                        </button>
+                    )}
+                    {/* Search */}
                     <div className={`flex items-center bg-gray-900/90 backdrop-blur-md border border-gray-700 shadow-xl rounded-full transition-all duration-300 ease-in-out h-10 md:h-12 overflow-hidden ${isPlaceSearchOpen ? 'w-64 md:w-80 px-4' : 'w-10 md:w-12 justify-center'}`}>
 
                         {/* Input Field (Visible only when open) */}
@@ -2568,16 +2735,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
             {/* Mobile Only: Sidebar Toggles (Below Stats) */}
             <div className={`absolute top-[80px] left-4 z-10 gap-2 md:hidden ${mobilePreviewExpanded ? 'hidden' : 'flex'}`}>
-                <button 
-                    onClick={handleNewRoute}
-                    disabled={isClean}
-                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isClean ? 'bg-gray-800/50 border-gray-800 text-gray-600 opacity-50 cursor-not-allowed' : 'bg-gray-900/90 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800'}`}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                </button>
-                <button 
+                <button
                     onClick={toggleMenu}
                     className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isMenuOpen ? 'bg-riduck-primary border-riduck-primary text-white shadow-riduck-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
                 >
@@ -2585,7 +2743,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                     </svg>
                 </button>
-                <button 
+                <button
                     onClick={toggleSearch}
                     className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isSearchOpen ? 'bg-riduck-primary border-riduck-primary text-white shadow-riduck-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
                 >
@@ -2593,27 +2751,64 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.58 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.58 4 8 4s8-1.79 8-4M4 7c0-2.21 3.58-4 8-4s8 1.79 8 4" />
                     </svg>
                 </button>
-                <label className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all bg-gray-900/90 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800 cursor-pointer flex items-center justify-center`}>
-                    <input type="file" accept=".gpx,.tcx" className="hidden" onChange={(e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                            handleImportGPX(file);
-                            e.target.value = '';
-                        }
-                    }} />
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                </label>
-                <button 
-                    onClick={handleOpenExportModal}
-                    disabled={isClean}
-                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isClean ? 'bg-gray-800/50 border-gray-800 text-gray-600 opacity-50 cursor-not-allowed' : 'bg-gray-900/90 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                <button
+                    onClick={toggleNearby}
+                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isNearbyMode ? 'bg-riduck-primary border-riduck-primary text-white shadow-riduck-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
                     </svg>
                 </button>
+                <div className="relative" ref={moreMenuRef}>
+                    <button
+                        onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+                        className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${moreMenuOpen ? 'bg-riduck-primary border-riduck-primary text-white shadow-riduck-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
+                        </svg>
+                    </button>
+                    {moreMenuOpen && (
+                        <div className="absolute top-full mt-2 left-0 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl backdrop-blur-md overflow-hidden animate-fade-in-up min-w-[160px]">
+                            <button
+                                onClick={() => { handleNewRoute(); setMoreMenuOpen(false); }}
+                                disabled={isClean}
+                                className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-all ${isClean ? 'text-gray-600 cursor-not-allowed' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                New Route
+                            </button>
+                            <label
+                                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-all cursor-pointer"
+                            >
+                                <input type="file" accept=".gpx,.tcx" className="hidden" onChange={(e) => {
+                                    const file = e.target.files[0];
+                                    if (file) {
+                                        handleImportGPX(file);
+                                        e.target.value = '';
+                                    }
+                                    setMoreMenuOpen(false);
+                                }} />
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                </svg>
+                                Import GPX/TCX
+                            </label>
+                            <button
+                                onClick={() => { handleOpenExportModal(); setMoreMenuOpen(false); }}
+                                disabled={isClean}
+                                className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-all ${isClean ? 'text-gray-600 cursor-not-allowed' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                Export GPX/TCX
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <Map 
@@ -2672,8 +2867,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                             layout={{ 'line-join': 'round', 'line-cap': 'round' }}
                             paint={{
                                 'line-color': '#FFFFFF',
-                                'line-width': previewRoute ? 5 : 7,
-                                'line-opacity': previewRoute ? 0.2 : 0.8
+                                'line-width': previewRoute ? 5 : 6,
+                                'line-opacity': previewRoute ? 0.15 : 0.6
                             }}
                         />
                         <Layer
@@ -2930,6 +3125,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 )}
             </Map>
 
+
             {/* Preview Control UI — Mobile only (floating bottom sheet) */}
             {previewRoute && (
                 <div
@@ -2947,7 +3143,13 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                             <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
                                     {previewRoute.data.route_num && (
-                                        <span className="text-[11px] text-gray-500 font-mono">#{previewRoute.data.route_num}</span>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); copyShareLink(); }}
+                                            className={`text-[11px] font-mono transition-colors cursor-pointer hover:text-riduck-primary ${previewLinkCopied ? 'text-green-400' : 'text-gray-500'}`}
+                                            title={previewLinkCopied ? 'Copied!' : 'Copy share link'}
+                                        >
+                                            {previewLinkCopied ? 'Copied!' : `#${previewRoute.data.route_num}`}
+                                        </button>
                                     )}
                                     <h3 className="text-white font-bold text-base leading-snug">{previewRoute.data.title || 'Untitled Route'}</h3>
                                 </div>
@@ -3129,7 +3331,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             isOpen={isExportModalOpen}
             onClose={() => setIsExportModalOpen(false)}
             onExport={performExport}
-            initialTitle={routeName}
+            initialTitle={previewRoute ? (previewRoute.data.title || '') : routeName}
         />
 
         <NearbyFilterModal

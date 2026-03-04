@@ -35,6 +35,23 @@ const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
+const getGradeColor = (grade, alpha = 1) => {
+  if (grade < -0.05) return `rgba(30, 136, 229, ${alpha})`;   // 급 내리막 (파랑)
+  if (grade < -0.01) return `rgba(79, 195, 247, ${alpha})`;   // 완만 내리막 (하늘)
+  if (grade <= 0.01) return `rgba(102, 187, 106, ${alpha})`;  // 평지 (초록)
+  if (grade <= 0.05) return `rgba(255, 167, 38, ${alpha})`;   // 완만 오르막 (주황)
+  if (grade <= 0.10) return `rgba(239, 83, 80, ${alpha})`;    // 가파른 오르막 (빨강)
+  return `rgba(173, 20, 87, ${alpha})`;                        // 급경사 (보라)
+};
+
+const calcGrade = (ctx) => {
+  const p0 = ctx.p0.parsed;
+  const p1 = ctx.p1.parsed;
+  const distDiff = p1.x - p0.x;
+  if (distDiff === 0) return 0;
+  return (p1.y - p0.y) / (distDiff * 1000); // km → m 변환
+};
+
 const ElevationChart = ({ segments, checkpoints = [], onHoverPoint, onSelectPoint, mapHoverCoord }) => {
   const chartRef = useRef(null);
   const lastHoverIndex = useRef(-1);
@@ -119,7 +136,11 @@ const ElevationChart = ({ segments, checkpoints = [], onHoverPoint, onSelectPoin
           data: flatData.map(p => ({ x: p.dist_km, y: p.ele })),
           borderColor: '#2a9e92',
           backgroundColor: 'rgba(42, 158, 146, 0.2)',
-          tension: 0.4,
+          segment: {
+            borderColor: (ctx) => getGradeColor(calcGrade(ctx)),
+            backgroundColor: (ctx) => getGradeColor(calcGrade(ctx), 0.3),
+          },
+          tension: 0.3,
           pointRadius: 0,
           pointHoverRadius: 5,
           borderWidth: 2,
