@@ -69,8 +69,13 @@ export const AuthProvider = ({ children }) => {
       setRetryCount(prev => prev + 1);
   };
 
+  // For testing purposes, you can add your email here or set to true
+  const ADMIN_EMAILS = ['admin@example.com']; 
+  const isAdmin = user ? ADMIN_EMAILS.includes(user.email) || true : false; // hardcoded to true for testing if logged in
+
   const value = {
     user,
+    isAdmin,
     loading,
     loginWithGoogle,
     logout

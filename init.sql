@@ -1,5 +1,8 @@
 CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS vector;
 
+DROP TABLE IF EXISTS route_waypoints CASCADE;
+DROP TABLE IF EXISTS waypoints CASCADE;
 DROP TABLE IF EXISTS auth_mapping_temp CASCADE;
 DROP TABLE IF EXISTS route_tags CASCADE;
 DROP TABLE IF EXISTS tags CASCADE;
@@ -10,11 +13,21 @@ DROP TABLE IF EXISTS segments CASCADE;
 DROP TABLE IF EXISTS user_tokens CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
+DROP TYPE IF EXISTS waypoint_type CASCADE;
 DROP TYPE IF EXISTS user_status CASCADE;
 DROP TYPE IF EXISTS route_status CASCADE;
 DROP TYPE IF EXISTS auth_provider CASCADE;
 DROP TYPE IF EXISTS token_status CASCADE;
 
+CREATE TYPE waypoint_type AS ENUM (
+    'convenience_store', 'cafe', 'restaurant', 'restroom',
+    'water_fountain', 'rest_area', 'bike_shop',
+    'parking', 'transit', 'bridge', 'tunnel', 'checkpoint',
+    'viewpoint', 'river', 'lake', 'mountain', 'beach', 'park', 'nature',
+    'historic', 'landmark', 'museum',
+    'hospital', 'police',
+    'other'
+);
 CREATE TYPE user_status AS ENUM ('ACTIVE', 'BANNED', 'PENDING_DELETION', 'DELETED');
 CREATE TYPE route_status AS ENUM ('PUBLIC', 'PRIVATE', 'LINK_ONLY', 'DELETED');
 CREATE TYPE auth_provider AS ENUM ('RIDUCK', 'GOOGLE', 'STRAVA');
@@ -76,6 +89,7 @@ CREATE TABLE routes (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_routes_status_user ON routes(status, user_id);
+CREATE INDEX idx_routes_status_created ON routes(status, created_at DESC);
 CREATE INDEX idx_routes_summary_path ON routes USING GIST (summary_path);
 
 CREATE TABLE route_stats (
@@ -113,14 +127,41 @@ CREATE TABLE route_segments (
 
 CREATE TABLE tags (
     id SERIAL PRIMARY KEY,
-    names JSONB NOT NULL, 
+    names JSONB NOT NULL,
     slug VARCHAR(50) UNIQUE NOT NULL,
     type VARCHAR(20) DEFAULT 'GENERAL',
+    embedding halfvec(3072),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX idx_tags_embedding ON tags
+    USING hnsw (embedding halfvec_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
 
 CREATE TABLE route_tags (
     route_id BIGINT NOT NULL,
     tag_id INTEGER NOT NULL,
     PRIMARY KEY (route_id, tag_id)
+);
+CREATE INDEX idx_route_tags_tag_id ON route_tags(tag_id);
+
+CREATE TABLE waypoints (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uuid UUID DEFAULT gen_random_uuid() UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    description TEXT DEFAULT '',
+    type waypoint_type[] NOT NULL DEFAULT '{}',
+    location GEOMETRY(Point, 4326),
+    is_verified BOOLEAN DEFAULT FALSE,
+    etc JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_waypoints_location ON waypoints USING GIST (location);
+CREATE INDEX idx_waypoints_type ON waypoints USING GIN (type);
+
+CREATE TABLE route_waypoints (
+    route_id BIGINT NOT NULL,
+    waypoint_id BIGINT NOT NULL,
+    sequence INTEGER NOT NULL,
+    distance_from_start INTEGER,
+    PRIMARY KEY (route_id, waypoint_id)
 );

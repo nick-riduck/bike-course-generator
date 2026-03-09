@@ -142,7 +142,7 @@ async def create_route(route: RouteCreateRequest, authorization: str = Header(No
                     if existing['embedding'] is None:
                         try:
                             emb = get_embedding(tag_name)
-                            cur.execute("UPDATE tags SET embedding = %s::vector WHERE id = %s", (str(emb), tag_id))
+                            cur.execute("UPDATE tags SET embedding = %s::halfvec WHERE id = %s", (str(emb), tag_id))
                         except Exception as emb_err:
                             print(f"Embedding backfill error for '{tag_name}': {emb_err}")
                 else:
@@ -150,7 +150,7 @@ async def create_route(route: RouteCreateRequest, authorization: str = Header(No
                     try:
                         emb = get_embedding(tag_name)
                         cur.execute(
-                            "INSERT INTO tags (names, slug, embedding) VALUES (%s, %s, %s::vector) RETURNING id",
+                            "INSERT INTO tags (names, slug, embedding) VALUES (%s, %s, %s::halfvec) RETURNING id",
                             (json.dumps({"ko": tag_name, "en": tag_name}), tag_name, str(emb)),
                         )
                     except Exception as emb_err:
@@ -257,13 +257,13 @@ async def search_tags(q: str = ""):
             query_embedding = get_embedding(q)
             cur.execute("""
                 SELECT t.id, t.slug, t.names, COUNT(rt.route_id) as count,
-                       1 - (t.embedding <=> %s::vector) as similarity
+                       1 - (t.embedding <=> %s::halfvec) as similarity
                 FROM tags t
                 LEFT JOIN route_tags rt ON rt.tag_id = t.id
                 LEFT JOIN routes r ON r.id = rt.route_id AND r.status = 'PUBLIC'
                 WHERE t.embedding IS NOT NULL
                 GROUP BY t.id, t.slug, t.names, t.embedding
-                ORDER BY t.embedding <=> %s::vector
+                ORDER BY t.embedding <=> %s::halfvec
                 LIMIT 10
             """, (str(query_embedding), str(query_embedding)))
             semantic_rows = cur.fetchall()
