@@ -6,9 +6,15 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, routes, thumbnails, export, plan
+from fastapi.staticfiles import StaticFiles
+from app.routers import auth, routes, thumbnails, export, plan, waypoints
 
 app = FastAPI(title="Bike Course Generator API")
+
+# Static files (waypoint images, thumbnails, etc.)
+storage_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "storage")
+if os.path.exists(storage_dir):
+    app.mount("/storage", StaticFiles(directory=storage_dir), name="storage")
 
 # CORS Configuration
 app.add_middleware(
@@ -25,6 +31,7 @@ app.include_router(routes.router)
 app.include_router(thumbnails.router)
 app.include_router(export.router)
 app.include_router(plan.router)
+app.include_router(waypoints.router)
 
 @app.get("/")
 async def root():

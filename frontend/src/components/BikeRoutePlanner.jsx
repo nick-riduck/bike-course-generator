@@ -7,6 +7,8 @@ import ElevationChart from './ElevationChart';
 import SidebarNav from './SidebarNav';
 import MenuPanel from './MenuPanel';
 import SearchPanel from './SearchPanel';
+import WaypointPanel from './WaypointPanel';
+import WaypointDetailModal from './WaypointDetailModal';
 import SaveRouteModal from './SaveRouteModal';
 import ExportRouteModal from './ExportRouteModal';
 import NearbyFilterModal, { DEFAULT_FILTERS } from './NearbyFilterModal';
@@ -204,6 +206,11 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const routeFiltersRef = useRef(routeFilters);
   const nearbyDebounceRef = useRef(null);
 
+  // Waypoint Mode State
+  const [isWaypointMode, setIsWaypointMode] = useState(false);
+  const [adminWaypoints, setAdminWaypoints] = useState([]);
+  const [selectedWaypointId, setSelectedWaypointId] = useState(null);
+
   // Long Press State for Mobile
   const longPressTimerRef = useRef(null);
   const isLongPressRef = useRef(false);
@@ -270,6 +277,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const toggleNearby = () => {
       // Clear place search state on mode switch
       closePlaceSearch();
+      setIsWaypointMode(false);
 
       if (!isNearbyMode) {
           // Turning ON nearby mode
@@ -294,6 +302,50 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           setIsNearbyMode(false);
       }
   };
+
+  const toggleWaypointMode = () => {
+      closePlaceSearch();
+      if (!isWaypointMode) {
+          setIsNearbyMode(false);
+          setIsWaypointMode(true);
+          fetchAdminWaypoints();
+      } else {
+          setIsWaypointMode(false);
+          setAdminWaypoints([]);
+      }
+  };
+
+  const fetchAdminWaypoints = async () => {
+      try {
+          const res = await fetch('/api/waypoints');
+          if (res.ok) {
+              const data = await res.json();
+              setAdminWaypoints(data);
+          }
+      } catch (e) {
+          console.error("Failed to fetch admin waypoints:", e);
+      }
+  };
+
+  const adminWaypointsGeoJSON = useMemo(() => {
+      if (!adminWaypoints || adminWaypoints.length === 0) return null;
+      return {
+          type: 'FeatureCollection',
+          features: adminWaypoints.map(wp => ({
+              type: 'Feature',
+              geometry: { type: 'Point', coordinates: [wp.lng, wp.lat] },
+              properties: {
+                  id: wp.id,
+                  name: wp.name,
+                  description: wp.description,
+                  type: wp.type,
+                  tour_count: wp.tour_count || 1,
+                  has_images: wp.has_images,
+                  has_tips: wp.has_tips
+              }
+          }))
+      };
+  }, [adminWaypoints]);
 
   const handleMapMoveEnd = (evt) => {
       if (isNearbyMode) {
@@ -961,6 +1013,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     const { features, point: { x, y }, lngLat } = event;
     const hoveredFeature = features && features[0];
     const routeFeatures = features ? features.filter(f => f.layer.id === 'route-layer') : [];
+    const waypointFeature = features ? features.find(f => f.layer.id === 'admin-waypoints-layer') : null;
 
     if (routeFeatures.length > 0 && lngLat && Number.isFinite(lngLat.lng) && Number.isFinite(lngLat.lat)) {
       setMapHoverCoord({ lng: lngLat.lng, lat: lngLat.lat });
@@ -968,9 +1021,19 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
       setMapHoverCoord(null);
     }
     
-    // 1. Surface Info Tooltip
-    if (hoveredFeature && hoveredFeature.properties.surface) {
-        setHoverInfo({ feature: hoveredFeature, x, y });
+    // 1. Surface Info Tooltip or Waypoint Tooltip
+    if (waypointFeature) {
+        setHoverInfo({ 
+            isWaypoint: true,
+            feature: waypointFeature, 
+            x, y 
+        });
+    } else if (hoveredFeature && hoveredFeature.properties.surface) {
+        setHoverInfo({ 
+            isWaypoint: false,
+            feature: hoveredFeature, 
+            x, y 
+        });
     } else {
         setHoverInfo(null);
     }
@@ -1266,6 +1329,15 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         const nearbyFeature = e.features.find(f => f.layer.id === 'nearby-routes-layer');
         if (nearbyFeature) {
             handlePreviewRoute(nearbyFeature.properties.id);
+            return;
+        }
+    }
+
+    // Waypoint click — open detail modal instead of creating a point
+    if (isWaypointMode && e.features) {
+        const wpFeature = e.features.find(f => f.layer.id === 'admin-waypoints-layer');
+        if (wpFeature) {
+            setSelectedWaypointId(wpFeature.properties.id);
             return;
         }
     }
@@ -2340,19 +2412,20 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   return (
     <div className="flex w-full h-full relative overflow-hidden">
       {/* 1. Left Sidebar Navigation (Toolbar) */}
-      <SidebarNav 
-        isMenuOpen={isMenuOpen} 
-        isSearchOpen={isSearchOpen} 
-        onToggleMenu={toggleMenu} 
-        onToggleSearch={toggleSearch} 
+      <SidebarNav
+        isMenuOpen={isMenuOpen}
+        isSearchOpen={isSearchOpen}
+        onToggleMenu={toggleMenu}
+        onToggleSearch={toggleSearch}
         onNewRoute={handleNewRoute}
         onImportGPX={handleImportGPX}
         onExportGPX={handleOpenExportModal}
         isClean={isClean}
         isNearbyMode={isNearbyMode}
         onToggleNearby={toggleNearby}
+        isWaypointMode={isWaypointMode}
+        onToggleWaypoint={toggleWaypointMode}
       />
-
       {/* 2. Panels Container (Stackable) */}
       <div className="absolute top-0 left-0 h-full z-40 pointer-events-none flex md:relative md:shrink-0 md:pointer-events-auto">
         {/* Menu Panel */}
@@ -2397,19 +2470,40 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             h-full bg-gray-900 overflow-hidden transition-all duration-300 ease-in-out
         `}>
              <div className="w-80 h-full"> {/* Inner Fixed Width Container */}
-                <SearchPanel
-                    onLoadRoute={handlePreviewRoute}
-                    activePreviewId={previewRoute?.id ?? null}
-                    routeFilters={routeFilters}
-                    onFiltersChange={(filters) => {
-                        setRouteFilters(filters);
-                        routeFiltersRef.current = filters;
-                    }}
-                    refreshTrigger={searchRefreshTrigger}
-                />
+                 <SearchPanel
+                     onLoadRoute={handlePreviewRoute}
+                     activePreviewId={previewRoute?.id ?? null}
+                     routeFilters={routeFilters}
+                     onFiltersChange={(filters) => {
+                         setRouteFilters(filters);
+                         routeFiltersRef.current = filters;
+                     }}
+                     refreshTrigger={searchRefreshTrigger}
+                 />
              </div>
         </div>
 
+        {/* Waypoint Panel */}
+        <div className={`
+            ${isWaypointMode ? 'w-80 border-r border-gray-800 pointer-events-auto shadow-2xl' : 'w-0'}
+            h-full bg-gray-900 overflow-hidden transition-all duration-300 ease-in-out
+        `}>
+             <div className="w-80 h-full"> {/* Inner Fixed Width Container */}
+                 {isWaypointMode && (
+                     <WaypointPanel
+                         onWaypointClick={(wp) => {
+                             setSelectedWaypointId(wp.id);
+                             flyMapToPoint({ lng: wp.lng, lat: wp.lat });
+                         }}
+                         onWaypointAdd={(wp) => {
+                             const e = { lngLat: { lng: wp.lng, lat: wp.lat } };
+                             handleMapClick({ ...e, originalEvent: { target: document.createElement('div') } });
+                         }}
+                         onClose={toggleWaypointMode}
+                     />
+                 )}
+             </div>
+        </div>
         {/* Desktop Preview Detail Panel (md+) - slides in next to search panel */}
         <div className={`
             hidden md:block
@@ -2825,9 +2919,9 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 onTouchEnd={handleTouchEnd}
 
                 onMouseLeave={() => { setHoverInfo(null); setDragState(null); setMapHoverCoord(null); }} // Cancel drag if leave?
-                interactiveLayerIds={['route-layer', 'nearby-routes-layer']}
+                interactiveLayerIds={['route-layer', 'nearby-routes-layer', 'admin-waypoints-layer']}
                 style={{ width: '100%', height: '100%' }} 
-                cursor={isLoading ? 'wait' : (dragState ? 'grabbing' : (insertCandidate ? 'grab' : (isNearbyMode ? 'default' : 'crosshair')))}
+                cursor={isLoading ? 'wait' : (dragState ? 'grabbing' : (insertCandidate ? 'grab' : (isNearbyMode ? 'default' : (hoverInfo?.isWaypoint ? 'pointer' : 'crosshair'))))}
             >
                 {placeSearchPulse && (
                     <Marker longitude={placeSearchPulse.lon} latitude={placeSearchPulse.lat} anchor="center">
@@ -2880,6 +2974,21 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                                 'line-width': previewRoute ? 3 : 4,
                                 'line-opacity': previewRoute ? 0.4 : 1.0
                             }}
+                        />
+                    </Source>
+                )}
+
+                {isWaypointMode && adminWaypointsGeoJSON && (
+                    <Source id="admin-waypoints-source" type="geojson" data={adminWaypointsGeoJSON}>
+                        <Layer 
+                            id="admin-waypoints-layer" 
+                            type="circle" 
+                            paint={{
+                                'circle-radius': ['step', ['get', 'tour_count'], 4, 2, 6, 5, 8],
+                                'circle-color': ['step', ['get', 'tour_count'], '#377eb8', 2, '#ff7f00', 5, '#e41a1c'],
+                                'circle-stroke-width': 2,
+                                'circle-stroke-color': '#FFFFFF'
+                            }} 
                         />
                     </Source>
                 )}
@@ -3112,14 +3221,35 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 )}
                 {hoverInfo && (
                     <div className="absolute z-50 pointer-events-none bg-gray-900/95 text-white p-3 rounded-lg text-xs border border-gray-600 shadow-xl backdrop-blur-md" style={{left: hoverInfo.x + 15, top: hoverInfo.y + 15}}>
-                        <div className="flex items-center gap-2 mb-1">
-                            <div className="w-3 h-3 rounded-full shadow-sm" style={{backgroundColor: hoverInfo.feature.properties.color}}></div>
-                            <span className="font-bold text-sm">{hoverInfo.feature.properties.surface}</span>
-                        </div>
-                        {hoverInfo.feature.properties.description && (
-                            <div className="mt-1 text-[11px] text-gray-400 leading-tight max-w-[200px]">
-                                {hoverInfo.feature.properties.description}
-                            </div>
+                        {hoverInfo.isWaypoint ? (
+                            <>
+                                <div className="font-bold text-sm text-riduck-primary mb-1">
+                                    {hoverInfo.feature.properties.name}
+                                </div>
+                                <div className="text-[11px] text-gray-300">
+                                    {hoverInfo.feature.properties.description && (
+                                        <div className="mb-1 text-gray-400 max-w-[200px] whitespace-normal">
+                                            {hoverInfo.feature.properties.description}
+                                        </div>
+                                    )}
+                                    <div>Type: {hoverInfo.feature.properties.type}</div>
+                                    <div>Tours: {hoverInfo.feature.properties.tour_count}</div>
+                                    {hoverInfo.feature.properties.has_images && <div>🖼️ Images available</div>}
+                                    {hoverInfo.feature.properties.has_tips && <div>💡 Tips available</div>}
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="w-3 h-3 rounded-full shadow-sm" style={{backgroundColor: hoverInfo.feature.properties.color}}></div>
+                                    <span className="font-bold text-sm">{hoverInfo.feature.properties.surface}</span>
+                                </div>
+                                {hoverInfo.feature.properties.description && (
+                                    <div className="mt-1 text-[11px] text-gray-400 leading-tight max-w-[200px]">
+                                        {hoverInfo.feature.properties.description}
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 )}
@@ -3348,6 +3478,14 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             }}
         />
       </div>
+
+      {/* Waypoint Detail Modal */}
+      {selectedWaypointId && (
+        <WaypointDetailModal
+          waypointId={selectedWaypointId}
+          onClose={() => setSelectedWaypointId(null)}
+        />
+      )}
     </div>
   );
 };
