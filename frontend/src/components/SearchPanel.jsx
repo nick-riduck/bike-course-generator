@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import apiClient from '../utils/apiClient';
 import { useAuth } from '../AuthContext';
 import { auth } from '../firebase';
 
@@ -115,12 +116,6 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
     }
 
     try {
-      const headers = {};
-      if (auth.currentUser) {
-        const idToken = await auth.currentUser.getIdToken();
-        headers['Authorization'] = `Bearer ${idToken}`;
-      }
-
       const limit = 10;
       
       // Favorites tab has no data yet
@@ -142,9 +137,7 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
             if (routeFilters.maxElevation !== '') params.set('max_elevation', routeFilters.maxElevation);
             if (routeFilters.tags.length > 0) params.set('tags', routeFilters.tags.join(','));
         }
-        const res = await fetch(`/api/routes?${params}`, { headers });
-        if (!res.ok) throw new Error(`Failed to fetch ${scope} routes: ${res.status}`);
-        const data = await res.json();
+        const data = await apiClient.get(`/api/routes?${params}`);
         return data.routes || [];
       };
 

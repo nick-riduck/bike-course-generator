@@ -1,6 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import apiClient from './utils/apiClient';
+
 import { auth, googleProvider } from './firebase';
 import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
+import * as Sentry from '@sentry/react';
+import posthog from 'posthog-js';
+import { analytics, setUserId } from './utils/analytics';
 
 const AuthContext = createContext();
 
@@ -17,18 +22,16 @@ export const AuthProvider = ({ children }) => {
       setAuthError(null);
       try {
         if (firebaseUser) {
-          const idToken = await firebaseUser.getIdToken();
-          const response = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id_token: idToken }),
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
+          try {
+            const idToken = await firebaseUser.getIdToken();
+            const data = await apiClient.post('/api/auth/login', { id_token: idToken });
             setUser(data.user);
-          } else {
-            console.error('Backend login failed');
+            setUserId(data.user.id);
+            Sentry.setUser({ id: data.user.id, email: data.user.email });
+            posthog.identify(data.user.id, { email: data.user.email, name: data.user.display_name });
+            analytics.login();
+          } catch (error) {
+            console.error('Backend login failed', error);
             setAuthError("Server login failed. Please try again.");
             setUser(null);
           }
@@ -59,6 +62,8 @@ export const AuthProvider = ({ children }) => {
     try {
       await signOut(auth);
       setUser(null);
+      Sentry.setUser(null);
+      posthog.reset();
     } catch (error) {
       console.error('Logout error:', error);
     }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import apiClient from '../utils/apiClient';
 
 const WAYPOINT_TYPE_LABELS = {
   convenience_store: '편의점', cafe: '카페', restaurant: '음식점', restroom: '화장실',
@@ -89,8 +90,7 @@ const WaypointDetailModal = ({ waypointId, onClose }) => {
   useEffect(() => {
     if (!waypointId) return;
     setLoading(true);
-    fetch(`/api/waypoints/${waypointId}`)
-      .then(r => r.json())
+    apiClient.get(`/api/waypoints/${waypointId}`)
       .then(data => {
         setDetail(data);
         setLoading(false);

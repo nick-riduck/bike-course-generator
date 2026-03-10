@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import apiClient from '../utils/apiClient';
 import ReactMarkdown from 'react-markdown';
 
 const SaveRouteModal = ({
@@ -58,11 +59,8 @@ const SaveRouteModal = ({
             const url = query
                 ? `/api/routes/tags/search?q=${encodeURIComponent(query)}`
                 : '/api/routes/tags/search';
-            const res = await fetch(url);
-            if (res.ok) {
-                const data = await res.json();
-                setSuggestions(data);
-            }
+            const data = await apiClient.get(url);
+            setSuggestions(data);
         } catch (err) {
             console.error('Tag search error:', err);
         } finally {

@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
+import apiClient from '../utils/apiClient';
 import { Map, Source, Layer, Marker, Popup } from 'react-map-gl/maplibre';
 import { useAuth } from '../AuthContext';
 import { auth } from '../firebase';
@@ -14,6 +15,8 @@ import ExportRouteModal from './ExportRouteModal';
 import NearbyFilterModal, { DEFAULT_FILTERS } from './NearbyFilterModal';
 import ReactMarkdown from 'react-markdown';
 import { getPointTier, POINT_TYPE_CONFIG, TIER_STYLES } from '../utils/waypointTypes';
+import posthog from 'posthog-js';
+import { analytics } from '../utils/analytics';
 
 const formatDate = (dateString) => {
     if (!dateString) return null;
@@ -264,11 +267,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         if (f.maxElevation !== '') params.set('max_elevation', f.maxElevation);
         if (f.tags.length > 0) params.set('tags', f.tags.join(','));
 
-        const res = await fetch(`/api/routes/nearby?${params}`);
-        if (res.ok) {
-            const data = await res.json();
-            setNearbyRoutes(data);
-        }
+        const data = await apiClient.get(`/api/routes/nearby?${params}`);
+        setNearbyRoutes(data);
     } catch (e) {
         console.error("Failed to fetch nearby routes:", e);
     }
@@ -317,12 +317,9 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
   const fetchAdminWaypoints = async () => {
       try {
-          const res = await fetch('/api/waypoints');
-          if (res.ok) {
-              const data = await res.json();
-              setAdminWaypoints(data);
-          }
-      } catch (e) {
+          const data = await apiClient.get('/api/waypoints');
+        setAdminWaypoints(data);
+    } catch (e) {
           console.error("Failed to fetch admin waypoints:", e);
       }
   };
@@ -659,6 +656,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         const res = await fetch(`/api/routes/${routeId}`, { headers });
         if (!res.ok) throw new Error("Failed to load route data");
         const data = await res.json();
+        analytics.routeViewed(routeId, data.distance);
+        posthog.capture('route_viewed', { route_id: routeId, distance: data.distance, title: data.title });
 
         if (data.editor_state && data.editor_state.sections) {
              // 에디터로 저장된 루트: editor_state.sections 사용
@@ -845,10 +844,12 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             throw new Error(err.detail || `Failed to generate ${format.toUpperCase()}`);
         }
 
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
         
-        const contentDisposition = response.headers.get('Content-Disposition');
+        analytics.routeExported(format);
+        posthog.capture('route_exported', { format });
+        const url = window.URL.createObjectURL(blob);
+
+        const contentDisposition = null;
         let downloadFilename;
         if (contentDisposition) {
             // RFC 5987: filename*=UTF-8''encoded_name
@@ -1338,6 +1339,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         const wpFeature = e.features.find(f => f.layer.id === 'admin-waypoints-layer');
         if (wpFeature) {
             setSelectedWaypointId(wpFeature.properties.id);
+            analytics.waypointViewed(wpFeature.properties.id, wpFeature.properties.type);
+            posthog.capture('waypoint_viewed', { waypoint_id: wpFeature.properties.id, waypoint_type: wpFeature.properties.type });
             return;
         }
     }
@@ -2003,22 +2006,10 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
              payload.route_id = currentRouteId;
           }
 
-          const res = await fetch('/api/routes', {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${idToken}`
-              },
-              body: JSON.stringify(payload)
-          });
-
-          if (!res.ok) {
-              const err = await res.json();
-              throw new Error(err.detail || 'Failed to save');
-          }
-
-          const result = await res.json();
+          const result = await apiClient.post('/api/routes', payload);
           console.log('[Save] response:', result, 'route_id:', result.route_id, 'uuid:', result.uuid);
+          analytics.routeCreated(result.route_id, result.distance, result.elevation_gain, modalData.tags?.length || 0);
+          posthog.capture('route_created', { route_id: result.route_id, distance: result.distance, elevation_gain: result.elevation_gain, tags: modalData.tags, is_overwrite: modalData.isOverwrite });
           alert(modalData.isOverwrite ? "Route updated!" : "Route saved successfully!");
           
           // Update local state with saved metadata
@@ -2057,17 +2048,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           const formData = new FormData();
           formData.append('file', file);
 
-          const res = await fetch('/api/routes/import', {
-              method: 'POST',
-              body: formData
-          });
-
-          if (!res.ok) {
-              const errData = await res.json().catch(() => ({}));
-              throw new Error(errData.detail || 'Failed to import GPX');
-          }
-
-          const data = await res.json();
+          // Use apiClient with formData (don't stringify, don't override content-type)
+          const data = await apiClient.post('/api/routes/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
           const { waypoints, full_geometry, summary, display_geojson } = data;
           
           if (!full_geometry || !full_geometry.coordinates || full_geometry.coordinates.length < 2) {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import apiClient from '../utils/apiClient';
 
 const TYPE_LABELS = {
   convenience_store: '편의점', cafe: '카페', restaurant: '음식점', restroom: '화장실',
@@ -34,11 +35,8 @@ const WaypointPanel = ({
   const fetchWaypoints = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/waypoints');
-      if (res.ok) {
-        const data = await res.json();
-        setWaypoints(data);
-      }
+      const data = await apiClient.get('/api/waypoints');
+      setWaypoints(data);
     } catch (e) {
       console.error("Failed to fetch waypoints:", e);
     } finally {
