@@ -836,7 +836,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         }));
 
         const payload = {
-            title: filename || routeName || 'Riduck Route',
+            title: filename || routeName || 'Routy Route',
             editor_state: {
                 sections: cleanSections
             },
@@ -900,7 +900,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
     try {
         const payload = {
-            title: section.name || 'Riduck Section',
+            title: section.name || 'Routy Section',
             editor_state: {
                 sections: [section] // Send only the specific section
             },
@@ -2497,7 +2497,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                             {previewRoute.data.route_num && (
                                 <button
                                     onClick={copyShareLink}
-                                    className={`text-[11px] font-mono transition-colors cursor-pointer hover:text-riduck-primary ${previewLinkCopied ? 'text-green-400' : 'text-gray-500'}`}
+                                    className={`text-[11px] font-mono transition-colors cursor-pointer hover:text-routy-primary ${previewLinkCopied ? 'text-green-400' : 'text-gray-500'}`}
                                     title={previewLinkCopied ? 'Copied!' : 'Copy share link'}
                                 >
                                     {previewLinkCopied ? 'Copied!' : `#${previewRoute.data.route_num}`}
@@ -2571,7 +2571,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                         <div className="flex items-center gap-1">
                             <button
                                 onClick={copyShareLink}
-                                className={`flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg hover:bg-gray-800 ${previewLinkCopied ? 'text-green-400' : 'text-gray-400 hover:text-riduck-primary'}`}
+                                className={`flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg hover:bg-gray-800 ${previewLinkCopied ? 'text-green-400' : 'text-gray-400 hover:text-routy-primary'}`}
                                 title={previewLinkCopied ? 'Copied!' : 'Copy share link'}
                             >
                                 {previewLinkCopied ? (
@@ -2582,7 +2582,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                             </button>
                             <button
                                 onClick={handleOpenExportModal}
-                                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-riduck-primary transition-colors px-2 py-1 rounded-lg hover:bg-gray-800"
+                                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-routy-primary transition-colors px-2 py-1 rounded-lg hover:bg-gray-800"
                                 title="Export GPX/TCX"
                             >
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
@@ -2613,7 +2613,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     </button>
                     <button
                         onClick={confirmPreviewLoad}
-                        className="py-2.5 rounded-xl bg-riduck-primary hover:bg-riduck-primary/90 text-white font-bold text-sm shadow-lg shadow-riduck-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+                        className="py-2.5 rounded-xl bg-routy-primary hover:bg-routy-primary/90 text-white font-bold text-sm shadow-lg shadow-routy-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
                     >
                         Load Route
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
@@ -2626,7 +2626,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
       {/* 3. Main Content (Right) - Map & Chart */}
       <div className="flex-1 flex flex-col relative h-full min-w-0">
-        {isLoading && <div className="absolute inset-0 z-[9999] bg-black/30 backdrop-blur-[2px] flex flex-col items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-riduck-primary mb-4"></div><div className="text-white font-bold text-lg animate-pulse">{loadingMsg}</div></div>}
+        {isLoading && <div className="absolute inset-0 z-[9999] bg-black/30 backdrop-blur-[2px] flex flex-col items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-routy-primary mb-4"></div><div className="text-white font-bold text-lg animate-pulse">{loadingMsg}</div></div>}
         
         {/* Map Area */}
         <div className="flex-1 relative">
@@ -2637,7 +2637,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     onClick={() => setIsMockMode(!isMockMode)}
                     className={`pointer-events-auto flex items-center justify-between gap-2 md:gap-4 px-3 py-2 md:px-5 md:py-3 rounded-2xl border shadow-xl backdrop-blur-md transition-all duration-300 ${
                         isMockMode 
-                        ? 'bg-riduck-primary/90 border-riduck-primary text-white shadow-riduck-primary/20' 
+                        ? 'bg-routy-primary/90 border-routy-primary text-white shadow-routy-primary/20' 
                         : 'bg-gray-900/90 border-gray-700 text-gray-400 hover:text-white hover:border-gray-500'
                     }`}
                 >
@@ -2780,11 +2780,11 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 </div>
             ) : (
                 <div 
-                    className={`absolute top-4 left-4 md:top-6 md:left-6 z-10 backdrop-blur-md px-5 py-2 md:px-8 md:py-3 rounded-2xl border shadow-2xl flex gap-4 md:gap-8 items-center transition-all duration-300 ${previewRoute ? 'bg-riduck-primary/15 border-riduck-primary/40 pointer-events-none' : isClean ? 'bg-gray-900/90 border-gray-700 pointer-events-none' : 'bg-gray-900/90 border-riduck-primary/50 shadow-[0_0_12px_rgba(42,158,146,0.25)] pointer-events-auto cursor-pointer hover:border-riduck-primary/80 hover:shadow-[0_0_18px_rgba(42,158,146,0.4)] hover:bg-gray-800/90 active:scale-[0.98]'}`}
+                    className={`absolute top-4 left-4 md:top-6 md:left-6 z-10 backdrop-blur-md px-5 py-2 md:px-8 md:py-3 rounded-2xl border shadow-2xl flex gap-4 md:gap-8 items-center transition-all duration-300 ${previewRoute ? 'bg-routy-primary/15 border-routy-primary/40 pointer-events-none' : isClean ? 'bg-gray-900/90 border-gray-700 pointer-events-none' : 'bg-gray-900/90 border-routy-primary/50 shadow-[0_0_12px_rgba(42,158,146,0.25)] pointer-events-auto cursor-pointer hover:border-routy-primary/80 hover:shadow-[0_0_18px_rgba(42,158,146,0.4)] hover:bg-gray-800/90 active:scale-[0.98]'}`}
                     onClick={!previewRoute ? openSaveModal : undefined}
                 >
                     {previewRoute && (
-                        <span className="text-riduck-primary text-[9px] md:text-[10px] font-bold uppercase tracking-wider absolute -top-2.5 left-3 bg-gray-900 px-1.5 rounded">Preview</span>
+                        <span className="text-routy-primary text-[9px] md:text-[10px] font-bold uppercase tracking-wider absolute -top-2.5 left-3 bg-gray-900 px-1.5 rounded">Preview</span>
                     )}
                     <div className="text-center">
                         <p className="text-[8px] md:text-[10px] text-gray-400 uppercase font-bold tracking-wider">Distance</p>
@@ -2808,7 +2808,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             <div className={`absolute top-[80px] left-4 z-10 gap-2 md:hidden ${mobilePreviewExpanded ? 'hidden' : 'flex'}`}>
                 <button
                     onClick={toggleMenu}
-                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isMenuOpen ? 'bg-riduck-primary border-riduck-primary text-white shadow-riduck-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
+                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isMenuOpen ? 'bg-routy-primary border-routy-primary text-white shadow-routy-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
@@ -2816,7 +2816,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 </button>
                 <button
                     onClick={toggleSearch}
-                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isSearchOpen ? 'bg-riduck-primary border-riduck-primary text-white shadow-riduck-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
+                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isSearchOpen ? 'bg-routy-primary border-routy-primary text-white shadow-routy-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.58 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.58 4 8 4s8-1.79 8-4M4 7c0-2.21 3.58-4 8-4s8 1.79 8 4" />
@@ -2824,7 +2824,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 </button>
                 <button
                     onClick={toggleNearby}
-                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isNearbyMode ? 'bg-riduck-primary border-riduck-primary text-white shadow-riduck-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
+                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isNearbyMode ? 'bg-routy-primary border-routy-primary text-white shadow-routy-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
@@ -2833,7 +2833,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 <div className="relative" ref={moreMenuRef}>
                     <button
                         onClick={() => setMoreMenuOpen(!moreMenuOpen)}
-                        className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${moreMenuOpen ? 'bg-riduck-primary border-riduck-primary text-white shadow-riduck-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
+                        className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${moreMenuOpen ? 'bg-routy-primary border-routy-primary text-white shadow-routy-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
@@ -3082,7 +3082,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                         anchor="center"
                         draggable={false}
                     >
-                        <div className="w-5 h-5 bg-riduck-primary rounded-full shadow-lg border-2 border-white cursor-grabbing"></div>
+                        <div className="w-5 h-5 bg-routy-primary rounded-full shadow-lg border-2 border-white cursor-grabbing"></div>
                     </Marker>
                 )}
 
@@ -3094,8 +3094,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                         draggable={false}
                     >
                         <div className="pointer-events-none relative flex items-center justify-center">
-                            <div className="absolute h-7 w-7 rounded-full border border-riduck-primary/40 bg-riduck-primary/10"></div>
-                            <div className="h-3 w-3 rounded-full border-2 border-white bg-riduck-primary shadow-lg shadow-riduck-primary/40"></div>
+                            <div className="absolute h-7 w-7 rounded-full border border-routy-primary/40 bg-routy-primary/10"></div>
+                            <div className="h-3 w-3 rounded-full border-2 border-white bg-routy-primary shadow-lg shadow-routy-primary/40"></div>
                         </div>
                     </Marker>
                 )}
@@ -3131,7 +3131,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                       onClick={(e) => handlePointRemove(sIdx, pIdx, e)}
                     >
                         {isFocusedPoint && (
-                          <span className="pointer-events-none absolute -inset-2 rounded-full border border-riduck-primary/60 animate-ping"></span>
+                          <span className="pointer-events-none absolute -inset-2 rounded-full border border-routy-primary/60 animate-ping"></span>
                         )}
                         <span className="group-hover:hidden">
                           {showIcon ? <IconComponent size={14} strokeWidth={2.5} /> : pIdx + 1}
@@ -3169,7 +3169,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                                 {ambiguityPopup.candidates.map((cand, idx) => (
                                     <button
                                         key={idx}
-                                        className="w-full relative overflow-hidden p-3 rounded-lg bg-gray-800/50 hover:bg-riduck-primary/10 border border-gray-700/50 hover:border-riduck-primary/50 transition-all text-left group flex items-center gap-3"
+                                        className="w-full relative overflow-hidden p-3 rounded-lg bg-gray-800/50 hover:bg-routy-primary/10 border border-gray-700/50 hover:border-routy-primary/50 transition-all text-left group flex items-center gap-3"
                                         onClick={() => performInsertPoint(cand, ambiguityPopup.lng, ambiguityPopup.lat)}
                                     >
                                         {/* Color Indicator Bar */}
@@ -3178,7 +3178,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                                         <div className="flex-1 min-w-0 pl-1">
                                             {/* Top: Distance (Primary Info) */}
                                             <div className="flex items-center gap-2 mb-0.5">
-                                                <span className="text-sm font-black text-white group-hover:text-riduck-primary transition-colors font-mono tracking-tight">
+                                                <span className="text-sm font-black text-white group-hover:text-routy-primary transition-colors font-mono tracking-tight">
                                                     {cand.totalDistance.toFixed(1)} km
                                                 </span>
                                                 <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider bg-gray-800 px-1.5 py-0.5 rounded">Point</span>
@@ -3195,7 +3195,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                                         </div>
                                         
                                         {/* Right: Section Badge */}
-                                        <div className="shrink-0 px-2 py-1 bg-gray-900/80 rounded text-[10px] font-bold text-gray-500 border border-gray-700 group-hover:text-riduck-primary/80 group-hover:border-riduck-primary/30 transition-colors">
+                                        <div className="shrink-0 px-2 py-1 bg-gray-900/80 rounded text-[10px] font-bold text-gray-500 border border-gray-700 group-hover:text-routy-primary/80 group-hover:border-routy-primary/30 transition-colors">
                                             {cand.sectionName}
                                         </div>
                                     </button>
@@ -3208,7 +3208,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     <div className="absolute z-50 pointer-events-none bg-gray-900/95 text-white p-3 rounded-lg text-xs border border-gray-600 shadow-xl backdrop-blur-md" style={{left: hoverInfo.x + 15, top: hoverInfo.y + 15}}>
                         {hoverInfo.isWaypoint ? (
                             <>
-                                <div className="font-bold text-sm text-riduck-primary mb-1">
+                                <div className="font-bold text-sm text-routy-primary mb-1">
                                     {hoverInfo.feature.properties.name}
                                 </div>
                                 <div className="text-[11px] text-gray-300">
@@ -3260,7 +3260,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                                     {previewRoute.data.route_num && (
                                         <button
                                             onClick={(e) => { e.stopPropagation(); copyShareLink(); }}
-                                            className={`text-[11px] font-mono transition-colors cursor-pointer hover:text-riduck-primary ${previewLinkCopied ? 'text-green-400' : 'text-gray-500'}`}
+                                            className={`text-[11px] font-mono transition-colors cursor-pointer hover:text-routy-primary ${previewLinkCopied ? 'text-green-400' : 'text-gray-500'}`}
                                             title={previewLinkCopied ? 'Copied!' : 'Copy share link'}
                                         >
                                             {previewLinkCopied ? 'Copied!' : `#${previewRoute.data.route_num}`}
@@ -3329,7 +3329,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                                         setMobilePreviewExpanded(next);
                                         setIsElevationChartVisible(!next);
                                     }}
-                                    className="text-sm text-riduck-primary font-medium flex items-center gap-1"
+                                    className="text-sm text-routy-primary font-medium flex items-center gap-1"
                                 >
                                     {mobilePreviewExpanded ? 'Hide' : 'Show detail'}
                                     <svg className={`w-3 h-3 transition-transform ${mobilePreviewExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
@@ -3356,7 +3356,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                             </button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); confirmPreviewLoad(); }}
-                                className="py-3 rounded-xl bg-riduck-primary hover:bg-riduck-primary/90 text-white font-bold text-sm shadow-lg shadow-riduck-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+                                className="py-3 rounded-xl bg-routy-primary hover:bg-routy-primary/90 text-white font-bold text-sm shadow-lg shadow-routy-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
                             >
                                 Load Route
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>

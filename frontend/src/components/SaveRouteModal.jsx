@@ -221,7 +221,7 @@ const SaveRouteModal = ({
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             placeholder="Enter a title..."
-                            className="w-full bg-gray-800 text-white px-4 py-3 rounded-2xl border border-gray-700 focus:outline-none focus:border-riduck-primary transition-all text-sm font-medium"
+                            className="w-full bg-gray-800 text-white px-4 py-3 rounded-2xl border border-gray-700 focus:outline-none focus:border-routy-primary transition-all text-sm font-medium"
                         />
                     </div>
 
@@ -254,16 +254,16 @@ const SaveRouteModal = ({
                     <div className="space-y-2 relative">
                         <div className="flex items-center justify-between px-1">
                             <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Tags</label>
-                            {isAiGenerating && <span className="text-[9px] font-bold text-riduck-primary uppercase animate-pulse flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-riduck-primary animate-ping"></div> AI 분석 중</span>}
+                            {isAiGenerating && <span className="text-[9px] font-bold text-routy-primary uppercase animate-pulse flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-routy-primary animate-ping"></div> AI 분석 중</span>}
                         </div>
-                        <div className={`bg-gray-800 rounded-2xl border p-2 min-h-[56px] flex flex-wrap gap-2 transition-all ${isAiGenerating ? 'border-riduck-primary/50 bg-riduck-primary/5' : 'border-gray-700'}`}>
+                        <div className={`bg-gray-800 rounded-2xl border p-2 min-h-[56px] flex flex-wrap gap-2 transition-all ${isAiGenerating ? 'border-routy-primary/50 bg-routy-primary/5' : 'border-gray-700'}`}>
                             {isAiGenerating && tags.length === 0 && (
-                                <div className="text-riduck-primary/70 text-xs font-medium flex items-center h-8 px-2 animate-pulse">
+                                <div className="text-routy-primary/70 text-xs font-medium flex items-center h-8 px-2 animate-pulse">
                                     최적의 태그를 추출하고 있습니다...
                                 </div>
                             )}
                             {tags.map(tag => (
-                                <span key={tag} className="bg-riduck-primary/20 text-riduck-primary px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-riduck-primary/30">
+                                <span key={tag} className="bg-routy-primary/20 text-routy-primary px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-routy-primary/30">
                                     #{tag}
                                     <button onClick={() => removeTag(tag)} className="hover:text-white transition-colors">
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
@@ -304,7 +304,7 @@ const SaveRouteModal = ({
                                                 className="w-full px-4 py-2.5 text-left hover:bg-gray-700/50 transition-colors flex items-center justify-between group"
                                             >
                                                 <span className="text-sm text-white font-medium">
-                                                    <span className="text-riduck-primary">#</span>{s.name}
+                                                    <span className="text-routy-primary">#</span>{s.name}
                                                 </span>
                                                 <span className="flex items-center gap-2">
                                                     {s.similarity != null && (
@@ -334,7 +334,7 @@ const SaveRouteModal = ({
                                             <span className="inline-block" style={{ paddingLeft: '120px' }}>
                                                 <button
                                                     onClick={() => addTag(tagInput.trim())}
-                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-700/50 hover:bg-riduck-primary/20 border border-gray-600 hover:border-riduck-primary/50 rounded-full text-xs text-gray-400 hover:text-riduck-primary transition-all"
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-700/50 hover:bg-routy-primary/20 border border-gray-600 hover:border-routy-primary/50 rounded-full text-xs text-gray-400 hover:text-routy-primary transition-all"
                                                 >
                                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                                                         <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
@@ -362,7 +362,7 @@ const SaveRouteModal = ({
                                             className={`text-[10px] font-bold flex items-center gap-1.5 transition-all ${
                                                 routeChanged
                                                     ? 'bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 px-2.5 py-1 rounded-lg'
-                                                    : 'text-riduck-primary hover:brightness-110'
+                                                    : 'text-routy-primary hover:brightness-110'
                                             }`}
                                             title="AI가 현재 코스를 다시 분석하여 글을 새로 씁니다."
                                         >
@@ -403,15 +403,15 @@ const SaveRouteModal = ({
                                     onChange={(e) => setDescription(e.target.value)}
                                     disabled={isAiGenerating}
                                     placeholder={isAiGenerating ? "" : "Tell more about this course..."}
-                                    className={`w-full bg-gray-800 text-white px-4 py-4 rounded-2xl border focus:outline-none focus:border-riduck-primary transition-all text-sm font-medium resize-none leading-relaxed ${
+                                    className={`w-full bg-gray-800 text-white px-4 py-4 rounded-2xl border focus:outline-none focus:border-routy-primary transition-all text-sm font-medium resize-none leading-relaxed ${
                                         isAiGenerating 
-                                        ? 'border-riduck-primary/50 bg-riduck-primary/5 text-riduck-primary/80 animate-pulse' 
+                                        ? 'border-routy-primary/50 bg-routy-primary/5 text-routy-primary/80 animate-pulse' 
                                         : 'border-gray-700'
                                     }`}
                                 />
                                 {isAiGenerating && !description && (
-                                    <div className="absolute top-4 left-4 text-sm text-riduck-primary/70 font-medium animate-pulse flex items-start gap-2.5">
-                                        <div className="w-4 h-4 mt-0.5 border-2 border-riduck-primary/50 border-t-riduck-primary rounded-full animate-spin shrink-0"></div>
+                                    <div className="absolute top-4 left-4 text-sm text-routy-primary/70 font-medium animate-pulse flex items-start gap-2.5">
+                                        <div className="w-4 h-4 mt-0.5 border-2 border-routy-primary/50 border-t-routy-primary rounded-full animate-spin shrink-0"></div>
                                         <span>AI가 코스 데이터를 분석하여 최적의 설명을 작성하고 있습니다... ✍️</span>
                                     </div>
                                 )}
@@ -449,7 +449,7 @@ const SaveRouteModal = ({
                         className={`py-4 rounded-2xl font-black text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${
                             isAiGenerating || isLoading
                             ? 'bg-gray-800 border border-gray-700 text-gray-400 cursor-not-allowed'
-                            : 'bg-riduck-primary hover:brightness-110 text-white shadow-riduck-primary/20 disabled:opacity-50'
+                            : 'bg-routy-primary hover:brightness-110 text-white shadow-routy-primary/20 disabled:opacity-50'
                         }`}
                     >
                         {isAiGenerating ? (

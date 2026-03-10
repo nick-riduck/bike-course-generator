@@ -229,8 +229,8 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
           onClick={() => onLoadRoute(route.id)}
           className={`p-0 bg-gray-800/40 hover:bg-gray-800 border rounded-xl cursor-pointer transition-all group overflow-hidden flex flex-col relative ${
               activePreviewId === route.id
-                  ? 'border-riduck-primary bg-gray-800 ring-1 ring-riduck-primary/30'
-                  : 'border-gray-700/50 hover:border-riduck-primary'
+                  ? 'border-routy-primary bg-gray-800 ring-1 ring-routy-primary/30'
+                  : 'border-gray-700/50 hover:border-routy-primary'
           }`}
       >
           {/* Thumbnail Area */}
@@ -263,7 +263,7 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
                   {!isMyRoute && route.author_name && (
                       <span className={`px-1.5 py-0.5 text-[8px] rounded border backdrop-blur-sm ${
                           user && route.user_id === user.uid
-                          ? 'bg-riduck-primary/20 text-riduck-primary border-riduck-primary/30 font-bold'
+                          ? 'bg-routy-primary/20 text-routy-primary border-routy-primary/30 font-bold'
                           : 'bg-gray-900/80 text-gray-300 border-gray-700'
                       }`}>
                           by {user && route.user_id === user.uid ? 'ME' : route.author_name}
@@ -331,7 +331,7 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
                       {route.tags && route.tags.length > 0 ? (
                           <>
                               {route.tags.slice(0, 3).map(tag => (
-                                  <span key={tag} className="text-[9px] text-riduck-primary bg-riduck-primary/10 px-1.5 py-0.5 rounded-md">#{tag}</span>
+                                  <span key={tag} className="text-[9px] text-routy-primary bg-routy-primary/10 px-1.5 py-0.5 rounded-md">#{tag}</span>
                               ))}
                               {route.tags.length > 3 && (
                                   <span className="text-[9px] text-gray-600">+{route.tags.length - 3}</span>
@@ -342,7 +342,7 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
                       )}
                   </div>
                   
-                  <span className="text-[9px] font-bold text-riduck-primary opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-2 group-hover:translate-x-0 shrink-0">
+                  <span className="text-[9px] font-bold text-routy-primary opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-2 group-hover:translate-x-0 shrink-0">
                       LOAD &rarr;
                   </span>
               </div>
@@ -363,7 +363,7 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
                     onClick={() => setIsFilterOpen(prev => !prev)}
                     className={`relative px-2 py-1 rounded border transition-all ${
                         isFilterOpen || hasActiveFilters
-                        ? 'bg-riduck-primary/20 text-riduck-primary border-riduck-primary/50'
+                        ? 'bg-routy-primary/20 text-routy-primary border-routy-primary/50'
                         : 'bg-gray-800 text-gray-500 border-gray-700 hover:bg-gray-700'
                     }`}
                     title="필터"
@@ -372,7 +372,7 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                     </svg>
                     {hasActiveFilters && (
-                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-riduck-primary rounded-full border-2 border-gray-900" />
+                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-routy-primary rounded-full border-2 border-gray-900" />
                     )}
                 </button>
                 {/* Sort Dropdown */}
@@ -421,7 +421,7 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
             }}
             onFocus={() => { if (searchQuery.trim()) setShowSearchTagDropdown(true); }}
             placeholder="Search routes..."
-            className="w-full bg-gray-800 text-gray-200 px-4 py-2.5 rounded-xl border border-gray-700 focus:outline-none focus:border-riduck-primary text-xs"
+            className="w-full bg-gray-800 text-gray-200 px-4 py-2.5 rounded-xl border border-gray-700 focus:outline-none focus:border-routy-primary text-xs"
           />
           <span className="absolute right-3 top-2.5 text-gray-600 text-xs">🔍</span>
           {/* Search Tag Autocomplete Dropdown */}
@@ -447,7 +447,7 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
         {routeFilters && routeFilters.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
             {routeFilters.tags.map(slug => (
-              <span key={slug} className="inline-flex items-center gap-0.5 bg-riduck-primary/15 border border-riduck-primary/30 text-riduck-primary text-[10px] px-2 py-0.5 rounded-full">
+              <span key={slug} className="inline-flex items-center gap-0.5 bg-routy-primary/15 border border-routy-primary/30 text-routy-primary text-[10px] px-2 py-0.5 rounded-full">
                 {allTags.find(t => t.slug === slug)?.name || slug}
                 <button onClick={() => onFiltersChange({ ...routeFilters, tags: routeFilters.tags.filter(t => t !== slug) })} className="hover:text-white ml-0.5">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -467,13 +467,13 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
                 <input type="number" placeholder="최소"
                     value={routeFilters.minDistance}
                     onChange={e => onFiltersChange({ ...routeFilters, minDistance: e.target.value })}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder-gray-600 focus:outline-none focus:border-riduck-primary"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder-gray-600 focus:outline-none focus:border-routy-primary"
                 />
                 <span className="text-gray-600 text-[10px]">~</span>
                 <input type="number" placeholder="최대"
                     value={routeFilters.maxDistance}
                     onChange={e => onFiltersChange({ ...routeFilters, maxDistance: e.target.value })}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder-gray-600 focus:outline-none focus:border-riduck-primary"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder-gray-600 focus:outline-none focus:border-routy-primary"
                 />
               </div>
             </div>
@@ -485,13 +485,13 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
                 <input type="number" placeholder="최소"
                     value={routeFilters.minElevation}
                     onChange={e => onFiltersChange({ ...routeFilters, minElevation: e.target.value })}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder-gray-600 focus:outline-none focus:border-riduck-primary"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder-gray-600 focus:outline-none focus:border-routy-primary"
                 />
                 <span className="text-gray-600 text-[10px]">~</span>
                 <input type="number" placeholder="최대"
                     value={routeFilters.maxElevation}
                     onChange={e => onFiltersChange({ ...routeFilters, maxElevation: e.target.value })}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder-gray-600 focus:outline-none focus:border-riduck-primary"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder-gray-600 focus:outline-none focus:border-routy-primary"
                 />
               </div>
             </div>
@@ -502,7 +502,7 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
               {routeFilters.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-1 mb-1.5">
                   {routeFilters.tags.map(slug => (
-                    <span key={slug} className="inline-flex items-center gap-0.5 bg-riduck-primary/15 border border-riduck-primary/30 text-riduck-primary text-[10px] px-2 py-0.5 rounded-full">
+                    <span key={slug} className="inline-flex items-center gap-0.5 bg-routy-primary/15 border border-routy-primary/30 text-routy-primary text-[10px] px-2 py-0.5 rounded-full">
                       {allTags.find(t => t.slug === slug)?.name || slug}
                       <button onClick={() => onFiltersChange({ ...routeFilters, tags: routeFilters.tags.filter(t => t !== slug) })} className="hover:text-white ml-0.5">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -522,7 +522,7 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
                         tagDebounceRef.current = setTimeout(() => fetchTagSuggestions(val, setTagSuggestions), 300);
                     }}
                     onFocus={() => { setShowTagDropdown(true); if (!tagSuggestions.length) fetchTagSuggestions(tagQuery, setTagSuggestions); }}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder-gray-600 focus:outline-none focus:border-riduck-primary"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder-gray-600 focus:outline-none focus:border-routy-primary"
                 />
                 {showTagDropdown && filteredTags.length > 0 && (
                   <div ref={tagDropdownRef} className="absolute left-0 right-0 mt-1 max-h-32 overflow-y-auto bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-10">
@@ -567,7 +567,7 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex-1 px-2 py-1.5 rounded-lg border transition-all ${
                     activeTab === tab.key
-                    ? 'bg-riduck-primary/20 text-riduck-primary border-riduck-primary/50 font-bold'
+                    ? 'bg-routy-primary/20 text-routy-primary border-routy-primary/50 font-bold'
                     : 'bg-gray-800 text-gray-500 border-gray-700 hover:bg-gray-700'
                 }`}
               >
@@ -598,7 +598,7 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
           {activeTab === 'all' && (
             <div>
                 {loading && publicRoutes.length === 0 ? (
-                   <div className="flex justify-center p-4"><div className="animate-spin h-5 w-5 border-2 border-riduck-primary rounded-full border-t-transparent"></div></div>
+                   <div className="flex justify-center p-4"><div className="animate-spin h-5 w-5 border-2 border-routy-primary rounded-full border-t-transparent"></div></div>
                 ) : publicRoutes.length === 0 && !error ? (
                    <div className="flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-gray-800 rounded-xl bg-gray-900/30">
                       <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center mb-2 text-gray-600">🌍</div>
@@ -620,7 +620,7 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
                       <p className="text-xs text-gray-500 mb-2">Login to save your routes.</p>
                    </div>
                 ) : loading && myRoutes.length === 0 ? (
-                   <div className="flex justify-center p-4"><div className="animate-spin h-5 w-5 border-2 border-riduck-primary rounded-full border-t-transparent"></div></div>
+                   <div className="flex justify-center p-4"><div className="animate-spin h-5 w-5 border-2 border-routy-primary rounded-full border-t-transparent"></div></div>
                 ) : myRoutes.length === 0 && !error ? (
                    <div className="flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-gray-800 rounded-xl bg-gray-900/30">
                       <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center mb-2 text-gray-600">👤</div>
@@ -650,7 +650,7 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
           {/* Infinite Scroll Loader */}
           {loadingMore && (
               <div className="py-4 flex justify-center">
-                  <div className="animate-spin h-5 w-5 border-2 border-riduck-primary rounded-full border-t-transparent"></div>
+                  <div className="animate-spin h-5 w-5 border-2 border-routy-primary rounded-full border-t-transparent"></div>
               </div>
           )}
           {!loading && !loadingMore && activeTab !== 'favorites' && (

@@ -89,7 +89,7 @@ export const AuthProvider = ({ children }) => {
   if (loading) {
       return (
         <div className="h-screen flex flex-col items-center justify-center bg-gray-900 text-white gap-4">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-riduck-primary"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-routy-primary"></div>
             <p className="text-sm font-bold animate-pulse">Initializing App...</p>
         </div>
       );
@@ -106,7 +106,7 @@ export const AuthProvider = ({ children }) => {
             <div className="flex gap-3">
                 <button 
                     onClick={handleRetry}
-                    className="bg-riduck-primary hover:brightness-110 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-lg shadow-riduck-primary/20"
+                    className="bg-routy-primary hover:brightness-110 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-lg shadow-routy-primary/20"
                 >
                     RETRY CONNECTION
                 </button>
