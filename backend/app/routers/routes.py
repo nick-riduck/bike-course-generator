@@ -550,10 +550,7 @@ async def search_routes(
         
         routes = []
         for row in rows:
-            author_name = row['author_name']
-            email = row.get('author_email')
-            if email and not email.endswith('@riduck.com'):
-                author_name = "손익준"
+            author_name = row['author_name'] or "알 수 없음"
 
             routes.append({
                 "id": row['id'],
@@ -684,10 +681,7 @@ async def get_route_detail(route_id: str, authorization: str = Header(None)):
         cur.execute("SELECT view_count, download_count FROM route_stats WHERE route_id = %s", (db_id,))
         stats = cur.fetchone()
 
-        author_name = row['author_name']
-        email = row.get('author_email')
-        if email and not email.endswith('@riduck.com'):
-            author_name = "손익준"
+        author_name = row['author_name'] or "알 수 없음"
 
         full_data.update({
             "route_id": row['id'],
