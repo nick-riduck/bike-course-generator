@@ -1,0 +1,27 @@
+{
+  "type": "permanents",
+  "code": "PT-93",
+  "name": "충남 문학길",
+  "distance": "211km",
+  "elevation": "981m",
+  "time_limit": "14:04",
+  "start": "배방",
+  "end": "배방",
+  "designer": "김한수",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT93.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1Erb02pvuN6WjIEdh0v4q9CYe3q9V72sB?usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/53212478"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/zzIkya20T"
+    }
+  ]
+}

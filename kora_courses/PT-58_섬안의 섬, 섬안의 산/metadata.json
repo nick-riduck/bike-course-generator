@@ -1,0 +1,39 @@
+{
+  "type": "permanents",
+  "code": "PT-58",
+  "name": "섬안의 섬, 섬안의 산",
+  "distance": "203km",
+  "elevation": "2,950m",
+  "time_limit": "13:32",
+  "start": "제주시",
+  "end": "제주시",
+  "designer": "장중원",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT58.htm",
+  "description": "PT-58 코스는 우도로 가는 배를 타고 3km 왕복으로 다녀와야 합니다. 배가 출항하지 않거나 제주 본섬으로 복귀하지 못할 것 같으면(저녁에는 배가 운항하지 않음) 대체 코스를 선택해야 합니다. 출발 전에 기본 코스 및 대체 코스에 대한 GPX 파일과 퍼머넌트 시트를 준비하는 것이 좋습니다. 대체 코스에 대한 지도 및 문서는 \"ALT\"(대체) 폴더를 클릭하면 다운받을 수 있습니다.\nThe course of PT-58 includes a ferry ride of 2 x 3 km, to the island of Udo. If the ferry is not sailing or if it will be risky to be able to go back to the main island (the ferry is not operating in the evening) then the alternative course should be taken. It is wise to prepare for both and bring a permanent sheet for both the main course and the alternative course. To access the maps and documents for the alternative course, click on the buttons marked \"ALT\".",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1NyZpz_yoJUj6k0bmuio1RfNSk5izf3sr?usp=sharing"
+    },
+    {
+      "text": "퍼머넌트 시트 (Perm. Sheet ALT)",
+      "url": "https://drive.google.com/drive/folders/1Wm8ioD5zQuoR5wk9VxEkWlGOHORJOkta?usp=sharing"
+    },
+    {
+      "text": "구글 지도 경로 (Google map)",
+      "url": "https://drive.google.com/open?id=1qRAxSUXOlEQLAMfoKJLutroXVCg&usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/41554073"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS ALT)",
+      "url": "https://ridewithgps.com/routes/41473174"
+    },
+    {
+      "text": "지도보기(VIEW)",
+      "url": "http://kko.to/G63MtHjjM"
+    }
+  ]
+}

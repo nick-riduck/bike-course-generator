@@ -45,12 +45,11 @@ CREATE TABLE users (
 );
 
 -- Index 1: 계정 상태와 이메일을 결합한 복합 인덱스
--- 멘토 피드백 반영: 범위가 넓은 status를 앞에 두어 관리자 조회 등 다양한 쿼리에서 인덱스를 재사용할 수 있도록 설계
--- 예: SELECT * FROM users WHERE status = 'ACTIVE' AND email = ?
+-- 현재 미사용 (로그인이 auth_mapping_temp 경유). 관리자 대시보드 등 향후 사용 대비.
 CREATE INDEX idx_users_status_email ON users(status, email);
 
 -- Index 2: 라이덕 ID 조회 및 계정 상태 통합 인덱스
--- 이메일 인덱스와 마찬가지로 status를 선행시켜 범용성을 확보
+-- 현재 미사용 (riduck_id 직접 조회 쿼리 없음). 향후 라이덕 연동 확장 대비.
 CREATE INDEX idx_users_status_riduck_id ON users(status, riduck_id);
 ```
 

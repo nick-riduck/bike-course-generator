@@ -11,6 +11,8 @@ from app.core.config import VALHALLA_URL, STORAGE_TYPE, STORAGE_BASE_DIR, GCS_BU
 from app.models.route import RouteCreateRequest
 from app.models.common import Location
 from app.services.image_service import generate_thumbnail
+from app.services.embedding_service import get_embedding
+from app.services.auto_tag_service import generate_tags_and_description
 from google.cloud import storage
 
 from valhalla import ValhallaClient
@@ -132,9 +134,33 @@ async def create_route(route: RouteCreateRequest, authorization: str = Header(No
             for tag_name in route.tags:
                 tag_name = tag_name.strip().lower()
                 if not tag_name: continue
-                cur.execute("INSERT INTO tags (names, slug) VALUES (%s, %s) ON CONFLICT (slug) DO UPDATE SET slug=EXCLUDED.slug RETURNING id", 
-                            (json.dumps({"ko": tag_name, "en": tag_name}), tag_name))
-                tag_id = cur.fetchone()['id']
+                # Check if tag exists
+                cur.execute("SELECT id, embedding FROM tags WHERE slug = %s", (tag_name,))
+                existing = cur.fetchone()
+                if existing:
+                    tag_id = existing['id']
+                    # Backfill embedding if missing
+                    if existing['embedding'] is None:
+                        try:
+                            emb = get_embedding(tag_name)
+                            cur.execute("UPDATE tags SET embedding = %s::halfvec WHERE id = %s", (str(emb), tag_id))
+                        except Exception as emb_err:
+                            print(f"Embedding backfill error for '{tag_name}': {emb_err}")
+                else:
+                    # Create new tag with embedding
+                    try:
+                        emb = get_embedding(tag_name)
+                        cur.execute(
+                            "INSERT INTO tags (names, slug, embedding) VALUES (%s, %s, %s::halfvec) RETURNING id",
+                            (json.dumps({"ko": tag_name, "en": tag_name}), tag_name, str(emb)),
+                        )
+                    except Exception as emb_err:
+                        print(f"Embedding generation error for '{tag_name}': {emb_err}")
+                        cur.execute(
+                            "INSERT INTO tags (names, slug) VALUES (%s, %s) ON CONFLICT (slug) DO UPDATE SET slug=EXCLUDED.slug RETURNING id",
+                            (json.dumps({"ko": tag_name, "en": tag_name}), tag_name),
+                        )
+                    tag_id = cur.fetchone()['id']
                 cur.execute("INSERT INTO route_tags (route_id, tag_id) VALUES (%s, %s) ON CONFLICT DO NOTHING", (target_id, tag_id))
 
         # 6. Initialize Stats if New
@@ -156,12 +182,143 @@ async def create_route(route: RouteCreateRequest, authorization: str = Header(No
         print(f"Save Route Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/tags")
+async def get_tags():
+    conn = get_db_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            SELECT t.slug, t.names, COUNT(rt.route_id) as count
+            FROM tags t
+            INNER JOIN route_tags rt ON rt.tag_id = t.id
+            INNER JOIN routes r ON r.id = rt.route_id AND r.status = 'PUBLIC'
+            GROUP BY t.id, t.slug, t.names
+            ORDER BY count DESC
+        """)
+        rows = cur.fetchall()
+        return [
+            {
+                "slug": row["slug"],
+                "name": row["names"].get("ko", row["slug"]) if isinstance(row["names"], dict) else row["slug"],
+                "count": row["count"]
+            }
+            for row in rows
+        ]
+    except Exception as e:
+        print(f"Tags Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+
+@router.get("/tags/search")
+async def search_tags(q: str = ""):
+    conn = get_db_conn()
+    cur = conn.cursor()
+    try:
+        q = q.strip()
+        if not q:
+            # Return popular tags when no query
+            cur.execute("""
+                SELECT t.slug, t.names, COUNT(rt.route_id) as count
+                FROM tags t
+                INNER JOIN route_tags rt ON rt.tag_id = t.id
+                INNER JOIN routes r ON r.id = rt.route_id AND r.status = 'PUBLIC'
+                GROUP BY t.id, t.slug, t.names
+                ORDER BY count DESC
+                LIMIT 15
+            """)
+            rows = cur.fetchall()
+            return [
+                {
+                    "slug": row["slug"],
+                    "name": row["names"].get("ko", row["slug"]) if isinstance(row["names"], dict) else row["slug"],
+                    "count": row["count"],
+                    "similarity": None,
+                }
+                for row in rows
+            ]
+
+        # 1. Text matching (LIKE)
+        cur.execute("""
+            SELECT t.id, t.slug, t.names, COUNT(rt.route_id) as count
+            FROM tags t
+            LEFT JOIN route_tags rt ON rt.tag_id = t.id
+            LEFT JOIN routes r ON r.id = rt.route_id AND r.status = 'PUBLIC'
+            WHERE t.slug LIKE %s
+            GROUP BY t.id, t.slug, t.names
+            ORDER BY count DESC
+            LIMIT 10
+        """, (f"%{q}%",))
+        text_rows = cur.fetchall()
+
+        # 2. Semantic search via embedding
+        semantic_rows = []
+        try:
+            query_embedding = get_embedding(q)
+            cur.execute("""
+                SELECT t.id, t.slug, t.names, COUNT(rt.route_id) as count,
+                       1 - (t.embedding <=> %s::halfvec) as similarity
+                FROM tags t
+                LEFT JOIN route_tags rt ON rt.tag_id = t.id
+                LEFT JOIN routes r ON r.id = rt.route_id AND r.status = 'PUBLIC'
+                WHERE t.embedding IS NOT NULL
+                GROUP BY t.id, t.slug, t.names, t.embedding
+                ORDER BY t.embedding <=> %s::halfvec
+                LIMIT 10
+            """, (str(query_embedding), str(query_embedding)))
+            semantic_rows = cur.fetchall()
+        except Exception as emb_err:
+            print(f"Embedding search fallback: {emb_err}")
+
+        # 3. Merge results (text matches first, then semantic, deduplicated)
+        results = []
+        seen_ids = set()
+
+        for row in text_rows:
+            seen_ids.add(row["id"])
+            sim = None
+            for sr in semantic_rows:
+                if sr["id"] == row["id"]:
+                    sim = round(float(sr["similarity"]), 4) if sr["similarity"] else None
+                    break
+            results.append({
+                "slug": row["slug"],
+                "name": row["names"].get("ko", row["slug"]) if isinstance(row["names"], dict) else row["slug"],
+                "count": row["count"],
+                "similarity": sim,
+            })
+
+        for row in semantic_rows:
+            if row["id"] not in seen_ids:
+                seen_ids.add(row["id"])
+                results.append({
+                    "slug": row["slug"],
+                    "name": row["names"].get("ko", row["slug"]) if isinstance(row["names"], dict) else row["slug"],
+                    "count": row["count"],
+                    "similarity": round(float(row["similarity"]), 4) if row["similarity"] else None,
+                })
+
+        return results
+
+    except Exception as e:
+        print(f"Tag Search Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+
 @router.get("/nearby")
 async def get_nearby_routes(
     lat: float,
     lon: float,
     radius: float = 5.0, # km
-    limit: int = 7
+    limit: int = 7,
+    min_distance: Optional[int] = None,  # km
+    max_distance: Optional[int] = None,  # km
+    min_elevation: Optional[int] = None, # m
+    max_elevation: Optional[int] = None, # m
+    tags: Optional[str] = None           # comma-separated slugs
 ):
     conn = get_db_conn()
     cur = conn.cursor()
@@ -187,7 +344,46 @@ async def get_nearby_routes(
         # =====================================================================
         radius_deg = (radius_meters / 1000) / 111.0 * 1.15
 
-        query = """
+        # Build dynamic filters
+        # SQL 파라미터 순서: CTE(4) → spatial(6) → tag_join params → extra_where params → limit
+        extra_where = ""
+        where_params = []
+
+        if min_distance is not None:
+            extra_where += " AND r.distance >= %s"
+            where_params.append(min_distance * 1000)  # km → m
+        if max_distance is not None:
+            extra_where += " AND r.distance <= %s"
+            where_params.append(max_distance * 1000)
+        if min_elevation is not None:
+            extra_where += " AND r.elevation_gain >= %s"
+            where_params.append(min_elevation)
+        if max_elevation is not None:
+            extra_where += " AND r.elevation_gain <= %s"
+            where_params.append(max_elevation)
+
+        tag_join = ""
+        tag_params = []
+        if tags:
+            tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+            if tag_list:
+                placeholders = ", ".join(["%s"] * len(tag_list))
+                tag_join = f"""
+                    INNER JOIN route_tags rt_filter ON rt_filter.route_id = r.id
+                    INNER JOIN tags t_filter ON t_filter.id = rt_filter.tag_id
+                        AND t_filter.slug IN ({placeholders})
+                """
+                tag_params = tag_list
+
+        # 순서 맞춰서 조립: CTE → tag JOIN → spatial WHERE → extra filters → limit
+        all_params = [lon, lat, lon, lat]
+        all_params.extend(tag_params)
+        all_params.extend([radius_deg, radius_meters,
+                           radius_deg, radius_meters, radius_deg, radius_meters])
+        all_params.extend(where_params)
+        all_params.append(limit)
+
+        query = f"""
             WITH center AS (
                 SELECT
                     ST_SetSRID(ST_MakePoint(%s, %s), 4326) AS geom,
@@ -201,6 +397,7 @@ async def get_nearby_routes(
             FROM center c
             CROSS JOIN routes r
             LEFT JOIN route_stats rs ON rs.route_id = r.id
+            {tag_join}
             WHERE r.status = 'PUBLIC'
             -- [Step1] GEOMETRY bbox: GIST 인덱스로 후보군 빠르게 추출
             AND ST_DWithin(r.summary_path, c.geom, %s)
@@ -219,20 +416,11 @@ async def get_nearby_routes(
                     AND ST_DWithin(ST_EndPoint(r.summary_path)::geography, c.geog, %s)
                 )
             )
+            {extra_where}
             ORDER BY download_count DESC, r.created_at DESC
             LIMIT %s
         """
-        # (lon, lat) x2: CTE geom/geog 각각
-        # radius_deg, radius_m: summary_path Step1/2
-        # radius_deg, radius_m: start_point Step1/2
-        # radius_deg, radius_m: end_point Step1/2
-        cur.execute(query, (
-            lon, lat, lon, lat,
-            radius_deg, radius_meters,
-            radius_deg, radius_meters,
-            radius_deg, radius_meters,
-            limit
-        ))
+        cur.execute(query, all_params)
         rows = cur.fetchall()
 
         # Power zone colors (Z1 gray → Z7 purple)
@@ -269,7 +457,13 @@ async def search_routes(
     q: Optional[str] = None,
     page: int = 1,
     limit: int = 10,
-    sort: str = 'latest'
+    sort: str = 'latest',
+    order: str = 'desc',  # 'asc' or 'desc'
+    min_distance: Optional[int] = None,  # km
+    max_distance: Optional[int] = None,  # km
+    min_elevation: Optional[int] = None, # m
+    max_elevation: Optional[int] = None, # m
+    tags: Optional[str] = None           # comma-separated slugs
 ):
     user_id = None
     if authorization:
@@ -313,18 +507,39 @@ async def search_routes(
             params.append(search_term)
             params.append(search_term)
 
+        if min_distance is not None:
+            query += " AND r.distance >= %s"
+            params.append(min_distance * 1000)
+        if max_distance is not None:
+            query += " AND r.distance <= %s"
+            params.append(max_distance * 1000)
+        if min_elevation is not None:
+            query += " AND r.elevation_gain >= %s"
+            params.append(min_elevation)
+        if max_elevation is not None:
+            query += " AND r.elevation_gain <= %s"
+            params.append(max_elevation)
+
         query += " GROUP BY r.id, u.id, rs.view_count, rs.download_count"
+
+        if tags:
+            tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+            if tag_list:
+                placeholders = ", ".join(["%s"] * len(tag_list))
+                query += f" HAVING ARRAY_AGG(t.slug) FILTER (WHERE t.slug IS NOT NULL) && ARRAY[{placeholders}]::varchar[]"
+                params.extend(tag_list)
         
+        direction = "ASC" if order == 'asc' else "DESC"
         if sort == 'updated':
-            query += " ORDER BY r.updated_at DESC, r.id DESC"
+            query += f" ORDER BY r.updated_at {direction}, r.id DESC"
         elif sort == 'popular':
-            query += " ORDER BY download_count DESC, r.created_at DESC, r.id DESC"
+            query += f" ORDER BY download_count {direction}, r.created_at DESC, r.id DESC"
         elif sort == 'distance':
-            query += " ORDER BY r.distance DESC, r.id DESC"
+            query += f" ORDER BY r.distance {direction}, r.id DESC"
         elif sort == 'elevation':
-            query += " ORDER BY r.elevation_gain DESC, r.id DESC"
+            query += f" ORDER BY r.elevation_gain {direction}, r.id DESC"
         else: # latest default
-            query += " ORDER BY r.created_at DESC, r.id DESC"
+            query += f" ORDER BY r.created_at {direction}, r.id DESC"
         
         query += " LIMIT %s OFFSET %s"
         params.append(limit)
@@ -335,10 +550,7 @@ async def search_routes(
         
         routes = []
         for row in rows:
-            author_name = row['author_name']
-            email = row.get('author_email')
-            if email and not email.endswith('@riduck.com'):
-                author_name = "손익준"
+            author_name = row['author_name'] or "알 수 없음"
 
             routes.append({
                 "id": row['id'],
@@ -386,39 +598,62 @@ async def delete_route(route_id: int, authorization: str = Header(None)):
         conn.close()
 
 @router.get("/{route_id}")
-async def get_route_detail(route_id: int, authorization: str = Header(None)):
+async def get_route_detail(route_id: str, authorization: str = Header(None)):
     user_id = None
     if authorization:
         try:
             user_id = await get_current_user(authorization)
         except:
             pass
-    
+
+    # Determine if route_id is UUID or integer
+    is_uuid = False
+    try:
+        uuid.UUID(route_id)
+        is_uuid = True
+    except ValueError:
+        pass
+
     conn = None
     try:
         conn = get_db_conn()
         cur = conn.cursor()
+
+        if is_uuid:
+            where_clause = "r.uuid = %s"
+            param = route_id
+        else:
+            where_clause = "r.id = %s"
+            param = int(route_id)
+
         cur.execute(
-            """
-            SELECT r.id, r.route_num, r.user_id, r.title, r.description, r.status, r.data_file_path,
+            f"""
+            SELECT r.id, r.route_num, r.uuid, r.user_id, r.title, r.description, r.status, r.data_file_path,
                    r.distance, r.elevation_gain, r.created_at, r.updated_at,
                    u.username as author_name, u.email as author_email,
                    u.profile_image_url as author_image
             FROM routes r
             LEFT JOIN users u ON r.user_id = u.id
-            WHERE r.id = %s AND r.status != 'DELETED'
+            WHERE {where_clause} AND r.status != 'DELETED'
             """,
-            (route_id,)
+            (param,)
         )
         row = cur.fetchone()
         if not row: raise HTTPException(status_code=404, detail="Route not found")
-        if row['user_id'] != user_id and row['status'] != 'PUBLIC':
-            raise HTTPException(status_code=403, detail="Forbidden: Private route")
+
+        # Access control
+        is_owner = row['user_id'] == user_id
+        if not is_owner:
+            if row['status'] == 'PRIVATE':
+                raise HTTPException(status_code=403, detail="Forbidden: Private route")
+            if row['status'] == 'LINK_ONLY' and not is_uuid:
+                raise HTTPException(status_code=403, detail="Forbidden: This route is only accessible via share link")
         
-        cur.execute("UPDATE route_stats SET view_count = view_count + 1, updated_at = CURRENT_TIMESTAMP WHERE route_id = %s", (route_id,))
+        db_id = row['id']
+        cur.execute("UPDATE route_stats SET view_count = view_count + 1, updated_at = CURRENT_TIMESTAMP WHERE route_id = %s", (db_id,))
         file_rel_path = row['data_file_path']
         conn.commit()
-        
+
         full_data = {}
         if STORAGE_TYPE == "GCS":
             client = storage.Client()
@@ -435,25 +670,23 @@ async def get_route_detail(route_id: int, authorization: str = Header(None)):
                  else: raise HTTPException(status_code=404, detail=f"Route data file missing: {file_rel_path}")
             with open(file_path, "r", encoding="utf-8") as f:
                 full_data = json.load(f)
-            
+
         cur.execute("""
-            SELECT t.slug FROM tags t 
-            JOIN route_tags rt ON t.id = rt.tag_id 
+            SELECT t.slug FROM tags t
+            JOIN route_tags rt ON t.id = rt.tag_id
             WHERE rt.route_id = %s
-        """, (route_id,))
+        """, (db_id,))
         tags = [r['slug'] for r in cur.fetchall()]
-        
-        cur.execute("SELECT view_count, download_count FROM route_stats WHERE route_id = %s", (route_id,))
+
+        cur.execute("SELECT view_count, download_count FROM route_stats WHERE route_id = %s", (db_id,))
         stats = cur.fetchone()
-        
-        author_name = row['author_name']
-        email = row.get('author_email')
-        if email and not email.endswith('@riduck.com'):
-            author_name = "손익준"
-        
+
+        author_name = row['author_name'] or "알 수 없음"
+
         full_data.update({
             "route_id": row['id'],
             "route_num": row['route_num'],
+            "uuid": str(row['uuid']),
             "owner_id": row['user_id'],
             "author_name": author_name,
             "author_image": row['author_image'],
@@ -516,3 +749,33 @@ async def import_gpx(file: UploadFile = File(...)):
         return loader.process_with_valhalla(valhalla_client)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/auto-tag")
+async def generate_auto_tag_and_desc(route: RouteCreateRequest, authorization: str = Header(None)):
+    """Generate AI tags and description"""
+    # Just need full_data
+    full_data = route.full_data
+    if not full_data and route.editor_state and route.editor_state.get('sections'):
+        all_points = []
+        for section in route.editor_state['sections']:
+            for segment in section.get('segments', []):
+                coords = segment.get('geometry', {}).get('coordinates', [])
+                for coord in coords:
+                    all_points.append({"lat": coord[1], "lon": coord[0]})
+        if len(all_points) > 1:
+            full_data = valhalla_client.get_standard_course(all_points)
+            full_data['editor_state'] = route.editor_state
+    
+    if not full_data:
+        return {"tags": [], "description": ""}
+
+    conn = get_db_conn()
+    try:
+        result = generate_tags_and_description(conn, full_data)
+        return result
+    except Exception as e:
+        print(f"Auto-tag generation error: {e}")
+        return {"tags": [], "description": ""}
+    finally:
+        conn.close()

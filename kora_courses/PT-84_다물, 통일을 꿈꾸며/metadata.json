@@ -1,0 +1,27 @@
+{
+  "type": "permanents",
+  "code": "PT-84",
+  "name": "다물, 통일을 꿈꾸며",
+  "distance": "343km",
+  "elevation": "4,268m",
+  "time_limit": "이 퍼머넌트는 단체 라이딩만 가능합니다",
+  "start": "",
+  "end": "",
+  "designer": "",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT84.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1ZQcPkr1hoXiQPH9W6XS6ngIJaMBFvvSQ?usp=sharing"
+    },
+    {
+      "text": "구글 지도 경로(Google map)",
+      "url": "https://drive.google.com/open?id=1p5lXdRKVOCwfK9QSyJRmN-oA1FOMXiz-&usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로(RwGPS map)",
+      "url": "https://ridewithgps.com/routes/30719371"
+    }
+  ]
+}

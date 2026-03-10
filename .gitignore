@@ -46,3 +46,20 @@ backend/storage/
 frontend/server_log.txt
 data/
 suimi_gpx/
+
+# Crawl data (large binary/image files, keep scripts)
+crawl_data/KOMOOT_FULL/
+crawl_data/refine/*.json
+crawl_data/refine/*.jsonl
+crawl_data/KORA/
+crawl_data/*.html
+
+# Debug files
+debug_*.html
+komoot_debug.html
+
+# Script outputs
+scripts/output/
+
+# GPS Art Finder
+gps_art_finder/

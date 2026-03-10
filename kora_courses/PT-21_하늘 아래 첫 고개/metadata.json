@@ -1,0 +1,31 @@
+{
+  "type": "permanents",
+  "code": "PT-21",
+  "name": "하늘 아래 첫 고개",
+  "distance": "451km",
+  "elevation": "9,098m",
+  "time_limit": "30:04",
+  "start": "춘양",
+  "end": "김천",
+  "designer": "김영삼",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT21.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트(Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1bzGj2D7yttiTwM4Lw_4LyjTbJMUXvsrP?usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/46436769"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/eZDvBT00p"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/aqEl2AcfH"
+    }
+  ]
+}

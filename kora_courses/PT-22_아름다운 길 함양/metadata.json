@@ -1,0 +1,31 @@
+{
+  "type": "permanents",
+  "code": "PT-22",
+  "name": "아름다운 길 함양",
+  "distance": "200km",
+  "elevation": "3,736m",
+  "time_limit": "13:20",
+  "start": "함양",
+  "end": "함양",
+  "designer": "장남식",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT22.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트(Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1t_iMny0dO4SSQSDKmgUQ8Nmh4ZKrHrDS?usp=sharing"
+    },
+    {
+      "text": "구글 지도 경로(Google map)",
+      "url": "https://drive.google.com/open?id=1HnJsFgwzH5i2XfHL8ThpH7NsOdg&usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로(RwGPS map)",
+      "url": "http://ridewithgps.com/routes/10228370"
+    },
+    {
+      "text": "지도보기(VIEW)",
+      "url": "http://kko.to/pCoGBHj0p"
+    }
+  ]
+}

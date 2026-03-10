@@ -67,12 +67,13 @@ CREATE TABLE routes (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Index 1: 상태와 작성자를 결합한 복합 인덱스 (멘토 피드백 반영: status 선행)
--- 예: 내 코스 목록 보기, 공개된 최신 코스 보기
+-- Index 1: "내 코스" 목록 조회 (WHERE status != 'DELETED' AND user_id = ?)
 CREATE INDEX idx_routes_status_user ON routes(status, user_id);
+
+-- Index 2: 코스 목록 정렬 (WHERE status != 'DELETED' ORDER BY created_at DESC)
 CREATE INDEX idx_routes_status_created ON routes(status, created_at DESC);
 
--- Spatial Index: 공간 검색용 (GIST)
+-- Spatial Index: "내 주변 코스" 공간 검색 (ST_DWithin)
 CREATE INDEX idx_routes_summary_path ON routes USING GIST (summary_path);
 ```
 
@@ -140,23 +141,104 @@ CREATE TABLE tags (
     id SERIAL PRIMARY KEY,
     names JSONB NOT NULL, -- {"ko": "한강", "en": "Han River"}
     slug VARCHAR(50) UNIQUE NOT NULL,
-    
+
     -- 태그 유형 (Optional): 'GENERAL', 'AUTO_GENERATED' (e.g., 'HC', 'CAT1' 등 등급 자동 부여)
     type VARCHAR(20) DEFAULT 'GENERAL',
 
+    -- 시맨틱 검색용 임베딩 (gemini-embedding-001, 3072차원)
+    -- halfvec(float16): HNSW 인덱스 지원 (vector float32는 2,000차원 제한)
+    -- 벤치마크 결과: Recall 100%, 쿼리 ~8ms@5K (docs/db/benchmark_vector_index.md)
+    embedding halfvec(3072),
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 시맨틱 태그 검색용 HNSW 인덱스 (cosine distance)
+CREATE INDEX idx_tags_embedding ON tags
+    USING hnsw (embedding halfvec_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
 
 CREATE TABLE route_tags (
     route_id BIGINT NOT NULL,
     tag_id INTEGER NOT NULL,
     PRIMARY KEY (route_id, tag_id)
 );
+
+-- PK (route_id, tag_id)는 route_id → tag_id 방향만 커버.
+-- 태그 필터링/태그 클라우드는 tag_id → route_id 방향 조인이므로 별도 인덱스 필요.
+CREATE INDEX idx_route_tags_tag_id ON route_tags(tag_id);
 ```
 
 ---
 
-## 4. Route Data JSON Format (JSON 상세 스펙)
+## 4. Waypoints (POI 참조 데이터)
+
+코스 경로 주변의 유명 장소(POI) 데이터. 자동 태그/설명 생성 시 LLM 컨텍스트로 활용.
+데이터 소스: Komoot 크롤링 → 중복 병합 → Gemini 보강.
+
+### 4.1 waypoint_type ENUM
+```sql
+CREATE TYPE waypoint_type AS ENUM (
+    -- 보급/편의
+    'convenience_store', 'cafe', 'restaurant', 'restroom',
+    'water_fountain', 'rest_area', 'bike_shop',
+    -- 인프라
+    'parking', 'transit', 'bridge', 'tunnel', 'checkpoint',
+    -- 자연/경관
+    'viewpoint', 'river', 'lake', 'mountain', 'beach', 'park', 'nature',
+    -- 문화/관광
+    'historic', 'landmark', 'museum',
+    -- 안전
+    'hospital', 'police',
+    -- 기타
+    'other'
+);
+```
+
+### 4.2 waypoints 테이블
+```sql
+CREATE TABLE waypoints (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uuid UUID DEFAULT gen_random_uuid() UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    description TEXT DEFAULT '',
+    type waypoint_type[] NOT NULL DEFAULT '{}',   -- ENUM 배열 (복수 타입 가능: {bridge, viewpoint})
+    location GEOMETRY(Point, 4326),
+    is_verified BOOLEAN DEFAULT FALSE,
+    etc JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_waypoints_location ON waypoints USING GIST (location);
+CREATE INDEX idx_waypoints_type ON waypoints USING GIN (type);
+```
+
+`etc` JSONB 구조:
+```json
+{
+  "source": "KOMOOT",
+  "source_ids": ["1020499", "1250365"],
+  "image_urls": ["https://..."],
+  "tips": [{"text": "...", "author": "..."}],
+  "category_raw": "facilities",
+  "tour_count": 5
+}
+```
+
+### 4.3 route_waypoints 테이블 (관계 매핑)
+```sql
+CREATE TABLE route_waypoints (
+    route_id BIGINT NOT NULL,
+    waypoint_id BIGINT NOT NULL,
+    sequence INTEGER NOT NULL,
+    distance_from_start INTEGER,       -- 시작점에서의 거리 (meters)
+    PRIMARY KEY (route_id, waypoint_id)
+);
+```
+
+---
+
+## 5. Route Data JSON Format (JSON 상세 스펙)
 > **[CRITICAL WARNING]** 이 JSON 구조는 프론트엔드 렌더링, 고도 차트 생성, 그리고 **물리 엔진 시뮬레이터**의 핵심 입력 데이터입니다. 
 > 백엔드 및 시뮬레이터 개발 시 이 형식을 엄격히 준수해야 하며, **절대로 이 섹션을 삭제하거나 임의로 변경하지 마십시오.**
 

@@ -1,0 +1,27 @@
+{
+  "type": "permanents",
+  "code": "PT-207",
+  "name": "김밥천국Reverse",
+  "distance": "285 km",
+  "elevation": "2,993 m",
+  "time_limit": "19:00",
+  "start": "김천",
+  "end": "광나루",
+  "designer": "김영삼",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT207.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1yr7sbIxH3M40q1w1fdxeSLx_My-qh95C?usp=drive_link"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/53397262"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/aqEl2AcfH"
+    }
+  ]
+}

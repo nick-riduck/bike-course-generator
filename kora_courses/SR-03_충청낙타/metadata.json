@@ -1,0 +1,27 @@
+{
+  "type": "superrando",
+  "code": "SR-03",
+  "name": "충청낙타",
+  "distance": "619km",
+  "elevation": "10,154m",
+  "time_limit": "아산역",
+  "start": "아산역",
+  "end": "원광식",
+  "designer": "",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/superrando/info-SR03.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "GPX 파일/컨트롤 정보/지도",
+      "url": "https://drive.google.com/drive/folders/19ZfKfdYaXFwM98Gxe2WlJ4P2V4j0Q7CE?usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/40521054"
+    },
+    {
+      "text": "Start/Finish 지도보기 (VIEW)",
+      "url": "http://kko.to/CpCH9_DD0"
+    }
+  ]
+}

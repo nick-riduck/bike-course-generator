@@ -1,0 +1,31 @@
+{
+  "type": "permanents",
+  "code": "PT-90",
+  "name": "시간 여행",
+  "distance": "211km",
+  "elevation": "1,733m",
+  "time_limit": "14:04",
+  "start": "전주",
+  "end": "전주",
+  "designer": "김양수",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT90.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1p7CBY4UmJCSFNQqQXbo7Yp8SRrKTRv6-?usp=sharing"
+    },
+    {
+      "text": "구글 지도 경로 (Google map)",
+      "url": "https://drive.google.com/open?id=1TPA6L_htu5oqgN1Dw6kf6UNOwvHiOwy_&usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/41616281"
+    },
+    {
+      "text": "Start 지도보기 (VIEW)",
+      "url": "http://kko.to/PP29WJd00"
+    }
+  ]
+}

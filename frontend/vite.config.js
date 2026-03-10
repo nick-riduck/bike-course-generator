@@ -8,6 +8,9 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
+    headers: {
+      "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+    },
     proxy: {
       '/ors-api': {
         target: 'https://api.openrouteservice.org',
@@ -16,6 +19,11 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/ors-api/, ''),
       },
       '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/storage': {
         target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,

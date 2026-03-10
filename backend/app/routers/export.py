@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 from fastapi import APIRouter, HTTPException, Response
 from app.models.route import GpxExportRequest
 from gpx_export import GpxExporter, TcxExporter
@@ -29,7 +31,7 @@ async def export_gpx(request: GpxExportRequest):
         return Response(
             content=xml_content, 
             media_type=media_type,
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"}
         )
     except Exception as e:
         print(f"GPX Export Error: {e}")

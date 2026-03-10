@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import apiClient from '../utils/apiClient';
 import { useAuth } from '../AuthContext';
 import { auth } from '../firebase';
 
@@ -16,16 +17,17 @@ const formatRelativeTime = (dateString) => {
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
-const SearchPanel = ({ onLoadRoute, activePreviewId }) => {
+const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChange, refreshTrigger }) => {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('all'); // 'all', 'my', 'public'
+  const [activeTab, setActiveTab] = useState('all'); // 'all', 'my', 'favorites'
   const [sortOption, setSortOption] = useState('latest'); // latest, updated, popular, distance, elevation
-  
+  const [sortOrder, setSortOrder] = useState('desc'); // 'asc' or 'desc'
+
   // Data States
   const [myRoutes, setMyRoutes] = useState([]);
   const [publicRoutes, setPublicRoutes] = useState([]);
-  
+
   // UI States
   const [page, setPage] = useState(1);
   const [hasMoreMy, setHasMoreMy] = useState(true);
@@ -34,8 +36,75 @@ const SearchPanel = ({ onLoadRoute, activePreviewId }) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
 
+  // Filter UI States
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [allTags, setAllTags] = useState([]);
+  const [tagQuery, setTagQuery] = useState('');
+  const [showTagDropdown, setShowTagDropdown] = useState(false);
+  const [tagSuggestions, setTagSuggestions] = useState([]);
+  const [searchTagSuggestions, setSearchTagSuggestions] = useState([]);
+  const tagDebounceRef = useRef(null);
+  const searchTagDebounceRef = useRef(null);
+  const tagInputRef = useRef(null);
+  const tagDropdownRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const searchTagDropdownRef = useRef(null);
+  const [showSearchTagDropdown, setShowSearchTagDropdown] = useState(false);
+
   // Scroll Ref
   const scrollContainerRef = useRef(null);
+
+  const hasActiveFilters = routeFilters &&
+      (routeFilters.minDistance !== '' || routeFilters.maxDistance !== '' ||
+       routeFilters.minElevation !== '' || routeFilters.maxElevation !== '' ||
+       routeFilters.tags.length > 0);
+
+  // Fetch tags on mount (needed for search autocomplete + filter panel)
+  useEffect(() => {
+      if (allTags.length === 0) {
+          fetch('/api/routes/tags')
+              .then(res => res.ok ? res.json() : [])
+              .then(setAllTags)
+              .catch(() => setAllTags([]));
+      }
+  }, [allTags.length]);
+
+  // Close tag dropdowns on outside click
+  useEffect(() => {
+      const handleClick = (e) => {
+          if (tagDropdownRef.current && !tagDropdownRef.current.contains(e.target) &&
+              tagInputRef.current && !tagInputRef.current.contains(e.target)) {
+              setShowTagDropdown(false);
+          }
+          if (searchTagDropdownRef.current && !searchTagDropdownRef.current.contains(e.target) &&
+              searchInputRef.current && !searchInputRef.current.contains(e.target)) {
+              setShowSearchTagDropdown(false);
+          }
+      };
+      document.addEventListener('mousedown', handleClick);
+      return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  // Semantic tag search for filter panel
+  const fetchTagSuggestions = useCallback(async (query, setter) => {
+      try {
+          const url = query.trim()
+              ? `/api/routes/tags/search?q=${encodeURIComponent(query.trim())}`
+              : '/api/routes/tags/search';
+          const res = await fetch(url);
+          if (res.ok) setter(await res.json());
+      } catch (err) {
+          console.error('Tag search error:', err);
+      }
+  }, []);
+
+  const filteredTags = tagSuggestions.filter(t =>
+      routeFilters && !routeFilters.tags.includes(t.slug)
+  );
+
+  const searchFilteredTags = searchTagSuggestions.filter(t =>
+      routeFilters && !routeFilters.tags.includes(t.slug)
+  );
 
   // 2. Fetch Data Logic
   const fetchData = useCallback(async (pageNum, isReset = false) => {
@@ -47,48 +116,41 @@ const SearchPanel = ({ onLoadRoute, activePreviewId }) => {
     }
 
     try {
-      const headers = {};
-      if (auth.currentUser) {
-        const idToken = await auth.currentUser.getIdToken();
-        headers['Authorization'] = `Bearer ${idToken}`;
-      }
-
       const limit = 10;
       
-      // Determine what to fetch based on activeTab
-      const fetchMy = (activeTab === 'all' || activeTab === 'my') && user;
-      const fetchPublic = (activeTab === 'all' || activeTab === 'public');
+      // Favorites tab has no data yet
+      if (activeTab === 'favorites') {
+        setLoading(false);
+        return;
+      }
 
       // Helper to fetch a specific scope
       const fetchScope = async (scope) => {
-        const res = await fetch(`/api/routes?scope=${scope}${searchQuery ? `&q=${searchQuery}` : ''}&page=${pageNum}&limit=${limit}&sort=${sortOption}`, { headers });
-        if (!res.ok) throw new Error(`Failed to fetch ${scope} routes: ${res.status}`);
-        const data = await res.json();
+        const params = new URLSearchParams({
+            scope, page: pageNum, limit, sort: sortOption, order: sortOrder
+        });
+        if (searchQuery) params.set('q', searchQuery);
+        if (routeFilters) {
+            if (routeFilters.minDistance !== '') params.set('min_distance', routeFilters.minDistance);
+            if (routeFilters.maxDistance !== '') params.set('max_distance', routeFilters.maxDistance);
+            if (routeFilters.minElevation !== '') params.set('min_elevation', routeFilters.minElevation);
+            if (routeFilters.maxElevation !== '') params.set('max_elevation', routeFilters.maxElevation);
+            if (routeFilters.tags.length > 0) params.set('tags', routeFilters.tags.join(','));
+        }
+        const data = await apiClient.get(`/api/routes?${params}`);
         return data.routes || [];
       };
 
-      if (fetchMy) {
-        if (activeTab === 'my' || (activeTab === 'all' && pageNum === 1)) {
-            const newMyRoutes = await fetchScope('my');
-            if (activeTab === 'my') {
-                setMyRoutes(prev => isReset ? newMyRoutes : [...prev, ...newMyRoutes]);
-                setHasMoreMy(newMyRoutes.length === limit);
-            } else {
-                setMyRoutes(newMyRoutes.slice(0, 3));
-            }
-        }
+      if (activeTab === 'my' && user) {
+        const newMyRoutes = await fetchScope('my');
+        setMyRoutes(prev => isReset ? newMyRoutes : [...prev, ...newMyRoutes]);
+        setHasMoreMy(newMyRoutes.length === limit);
       }
 
-      if (fetchPublic) {
-        if (activeTab === 'public' || (activeTab === 'all' && pageNum === 1)) {
-            const newPublicRoutes = await fetchScope('public');
-            if (activeTab === 'public') {
-                setPublicRoutes(prev => isReset ? newPublicRoutes : [...prev, ...newPublicRoutes]);
-                setHasMorePublic(newPublicRoutes.length === limit);
-            } else {
-                setPublicRoutes(newPublicRoutes.slice(0, 3));
-            }
-        }
+      if (activeTab === 'all') {
+        const newPublicRoutes = await fetchScope('public');
+        setPublicRoutes(prev => isReset ? newPublicRoutes : [...prev, ...newPublicRoutes]);
+        setHasMorePublic(newPublicRoutes.length === limit);
       }
 
     } catch (e) {
@@ -98,9 +160,9 @@ const SearchPanel = ({ onLoadRoute, activePreviewId }) => {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [user, searchQuery, activeTab, sortOption]);
+  }, [user, searchQuery, activeTab, sortOption, sortOrder, routeFilters]);
 
-  // 1. Initial Load & Tab Change & Search Change & Sort Change
+  // 1. Initial Load & Tab Change & Search Change & Sort Change & Filter Change
   useEffect(() => {
     setPage(1);
     setMyRoutes([]);
@@ -108,11 +170,11 @@ const SearchPanel = ({ onLoadRoute, activePreviewId }) => {
     setHasMoreMy(true);
     setHasMorePublic(true);
     fetchData(1, true);
-  }, [user, searchQuery, activeTab, sortOption, fetchData]);
+  }, [user, searchQuery, activeTab, sortOption, sortOrder, routeFilters, fetchData, refreshTrigger]);
 
   // 3. Infinite Scroll Handler
   const handleScroll = useCallback(() => {
-    if (activeTab === 'all') return; // No infinite scroll in overview
+    if (activeTab === 'favorites') return; // No infinite scroll in favorites
     if (loading || loadingMore || error) return;
 
     const container = scrollContainerRef.current;
@@ -120,7 +182,7 @@ const SearchPanel = ({ onLoadRoute, activePreviewId }) => {
 
     // Check if scrolled near bottom
     if (container.scrollHeight - container.scrollTop <= container.clientHeight + 50) {
-        if ((activeTab === 'my' && hasMoreMy) || (activeTab === 'public' && hasMorePublic)) {
+        if ((activeTab === 'my' && hasMoreMy) || (activeTab === 'all' && hasMorePublic)) {
             const nextPage = page + 1;
             setPage(nextPage);
             fetchData(nextPage, false);
@@ -295,63 +357,223 @@ const SearchPanel = ({ onLoadRoute, activePreviewId }) => {
       <div className="p-4 border-b border-gray-800">
         <div className="flex justify-between items-center mb-4">
             <h2 className="font-bold text-white text-lg">Library</h2>
-            {/* Sort Dropdown */}
-            <select 
-                value={sortOption} 
-                onChange={(e) => setSortOption(e.target.value)}
-                className="bg-gray-800 text-gray-400 text-[10px] px-2 py-1 rounded border border-gray-700 focus:outline-none"
-            >
-                <option value="latest">Latest</option>
-                <option value="updated">Updated</option>
-                <option value="popular">Popular</option>
-                <option value="distance">Distance</option>
-                <option value="elevation">Elevation</option>
-            </select>
+            <div className="flex items-center gap-2">
+                {/* Filter Toggle */}
+                <button
+                    onClick={() => setIsFilterOpen(prev => !prev)}
+                    className={`relative px-2 py-1 rounded border transition-all ${
+                        isFilterOpen || hasActiveFilters
+                        ? 'bg-riduck-primary/20 text-riduck-primary border-riduck-primary/50'
+                        : 'bg-gray-800 text-gray-500 border-gray-700 hover:bg-gray-700'
+                    }`}
+                    title="필터"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    {hasActiveFilters && (
+                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-riduck-primary rounded-full border-2 border-gray-900" />
+                    )}
+                </button>
+                {/* Sort Dropdown */}
+                <select
+                    value={sortOption}
+                    onChange={(e) => setSortOption(e.target.value)}
+                    className="bg-gray-800 text-gray-400 text-[10px] px-2 py-1 rounded border border-gray-700 focus:outline-none"
+                >
+                    <option value="latest">Latest</option>
+                    <option value="updated">Updated</option>
+                    <option value="popular">Popular</option>
+                    <option value="distance">Distance</option>
+                    <option value="elevation">Elevation</option>
+                </select>
+                {/* Sort Order Toggle */}
+                <button
+                    onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                    className="bg-gray-800 text-gray-400 hover:text-gray-200 px-1.5 py-1 rounded border border-gray-700 hover:bg-gray-700 transition-all"
+                    title={sortOrder === 'desc' ? '내림차순' : '오름차순'}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        {sortOrder === 'desc' ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        ) : (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                        )}
+                    </svg>
+                </button>
+            </div>
         </div>
-        
+
         <div className="relative">
-          <input 
-            type="text" 
+          <input
+            ref={searchInputRef}
+            type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search routes..." 
+            onChange={(e) => {
+                const val = e.target.value;
+                setSearchQuery(val);
+                setShowSearchTagDropdown(true);
+                if (searchTagDebounceRef.current) clearTimeout(searchTagDebounceRef.current);
+                searchTagDebounceRef.current = setTimeout(() => {
+                    if (val.trim()) fetchTagSuggestions(val, setSearchTagSuggestions);
+                    else setSearchTagSuggestions([]);
+                }, 300);
+            }}
+            onFocus={() => { if (searchQuery.trim()) setShowSearchTagDropdown(true); }}
+            placeholder="Search routes..."
             className="w-full bg-gray-800 text-gray-200 px-4 py-2.5 rounded-xl border border-gray-700 focus:outline-none focus:border-riduck-primary text-xs"
           />
           <span className="absolute right-3 top-2.5 text-gray-600 text-xs">🔍</span>
+          {/* Search Tag Autocomplete Dropdown */}
+          {showSearchTagDropdown && searchFilteredTags.length > 0 && (
+            <div ref={searchTagDropdownRef} className="absolute left-0 right-0 mt-1 max-h-32 overflow-y-auto bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-10">
+              {searchFilteredTags.map(tag => (
+                <button key={tag.slug}
+                    onClick={() => { onFiltersChange({ ...routeFilters, tags: [...routeFilters.tags, tag.slug] }); setSearchQuery(''); setShowSearchTagDropdown(false); }}
+                    className="w-full text-left px-2.5 py-1.5 text-[11px] text-gray-300 hover:bg-gray-700 hover:text-white flex justify-between"
+                >
+                  <span>#{tag.name}</span>
+                  <span className="flex items-center gap-1.5">
+                    {tag.similarity != null && <span className="text-[9px] text-gray-500">{Math.round(tag.similarity * 100)}%</span>}
+                    <span className="text-[9px] text-gray-600">{tag.count}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+
+        {/* Selected Tag Chips (visible outside filter panel) */}
+        {routeFilters && routeFilters.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {routeFilters.tags.map(slug => (
+              <span key={slug} className="inline-flex items-center gap-0.5 bg-riduck-primary/15 border border-riduck-primary/30 text-riduck-primary text-[10px] px-2 py-0.5 rounded-full">
+                {allTags.find(t => t.slug === slug)?.name || slug}
+                <button onClick={() => onFiltersChange({ ...routeFilters, tags: routeFilters.tags.filter(t => t !== slug) })} className="hover:text-white ml-0.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Collapsible Filter Panel */}
+        {isFilterOpen && routeFilters && (
+          <div className="mt-3 p-3 bg-gray-800/50 border border-gray-700/50 rounded-xl space-y-3">
+            {/* Distance */}
+            <div>
+              <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">거리 (km)</label>
+              <div className="flex items-center gap-2 mt-1">
+                <input type="number" placeholder="최소"
+                    value={routeFilters.minDistance}
+                    onChange={e => onFiltersChange({ ...routeFilters, minDistance: e.target.value })}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder-gray-600 focus:outline-none focus:border-riduck-primary"
+                />
+                <span className="text-gray-600 text-[10px]">~</span>
+                <input type="number" placeholder="최대"
+                    value={routeFilters.maxDistance}
+                    onChange={e => onFiltersChange({ ...routeFilters, maxDistance: e.target.value })}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder-gray-600 focus:outline-none focus:border-riduck-primary"
+                />
+              </div>
+            </div>
+
+            {/* Elevation */}
+            <div>
+              <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">획득고도 (m)</label>
+              <div className="flex items-center gap-2 mt-1">
+                <input type="number" placeholder="최소"
+                    value={routeFilters.minElevation}
+                    onChange={e => onFiltersChange({ ...routeFilters, minElevation: e.target.value })}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder-gray-600 focus:outline-none focus:border-riduck-primary"
+                />
+                <span className="text-gray-600 text-[10px]">~</span>
+                <input type="number" placeholder="최대"
+                    value={routeFilters.maxElevation}
+                    onChange={e => onFiltersChange({ ...routeFilters, maxElevation: e.target.value })}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder-gray-600 focus:outline-none focus:border-riduck-primary"
+                />
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div>
+              <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">태그</label>
+              {routeFilters.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1 mb-1.5">
+                  {routeFilters.tags.map(slug => (
+                    <span key={slug} className="inline-flex items-center gap-0.5 bg-riduck-primary/15 border border-riduck-primary/30 text-riduck-primary text-[10px] px-2 py-0.5 rounded-full">
+                      {allTags.find(t => t.slug === slug)?.name || slug}
+                      <button onClick={() => onFiltersChange({ ...routeFilters, tags: routeFilters.tags.filter(t => t !== slug) })} className="hover:text-white ml-0.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="relative mt-1">
+                <input ref={tagInputRef} type="text" placeholder="태그 검색..."
+                    value={tagQuery}
+                    onChange={e => {
+                        const val = e.target.value;
+                        setTagQuery(val);
+                        setShowTagDropdown(true);
+                        if (tagDebounceRef.current) clearTimeout(tagDebounceRef.current);
+                        tagDebounceRef.current = setTimeout(() => fetchTagSuggestions(val, setTagSuggestions), 300);
+                    }}
+                    onFocus={() => { setShowTagDropdown(true); if (!tagSuggestions.length) fetchTagSuggestions(tagQuery, setTagSuggestions); }}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder-gray-600 focus:outline-none focus:border-riduck-primary"
+                />
+                {showTagDropdown && filteredTags.length > 0 && (
+                  <div ref={tagDropdownRef} className="absolute left-0 right-0 mt-1 max-h-32 overflow-y-auto bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-10">
+                    {filteredTags.map(tag => (
+                      <button key={tag.slug}
+                          onClick={() => { onFiltersChange({ ...routeFilters, tags: [...routeFilters.tags, tag.slug] }); setTagQuery(''); setShowTagDropdown(false); }}
+                          className="w-full text-left px-2.5 py-1.5 text-[11px] text-gray-300 hover:bg-gray-700 hover:text-white flex justify-between"
+                      >
+                        <span>{tag.name}</span>
+                        <span className="flex items-center gap-1.5">
+                          {tag.similarity != null && <span className="text-[9px] text-gray-500">{Math.round(tag.similarity * 100)}%</span>}
+                          <span className="text-[9px] text-gray-600">{tag.count}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Reset */}
+            {hasActiveFilters && (
+              <button
+                  onClick={() => onFiltersChange({ ...routeFilters, minDistance: '', maxDistance: '', minElevation: '', maxElevation: '', tags: [] })}
+                  className="w-full text-[10px] text-gray-500 hover:text-gray-300 py-1 transition-colors"
+              >
+                  필터 초기화
+              </button>
+            )}
+          </div>
+        )}
         
-        {/* Search Scope Filter */}
-        <div className="flex gap-2 text-[10px] mt-3">
-            <button 
-                onClick={() => setActiveTab('all')}
-                className={`px-3 py-1.5 rounded-lg border transition-all ${
-                    activeTab === 'all' 
-                    ? 'bg-riduck-primary/20 text-riduck-primary border-riduck-primary/50 font-bold' 
+        {/* Tab Navigation */}
+        <div className="flex gap-1 text-[10px] mt-3">
+            {[
+              { key: 'all', label: 'All Routes' },
+              { key: 'my', label: 'My Routes' },
+              { key: 'favorites', label: 'Favorites' },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex-1 px-2 py-1.5 rounded-lg border transition-all ${
+                    activeTab === tab.key
+                    ? 'bg-riduck-primary/20 text-riduck-primary border-riduck-primary/50 font-bold'
                     : 'bg-gray-800 text-gray-500 border-gray-700 hover:bg-gray-700'
                 }`}
-            >
-                Overview
-            </button>
-            <button 
-                onClick={() => setActiveTab('my')}
-                className={`px-3 py-1.5 rounded-lg border transition-all ${
-                    activeTab === 'my' 
-                    ? 'bg-riduck-primary/20 text-riduck-primary border-riduck-primary/50 font-bold' 
-                    : 'bg-gray-800 text-gray-500 border-gray-700 hover:bg-gray-700'
-                }`}
-            >
-                My Routes
-            </button>
-            <button 
-                onClick={() => setActiveTab('public')}
-                className={`px-3 py-1.5 rounded-lg border transition-all ${
-                    activeTab === 'public' 
-                    ? 'bg-riduck-primary/20 text-riduck-primary border-riduck-primary/50 font-bold' 
-                    : 'bg-gray-800 text-gray-500 border-gray-700 hover:bg-gray-700'
-                }`}
-            >
-                Open Routes
-            </button>
+              >
+                {tab.label}
+              </button>
+            ))}
         </div>
       </div>
 
@@ -372,21 +594,27 @@ const SearchPanel = ({ onLoadRoute, activePreviewId }) => {
             </div>
           )}
 
-          {/* Section: My Routes */}
-          {(activeTab === 'all' || activeTab === 'my') && (
-            <div className="mb-6">
-                <div className="flex justify-between items-center mb-2 px-1">
-                    <h3 className="text-[10px] font-bold text-gray-500 uppercase">My Routes</h3>
-                    {activeTab === 'all' && myRoutes.length > 0 && (
-                        <button 
-                            onClick={() => setActiveTab('my')}
-                            className="text-[10px] text-riduck-primary hover:underline"
-                        >
-                            See All &rarr;
-                        </button>
-                    )}
-                </div>
-                
+          {/* Tab: All Routes */}
+          {activeTab === 'all' && (
+            <div>
+                {loading && publicRoutes.length === 0 ? (
+                   <div className="flex justify-center p-4"><div className="animate-spin h-5 w-5 border-2 border-riduck-primary rounded-full border-t-transparent"></div></div>
+                ) : publicRoutes.length === 0 && !error ? (
+                   <div className="flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-gray-800 rounded-xl bg-gray-900/30">
+                      <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center mb-2 text-gray-600">🌍</div>
+                      <p className="text-xs text-gray-600">No routes found.</p>
+                   </div>
+                ) : (
+                   <div className="space-y-3">
+                      {publicRoutes.map(route => <React.Fragment key={`pub-${route.id}`}>{renderRouteCard(route, false)}</React.Fragment>)}
+                   </div>
+                )}
+            </div>
+          )}
+
+          {/* Tab: My Routes */}
+          {activeTab === 'my' && (
+            <div>
                 {!user ? (
                    <div className="flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-gray-800 rounded-xl bg-gray-900/30">
                       <p className="text-xs text-gray-500 mb-2">Login to save your routes.</p>
@@ -406,33 +634,16 @@ const SearchPanel = ({ onLoadRoute, activePreviewId }) => {
             </div>
           )}
 
-          {/* Section: Open Routes */}
-          {(activeTab === 'all' || activeTab === 'public') && (
-            <div>
-                <div className="flex justify-between items-center mb-2 px-1">
-                    <h3 className="text-[10px] font-bold text-gray-500 uppercase">Open Routes</h3>
-                    {activeTab === 'all' && publicRoutes.length > 0 && (
-                        <button 
-                            onClick={() => setActiveTab('public')}
-                            className="text-[10px] text-riduck-primary hover:underline"
-                        >
-                            See All &rarr;
-                        </button>
-                    )}
+          {/* Tab: Favorites (Coming Soon) */}
+          {activeTab === 'favorites' && (
+            <div className="flex flex-col items-center justify-center text-center p-8 mt-4 border-2 border-dashed border-gray-800 rounded-xl bg-gray-900/30">
+                <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center mb-3 text-gray-600 text-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
                 </div>
-                
-                {loading && publicRoutes.length === 0 ? (
-                   <div className="flex justify-center p-4"><div className="animate-spin h-5 w-5 border-2 border-riduck-primary rounded-full border-t-transparent"></div></div>
-                ) : publicRoutes.length === 0 && !error ? (
-                   <div className="flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-gray-800 rounded-xl bg-gray-900/30">
-                      <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center mb-2 text-gray-600">🌍</div>
-                      <p className="text-xs text-gray-600">No public courses found.</p>
-                   </div>
-                ) : (
-                   <div className="space-y-3">
-                      {publicRoutes.map(route => <React.Fragment key={`pub-${route.id}`}>{renderRouteCard(route, false)}</React.Fragment>)}
-                   </div>
-                )}
+                <p className="text-xs text-gray-500 font-medium mb-1">Coming Soon</p>
+                <p className="text-[10px] text-gray-600">Save your favorite routes for quick access.</p>
             </div>
           )}
 
@@ -442,8 +653,8 @@ const SearchPanel = ({ onLoadRoute, activePreviewId }) => {
                   <div className="animate-spin h-5 w-5 border-2 border-riduck-primary rounded-full border-t-transparent"></div>
               </div>
           )}
-          {!loading && !loadingMore && activeTab !== 'all' && (
-              ((activeTab === 'my' && !hasMoreMy && myRoutes.length > 0) || (activeTab === 'public' && !hasMorePublic && publicRoutes.length > 0)) && (
+          {!loading && !loadingMore && activeTab !== 'favorites' && (
+              ((activeTab === 'my' && !hasMoreMy && myRoutes.length > 0) || (activeTab === 'all' && !hasMorePublic && publicRoutes.length > 0)) && (
                   <div className="py-6 text-center">
                       <p className="text-[10px] text-gray-600 uppercase tracking-widest">No more routes</p>
                   </div>

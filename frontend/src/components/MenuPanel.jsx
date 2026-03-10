@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { getPointTier, POINT_TYPE_CONFIG, TIER_STYLES, SELECTABLE_TYPES } from '../utils/waypointTypes';
 
-const MenuPanel = ({ 
+const MenuPanel = ({
   currentRouteId,
+  routeUuid,
+  routeStatus,
   routeStats,
   history, 
   onUndo, 
@@ -19,16 +22,17 @@ const MenuPanel = ({
   onSectionDelete,
   onSectionMerge,
   onSectionRename,
-  onSectionDownload
+  onSectionDownload,
+  onPointTypeChange
 }) => {
   const [isCopied, setIsCopied] = useState(false);
+  console.log('[MenuPanel] currentRouteId:', currentRouteId, 'routeUuid:', routeUuid);
 
   const handleCopyLink = () => {
     if (!currentRouteId) return;
-    
-    // In the future, this will be /route/:id
-    // For now, let's just prepare the URL format
-    const shareUrl = `${window.location.origin}/route/${currentRouteId}`;
+
+    const routeIdentifier = (routeStatus === 'LINK_ONLY' && routeUuid) ? routeUuid : currentRouteId;
+    const shareUrl = `${window.location.origin}/route/${routeIdentifier}`;
     
     navigator.clipboard.writeText(shareUrl).then(() => {
       setIsCopied(true);
@@ -45,6 +49,20 @@ const MenuPanel = ({
   // Point Rename State
   const [editingPointId, setEditingPointId] = useState(null);
   const [pointTempName, setPointTempName] = useState('');
+
+  // Point Type Picker State
+  const [typePickerPointId, setTypePickerPointId] = useState(null);
+  const typePickerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (typePickerRef.current && !typePickerRef.current.contains(e.target)) {
+        setTypePickerPointId(null);
+      }
+    };
+    if (typePickerPointId) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [typePickerPointId]);
 
   // --- Section Handlers ---
   const handleStartSectionRename = (section) => {
@@ -210,11 +228,22 @@ const MenuPanel = ({
                     {section.points.map((p, pIdx) => {
                       const isFirst = sIdx === 0 && pIdx === 0;
                       const isLast = sIdx === sections.length - 1 && pIdx === section.points.length - 1;
-                      const bgColor = isFirst ? '#10B981' : (isLast ? '#EF4444' : section.color);
+                      const tier = getPointTier(p, isFirst, isLast);
+                      const tierStyle = TIER_STYLES[tier];
+                      const typeConfig = POINT_TYPE_CONFIG[p.type] || POINT_TYPE_CONFIG.via;
+                      const IconComponent = typeConfig.icon;
+                      const bgColor = isFirst ? '#10B981' : isLast ? '#EF4444'
+                        : typeConfig.color || section.color;
                       const isFocusedPoint = focusedPointId === p.id;
-                      
-                      const displayName = p.name ? p.name : `Point ${pIdx + 1}`;
-                      const isNameCustom = !!p.name;
+
+                      const displayName = p.name ? p.name : (
+                        typeConfig.label && p.type !== 'via' && p.type !== 'section_start'
+                          ? typeConfig.label
+                          : `Point ${pIdx + 1}`
+                      );
+                      const isNameCustom = !!p.name || (p.type !== 'via' && p.type !== 'section_start');
+                      const showIcon = tier === 'large' && p.type !== 'via' && p.type !== 'section_start';
+                      const isTypePicker = typePickerPointId === p.id;
 
                       return (
                         <div
@@ -227,32 +256,73 @@ const MenuPanel = ({
                           }`}
                         >
                           {/* Styled to match map marker */}
-                          <div 
-                            className={`w-6 h-6 rounded-full border-2 border-white shadow-sm flex items-center justify-center text-[9px] font-black text-white shrink-0 ${isFocusedPoint ? 'scale-110 shadow-riduck-primary/40' : ''}`} 
-                            style={{ backgroundColor: bgColor }}
-                          >
-                            {pIdx + 1}
+                          <div className="relative shrink-0">
+                            <div
+                              className={`${tierStyle.sidebar} rounded-full border-2 border-white shadow-sm flex items-center justify-center font-black text-white cursor-pointer ${isFocusedPoint ? 'scale-110 shadow-riduck-primary/40' : ''}`}
+                              style={{ backgroundColor: bgColor }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!isFirst && !isLast) {
+                                  setTypePickerPointId(isTypePicker ? null : p.id);
+                                }
+                              }}
+                              title={isFirst || isLast ? '' : 'Click to change type'}
+                            >
+                              {showIcon ? <IconComponent size={12} strokeWidth={2.5} /> : pIdx + 1}
+                            </div>
+                            {/* Type Picker Dropdown */}
+                            {isTypePicker && (
+                              <div
+                                ref={typePickerRef}
+                                className="absolute left-0 top-full mt-1 z-50 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl p-1.5 w-36"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {SELECTABLE_TYPES.map(({ key, icon: TypeIcon, label, color: typeColor }) => (
+                                  <button
+                                    key={key}
+                                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors ${
+                                      p.type === key
+                                        ? 'bg-riduck-primary/20 text-riduck-primary'
+                                        : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                                    }`}
+                                    onClick={() => {
+                                      onPointTypeChange(sIdx, pIdx, key);
+                                      setTypePickerPointId(null);
+                                    }}
+                                  >
+                                    <div
+                                      className="w-4 h-4 rounded-full flex items-center justify-center"
+                                      style={{ backgroundColor: typeColor || section.color }}
+                                    >
+                                      <TypeIcon size={10} strokeWidth={2.5} className="text-white" />
+                                    </div>
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           
                           <div className="flex-1 min-w-0">
                             {editingPointId === p.id ? (
-                                <input 
+                                <input
                                     autoFocus
                                     className="bg-gray-900 text-white text-xs px-2 py-1 rounded border border-riduck-primary focus:outline-none w-full font-medium"
                                     value={pointTempName}
+                                    onClick={(e) => e.stopPropagation()}
                                     onChange={(e) => setPointTempName(e.target.value)}
                                     onBlur={() => handleFinishPointRename(sIdx, pIdx)}
                                     onKeyDown={(e) => e.key === 'Enter' && handleFinishPointRename(sIdx, pIdx)}
                                     placeholder={`Point ${pIdx + 1}`}
                                 />
                             ) : (
-                                <p 
-                                    className={`text-xs truncate transition-colors hover:text-riduck-primary ${isNameCustom ? 'text-white font-bold' : 'text-gray-500 font-medium'}`}
-                                    onDoubleClick={(e) => {
+                                <p
+                                    className={`text-xs truncate transition-colors cursor-text hover:text-riduck-primary ${isNameCustom ? 'text-white font-bold' : 'text-gray-500 font-medium'}`}
+                                    onClick={(e) => {
                                       e.stopPropagation();
                                       handleStartPointRename(p);
                                     }}
-                                    title="Double click to rename"
+                                    title="Click to rename"
                                 >
                                     {displayName}
                                 </p>

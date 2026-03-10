@@ -15,18 +15,19 @@ services:
       - server_threads=2
     restart: always
 
-  postgres:
-    image: postgis/postgis:15-3.3
-    container_name: postgres
+  riduck-db:
+    build: ./db
+    image: riduck-db:15-postgis-pgvector
+    container_name: riduck-db
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
       POSTGRES_DB: ${DB_NAME:-postgres}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5433}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - riduck_db_data:/var/lib/postgresql/data
     restart: always
 
 volumes:
-  postgres_data:
+  riduck_db_data:

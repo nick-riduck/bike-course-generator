@@ -1,0 +1,31 @@
+{
+  "type": "permanents",
+  "code": "PT-201",
+  "name": "동부60고개 Part2",
+  "distance": "255km",
+  "elevation": "4,849m",
+  "time_limit": "17:00",
+  "start": "단월 7-11",
+  "end": "양수역",
+  "designer": "김영삼",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT201.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1ybxQ0TSFjCH-GzKUwKPsBQPplBXFRZ7O?usp=drive_link"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/47118027"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/v4wbRvEI6_"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "https://kko.to/JnR3CQioPK"
+    }
+  ]
+}

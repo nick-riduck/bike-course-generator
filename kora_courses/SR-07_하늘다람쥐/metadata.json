@@ -1,0 +1,27 @@
+{
+  "type": "superrando",
+  "code": "SR-07",
+  "name": "하늘다람쥐",
+  "distance": "614km",
+  "elevation": "13,373 m",
+  "time_limit": "태백",
+  "start": "태백",
+  "end": "김진학",
+  "designer": "",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/superrando/info-SR07.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "GPX 파일/컨트롤 정보/지도",
+      "url": "https://drive.google.com/drive/folders/10l-GioKBDNjMDwVA2hFhwBzZdciCRqve?usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/48429455"
+    },
+    {
+      "text": "Start/Finish 지도보기 (VIEW)",
+      "url": "http://kko.to/uZaIvfJD0"
+    }
+  ]
+}

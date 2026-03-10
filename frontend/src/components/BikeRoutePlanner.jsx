@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
+import apiClient from '../utils/apiClient';
 import { Map, Source, Layer, Marker, Popup } from 'react-map-gl/maplibre';
 import { useAuth } from '../AuthContext';
 import { auth } from '../firebase';
@@ -7,9 +8,15 @@ import ElevationChart from './ElevationChart';
 import SidebarNav from './SidebarNav';
 import MenuPanel from './MenuPanel';
 import SearchPanel from './SearchPanel';
+import WaypointPanel from './WaypointPanel';
+import WaypointDetailModal from './WaypointDetailModal';
 import SaveRouteModal from './SaveRouteModal';
 import ExportRouteModal from './ExportRouteModal';
+import NearbyFilterModal, { DEFAULT_FILTERS } from './NearbyFilterModal';
 import ReactMarkdown from 'react-markdown';
+import { getPointTier, POINT_TYPE_CONFIG, TIER_STYLES } from '../utils/waypointTypes';
+import posthog from 'posthog-js';
+import { analytics } from '../utils/analytics';
 
 const formatDate = (dateString) => {
     if (!dateString) return null;
@@ -160,32 +167,53 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const [hoveredSectionIndex, setHoveredSectionIndex] = useState(null);
   const [ambiguityPopup, setAmbiguityPopup] = useState(null);
   const [isDirty, setIsDirty] = useState(false); // Track unsaved map changes
+  const [sectionsVersion, setSectionsVersion] = useState(0); // Increments on route edits
 
   // Route Metadata (Received via props)
   const [routeDescription, setRouteDescription] = useState('');
   const [routeStatus, setRouteStatus] = useState('PUBLIC');
   const [routeTags, setRouteTags] = useState([]);
   const [currentRouteId, setCurrentRouteId] = useState(null);
+  const [routeUuid, setRouteUuid] = useState(null);
   const [routeStats, setRouteStats] = useState({ views: 0, downloads: 0 });
   const [routeOwnerId, setRouteOwnerId] = useState(null);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [searchRefreshTrigger, setSearchRefreshTrigger] = useState(0);
   const [focusedPointId, setFocusedPointId] = useState(null);
   const [mapHoverCoord, setMapHoverCoord] = useState(null);
 
   // Preview State
   const [previewRoute, setPreviewRoute] = useState(null);
   const [mobilePreviewExpanded, setMobilePreviewExpanded] = useState(false);
+  const [previewLinkCopied, setPreviewLinkCopied] = useState(false);
 
   // Place Search State
   const [isPlaceSearchOpen, setIsPlaceSearchOpen] = useState(false);
   const [placeSearchQuery, setPlaceSearchQuery] = useState('');
+  const [placeSearchResults, setPlaceSearchResults] = useState([]);
+  const [placeSearchLoading, setPlaceSearchLoading] = useState(false);
+  const placeSearchTimerRef = useRef(null);
+  const [placeSearchPulse, setPlaceSearchPulse] = useState(null); // { lon, lat }
+  const pulseTimerRef = useRef(null);
+
+  // More Menu State (Mobile)
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef(null);
 
   // Nearby Routes State
   const [isNearbyMode, setIsNearbyMode] = useState(false);
   const [nearbyRoutes, setNearbyRoutes] = useState(null);
   const [nearbyCenter, setNearbyCenter] = useState(null); // { lat, lng, radiusKm }
+  const [routeFilters, setRouteFilters] = useState({ ...DEFAULT_FILTERS });
+  const [isNearbyFilterOpen, setIsNearbyFilterOpen] = useState(false);
+  const routeFiltersRef = useRef(routeFilters);
   const nearbyDebounceRef = useRef(null);
+
+  // Waypoint Mode State
+  const [isWaypointMode, setIsWaypointMode] = useState(false);
+  const [adminWaypoints, setAdminWaypoints] = useState([]);
+  const [selectedWaypointId, setSelectedWaypointId] = useState(null);
 
   // Long Press State for Mobile
   const longPressTimerRef = useRef(null);
@@ -197,6 +225,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const previewInvalidLoggedRef = useRef(false);
   const dragPreviewInvalidLoggedRef = useRef(false);
   const previewPanelMobileRef = useRef(null);
+  const pendingNearbyAfterSaveRef = useRef(false);
 
   const makeCircleGeoJSON = (lat, lng, radiusKm, steps = 64) => {
     const coords = [];
@@ -229,28 +258,92 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     setNearbyCenter({ lat: center.lat, lng: center.lng, radiusKm: radius });
 
     try {
-        const res = await fetch(`/api/routes/nearby?lat=${center.lat}&lon=${center.lng}&radius=${radius}&limit=7`);
-        if (res.ok) {
-            const data = await res.json();
-            setNearbyRoutes(data);
-        }
+        const f = routeFiltersRef.current;
+        const params = new URLSearchParams({
+            lat: center.lat, lon: center.lng, radius, limit: f.limit
+        });
+        if (f.minDistance !== '') params.set('min_distance', f.minDistance);
+        if (f.maxDistance !== '') params.set('max_distance', f.maxDistance);
+        if (f.minElevation !== '') params.set('min_elevation', f.minElevation);
+        if (f.maxElevation !== '') params.set('max_elevation', f.maxElevation);
+        if (f.tags.length > 0) params.set('tags', f.tags.join(','));
+
+        const data = await apiClient.get(`/api/routes/nearby?${params}`);
+        setNearbyRoutes(data);
     } catch (e) {
         console.error("Failed to fetch nearby routes:", e);
     }
   }, []);
 
   const toggleNearby = () => {
-      setIsNearbyMode(prev => {
-          const next = !prev;
-          if (next) {
-              fetchNearbyRoutes();
-          } else {
-              setNearbyRoutes(null);
-              setNearbyCenter(null);
+      // Clear place search state on mode switch
+      closePlaceSearch();
+      setIsWaypointMode(false);
+
+      if (!isNearbyMode) {
+          // Turning ON nearby mode
+          const hasRoute = sections.some(s => s.points.length > 0);
+          if (hasRoute) {
+              const wantSave = confirm("현재 경로가 있습니다. 저장하시겠습니까?\n(확인: 저장 후 탐색 모드, 취소: 저장 없이 탐색 모드)");
+              if (wantSave) {
+                  pendingNearbyAfterSaveRef.current = true;
+                  openSaveModal();
+                  return;
+              }
+              // User chose not to save — reset and enter nearby mode
+              resetRoute();
           }
-          return next;
-      });
+          setIsNearbyMode(true);
+          fetchNearbyRoutes();
+      } else {
+          // Turning OFF nearby mode
+          if (nearbyDebounceRef.current) clearTimeout(nearbyDebounceRef.current);
+          setNearbyRoutes(null);
+          setNearbyCenter(null);
+          setIsNearbyMode(false);
+      }
   };
+
+  const toggleWaypointMode = () => {
+      closePlaceSearch();
+      if (!isWaypointMode) {
+          setIsNearbyMode(false);
+          setIsWaypointMode(true);
+          fetchAdminWaypoints();
+      } else {
+          setIsWaypointMode(false);
+          setAdminWaypoints([]);
+      }
+  };
+
+  const fetchAdminWaypoints = async () => {
+      try {
+          const data = await apiClient.get('/api/waypoints');
+        setAdminWaypoints(data);
+    } catch (e) {
+          console.error("Failed to fetch admin waypoints:", e);
+      }
+  };
+
+  const adminWaypointsGeoJSON = useMemo(() => {
+      if (!adminWaypoints || adminWaypoints.length === 0) return null;
+      return {
+          type: 'FeatureCollection',
+          features: adminWaypoints.map(wp => ({
+              type: 'Feature',
+              geometry: { type: 'Point', coordinates: [wp.lng, wp.lat] },
+              properties: {
+                  id: wp.id,
+                  name: wp.name,
+                  description: wp.description,
+                  type: wp.type,
+                  tour_count: wp.tour_count || 1,
+                  has_images: wp.has_images,
+                  has_tips: wp.has_tips
+              }
+          }))
+      };
+  }, [adminWaypoints]);
 
   const handleMapMoveEnd = (evt) => {
       if (isNearbyMode) {
@@ -282,6 +375,103 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     }
   }, []);
 
+  // Place Search Logic
+  const COORD_REGEX = /^[-]?\d{1,3}\.\d+[,\s]+[-]?\d{1,3}\.\d+$/;
+
+  const performPlaceSearch = useCallback(async (query) => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setPlaceSearchResults([]);
+      return;
+    }
+
+    setPlaceSearchLoading(true);
+    try {
+      if (COORD_REGEX.test(trimmed)) {
+        // Coordinate input → Nominatim reverse geocoding
+        const parts = trimmed.split(/[,\s]+/).map(Number);
+        const [lat, lon] = parts;
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=ko`
+        );
+        const data = await res.json();
+        if (data && data.display_name) {
+          setPlaceSearchResults([{
+            name: data.display_name.split(',')[0],
+            address: data.display_name,
+            lat: parseFloat(data.lat),
+            lon: parseFloat(data.lon),
+          }]);
+        } else {
+          setPlaceSearchResults([]);
+        }
+      } else {
+        // Text search → Photon autocomplete
+        const res = await fetch(
+          `https://photon.komoot.io/api/?q=${encodeURIComponent(trimmed)}&limit=5`
+        );
+        const data = await res.json();
+        if (data.features && data.features.length > 0) {
+          setPlaceSearchResults(data.features.map(f => {
+            const p = f.properties;
+            const [lon, lat] = f.geometry.coordinates;
+            const nameParts = [p.name, p.city, p.state, p.country].filter(Boolean);
+            return {
+              name: p.name || nameParts[0] || 'Unknown',
+              address: nameParts.join(', '),
+              lat,
+              lon,
+            };
+          }));
+        } else {
+          setPlaceSearchResults([]);
+        }
+      }
+    } catch (err) {
+      console.warn('Place search failed:', err);
+      setPlaceSearchResults([]);
+    } finally {
+      setPlaceSearchLoading(false);
+    }
+  }, []);
+
+  const handlePlaceSearchInput = useCallback((value) => {
+    setPlaceSearchQuery(value);
+    if (placeSearchTimerRef.current) clearTimeout(placeSearchTimerRef.current);
+    placeSearchTimerRef.current = setTimeout(() => {
+      performPlaceSearch(value);
+    }, 300);
+  }, [performPlaceSearch]);
+
+  const handlePlaceSelect = useCallback((result) => {
+    const mapInstance = mapRef.current?.getMap ? mapRef.current.getMap() : mapRef.current;
+    if (mapInstance && typeof mapInstance.flyTo === 'function') {
+      const currentZoom = typeof mapInstance.getZoom === 'function' ? mapInstance.getZoom() : 12;
+      mapInstance.flyTo({
+        center: [result.lon, result.lat],
+        zoom: Math.max(currentZoom, 14),
+        duration: 1000,
+        essential: true,
+      });
+    }
+    // Show pulse at location
+    if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
+    setPlaceSearchPulse({ lon: result.lon, lat: result.lat });
+    pulseTimerRef.current = setTimeout(() => setPlaceSearchPulse(null), 3000);
+
+    setPlaceSearchResults([]);
+    setPlaceSearchQuery('');
+    setIsPlaceSearchOpen(false);
+  }, []);
+
+  const closePlaceSearch = useCallback(() => {
+    setPlaceSearchResults([]);
+    setPlaceSearchQuery('');
+    setIsPlaceSearchOpen(false);
+    setPlaceSearchPulse(null);
+    if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
+  }, []);
+
   const handleChartPointSelect = useCallback((coord) => {
     if (!coord || !Number.isFinite(coord.lng) || !Number.isFinite(coord.lat)) return;
     setFocusedPointId(null);
@@ -298,6 +488,22 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     setHoveredSectionIndex(sectionIdx);
     flyMapToPoint(coord);
   }, [flyMapToPoint]);
+
+  // Close more menu on outside click
+  React.useEffect(() => {
+    if (!moreMenuOpen) return;
+    const handleClickOutside = (e) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
+        setMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [moreMenuOpen]);
 
   React.useEffect(() => {
     if (!focusedPointId) return;
@@ -332,15 +538,19 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
       const pointIdSet = new Set(points.map((p) => p.id));
       const distanceByPointId = new globalThis.Map();
 
+      // Build segment lookup map: "startId->endId" → segment (O(n) instead of O(n²) .find())
+      const segmentLookup = new globalThis.Map();
+      for (const seg of segmentList) {
+        segmentLookup.set(`${seg.startPointId}->${seg.endPointId}`, seg);
+      }
+
       if (points.length > 0) {
         distanceByPointId.set(points[0].id, cumulativeDistKm);
 
         for (let i = 0; i < points.length - 1; i++) {
           const startPoint = points[i];
           const endPoint = points[i + 1];
-          const linkingSegment = segmentList.find(
-            (segment) => segment.startPointId === startPoint.id && segment.endPointId === endPoint.id
-          );
+          const linkingSegment = segmentLookup.get(`${startPoint.id}->${endPoint.id}`);
 
           cumulativeDistKm += getSegmentDistanceKm(linkingSegment, startPoint, endPoint);
           distanceByPointId.set(endPoint.id, cumulativeDistKm);
@@ -351,9 +561,14 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           const lastPoint = points[points.length - 1];
 
           if (lastPoint && nextSectionFirstPoint) {
-            const connectorSegment = segmentList.find(
-              (segment) => segment.startPointId === lastPoint.id && !pointIdSet.has(segment.endPointId)
-            );
+            // Find connector: segment starting from lastPoint going outside this section
+            let connectorSegment;
+            for (const seg of segmentList) {
+              if (seg.startPointId === lastPoint.id && !pointIdSet.has(seg.endPointId)) {
+                connectorSegment = seg;
+                break;
+              }
+            }
             cumulativeDistKm += getSegmentDistanceKm(connectorSegment, lastPoint, nextSectionFirstPoint);
           }
         }
@@ -370,7 +585,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   }, [sections]);
 
   const handleOpenExportModal = () => {
-    if (!sections || sections.length === 0) return;
+    const hasSections = previewRoute ? previewRoute.sections.length > 0 : sections.some(s => s.points.length > 0);
+    if (!hasSections) return;
     setIsExportModalOpen(true);
   };
 
@@ -450,6 +666,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         const res = await fetch(`/api/routes/${routeId}`, { headers });
         if (!res.ok) throw new Error("Failed to load route data");
         const data = await res.json();
+        analytics.routeViewed(routeId, data.distance);
+        posthog.capture('route_viewed', { route_id: routeId, distance: data.distance, title: data.title });
 
         if (data.editor_state && data.editor_state.sections) {
              // 에디터로 저장된 루트: editor_state.sections 사용
@@ -534,6 +752,14 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
      setIsMenuOpen(false);
      setIsSearchOpen(false);
 
+     // Exit nearby mode if active
+     if (isNearbyMode) {
+         if (nearbyDebounceRef.current) clearTimeout(nearbyDebounceRef.current);
+         setIsNearbyMode(false);
+         setNearbyRoutes(null);
+         setNearbyCenter(null);
+     }
+
      // Clear preview state
      setPreviewRoute(null);
      setMobilePreviewExpanded(false);
@@ -551,10 +777,25 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
      }, 350);
   };
 
+  const copyShareLink = () => {
+      const identifier = previewRoute
+          ? (previewRoute.data.uuid || previewRoute.data.route_id)
+          : ((routeStatus === 'LINK_ONLY' && routeUuid) ? routeUuid : currentRouteId);
+      if (!identifier) return;
+      const shareUrl = `${window.location.origin}/route/${identifier}`;
+      navigator.clipboard.writeText(shareUrl).then(() => {
+          setPreviewLinkCopied(true);
+          setTimeout(() => setPreviewLinkCopied(false), 2000);
+      }).catch(() => {
+          alert('Failed to copy link.');
+      });
+  };
+
   const cancelPreview = (options = {}) => {
       const { reopenSearchOnMobile = true } = options;
       setPreviewRoute(null);
       setMobilePreviewExpanded(false);
+      setPreviewLinkCopied(false);
       setIsElevationChartVisible(true);
       if (sections.some(s => s.points.length > 0)) {
           fitMapToSections(sections);
@@ -565,11 +806,13 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   };
 
   const performExport = async (filename, format) => {
-    if (!sections || sections.length === 0) return;
+    const sourceSections = previewRoute ? previewRoute.sections : sectionsWithPointDistances;
+    const sourceRouteId = previewRoute ? previewRoute.data.route_id : currentRouteId;
+    if (!sourceSections || sourceSections.length === 0) return;
 
     try {
         // Deep clone sections to remove any potential non-serializable properties
-        const cleanSections = sectionsWithPointDistances.map(sec => ({
+        const cleanSections = sourceSections.map(sec => ({
             id: sec.id,
             name: sec.name,
             color: sec.color,
@@ -611,18 +854,26 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             throw new Error(err.detail || `Failed to generate ${format.toUpperCase()}`);
         }
 
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
         
-        const contentDisposition = response.headers.get('Content-Disposition');
-        let downloadFilename = `route-${Date.now()}.${format}`;
+        analytics.routeExported(format);
+        posthog.capture('route_exported', { format });
+        const url = window.URL.createObjectURL(blob);
+
+        const contentDisposition = null;
+        let downloadFilename;
         if (contentDisposition) {
-            const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-            if (filenameMatch && filenameMatch.length === 2)
-                downloadFilename = filenameMatch[1];
-        } else {
-             const safeName = (filename || 'route').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-             downloadFilename = `${safeName}.${format}`;
+            // RFC 5987: filename*=UTF-8''encoded_name
+            const starMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/i);
+            if (starMatch) {
+                downloadFilename = decodeURIComponent(starMatch[1]);
+            } else {
+                const plainMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+                if (plainMatch) downloadFilename = plainMatch[1];
+            }
+        }
+        if (!downloadFilename) {
+            const safeName = (filename || 'route').replace(/[^a-z0-9가-힣]/gi, '_');
+            downloadFilename = `${safeName}.${format}`;
         }
 
         const a = document.createElement('a');
@@ -633,8 +884,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
 
-        if (currentRouteId) {
-            fetch(`/api/routes/${currentRouteId}/download`, { method: 'POST' }).catch(e => {});
+        if (sourceRouteId) {
+            fetch(`/api/routes/${sourceRouteId}/download`, { method: 'POST' }).catch(() => {});
         }
 
     } catch (e) {
@@ -671,11 +922,19 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         const url = window.URL.createObjectURL(blob);
         
         const contentDisposition = response.headers.get('Content-Disposition');
-        let filename = `section-${section.name || 'Export'}-${Date.now()}.gpx`;
+        let filename;
         if (contentDisposition) {
-            const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-            if (filenameMatch && filenameMatch.length === 2)
-                filename = filenameMatch[1];
+            const starMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/i);
+            if (starMatch) {
+                filename = decodeURIComponent(starMatch[1]);
+            } else {
+                const plainMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+                if (plainMatch) filename = plainMatch[1];
+            }
+        }
+        if (!filename) {
+            const safeName = (section.name || 'section').replace(/[^a-z0-9가-힣]/gi, '_');
+            filename = `${safeName}.${format}`;
         }
 
         const a = document.createElement('a');
@@ -765,6 +1024,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     const { features, point: { x, y }, lngLat } = event;
     const hoveredFeature = features && features[0];
     const routeFeatures = features ? features.filter(f => f.layer.id === 'route-layer') : [];
+    const waypointFeature = features ? features.find(f => f.layer.id === 'admin-waypoints-layer') : null;
 
     if (routeFeatures.length > 0 && lngLat && Number.isFinite(lngLat.lng) && Number.isFinite(lngLat.lat)) {
       setMapHoverCoord({ lng: lngLat.lng, lat: lngLat.lat });
@@ -772,9 +1032,19 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
       setMapHoverCoord(null);
     }
     
-    // 1. Surface Info Tooltip
-    if (hoveredFeature && hoveredFeature.properties.surface) {
-        setHoverInfo({ feature: hoveredFeature, x, y });
+    // 1. Surface Info Tooltip or Waypoint Tooltip
+    if (waypointFeature) {
+        setHoverInfo({ 
+            isWaypoint: true,
+            feature: waypointFeature, 
+            x, y 
+        });
+    } else if (hoveredFeature && hoveredFeature.properties.surface) {
+        setHoverInfo({ 
+            isWaypoint: false,
+            feature: hoveredFeature, 
+            x, y 
+        });
     } else {
         setHoverInfo(null);
     }
@@ -895,7 +1165,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     const prev = history.past[history.past.length - 1];
     setHistory(curr => ({ 
       past: curr.past.slice(0, -1), 
-      future: [JSON.parse(JSON.stringify(sections)), ...curr.future] 
+      future: [structuredClone(sections), ...curr.future] 
     }));
     setSections(prev);
   };
@@ -904,7 +1174,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     if (history.future.length === 0) return;
     const next = history.future[0];
     setHistory(curr => ({ 
-      past: [...curr.past, JSON.parse(JSON.stringify(sections))], 
+      past: [...curr.past, structuredClone(sections)], 
       future: curr.future.slice(1) 
     }));
     setSections(next);
@@ -912,9 +1182,10 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
   const saveToHistory = (currentSections) => {
     setIsDirty(true);
-    setHistory(curr => ({ 
-      past: [...curr.past, JSON.parse(JSON.stringify(currentSections))], 
-      future: [] 
+    setSectionsVersion(v => v + 1);
+    setHistory(curr => ({
+      past: [...curr.past, structuredClone(currentSections)],
+      future: []
     }));
   };
 
@@ -1074,6 +1345,17 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         }
     }
 
+    // Waypoint click — open detail modal instead of creating a point
+    if (isWaypointMode && e.features) {
+        const wpFeature = e.features.find(f => f.layer.id === 'admin-waypoints-layer');
+        if (wpFeature) {
+            setSelectedWaypointId(wpFeature.properties.id);
+            analytics.waypointViewed(wpFeature.properties.id, wpFeature.properties.type);
+            posthog.capture('waypoint_viewed', { waypoint_id: wpFeature.properties.id, waypoint_type: wpFeature.properties.type });
+            return;
+        }
+    }
+
     // If Nearby Mode is ON, DO NOT create points. Just return.
     if (isNearbyMode) {
         return;
@@ -1207,7 +1489,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     e?.stopPropagation();
     saveToHistory(sections);
     
-    let updatedSections = JSON.parse(JSON.stringify(sections)); // Deep copy to avoid mutation issues
+    let updatedSections = structuredClone(sections); // Deep copy to avoid mutation issues
     const targetSection = updatedSections[sectionIdx];
     const targetPoint = targetSection.points[pointIdx];
 
@@ -1311,7 +1593,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             await Promise.all(segmentsToFetch.map(async ({ sectionIdx: sIdx, segmentId, start, end }) => {
                 const realData = await fetchSegmentData(start, end, isMockMode ? 'mock' : 'real');
                 setSections(prev => {
-                    const latest = JSON.parse(JSON.stringify(prev));
+                    const latest = structuredClone(prev);
                     const sec = latest[sIdx];
                     sec.segments = sec.segments.map(s => s.id === segmentId ? { ...s, ...realData } : s);
                     return latest;
@@ -1324,7 +1606,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   // Section Management Handlers
   const handleSectionDelete = async (sectionIdx) => {
       saveToHistory(sections);
-      let updatedSections = JSON.parse(JSON.stringify(sections));
+      let updatedSections = structuredClone(sections);
       
       const segmentsToFetch = deleteSection(sectionIdx, updatedSections);
       
@@ -1336,7 +1618,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             await Promise.all(segmentsToFetch.map(async ({ sectionIdx: sIdx, segmentId, start, end }) => {
                 const realData = await fetchSegmentData(start, end, isMockMode ? 'mock' : 'real');
                 setSections(prev => {
-                    const latest = JSON.parse(JSON.stringify(prev));
+                    const latest = structuredClone(prev);
                     const sec = latest[sIdx];
                     sec.segments = sec.segments.map(s => s.id === segmentId ? { ...s, ...realData } : s);
                     return latest;
@@ -1351,7 +1633,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
       if (sectionIdx >= sections.length - 1) return;
       saveToHistory(sections);
       
-      let updatedSections = JSON.parse(JSON.stringify(sections));
+      let updatedSections = structuredClone(sections);
       const currSec = updatedSections[sectionIdx];
       const nextSec = updatedSections[sectionIdx + 1];
       
@@ -1383,11 +1665,18 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
       setSections(updatedSections);
   };
 
+  const handlePointTypeChange = (sectionIdx, pointIdx, newType) => {
+      saveToHistory(sections);
+      const updatedSections = [...sections];
+      updatedSections[sectionIdx].points[pointIdx].type = newType;
+      setSections(updatedSections);
+  };
+
   const handlePointMove = async (sectionIdx, pointIdx, evt) => {
     const { lng, lat } = evt.lngLat;
     saveToHistory(sections);
 
-    let updatedSections = JSON.parse(JSON.stringify(sections));
+    let updatedSections = structuredClone(sections);
     const targetSection = updatedSections[sectionIdx];
     
     // Update Point Location
@@ -1457,7 +1746,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             await Promise.all(segmentsToFetch.map(async ({ sectionIdx: sIdx, segmentId, start, end }) => {
                 const realData = await fetchSegmentData(start, end, isMockMode ? 'mock' : 'real');
                 setSections(prev => {
-                    const latest = JSON.parse(JSON.stringify(prev));
+                    const latest = structuredClone(prev);
                     const sec = latest[sIdx];
                     sec.segments = sec.segments.map(s => s.id === segmentId ? { ...s, ...realData } : s);
                     return latest;
@@ -1471,7 +1760,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     if (pointIdx <= 0 || pointIdx >= sections[sectionIdx].points.length) return;
     
     saveToHistory(sections);
-    const updatedSections = JSON.parse(JSON.stringify(sections));
+    const updatedSections = structuredClone(sections);
     const targetSection = updatedSections[sectionIdx];
     
     // P_new_1 (targetSection.points[pointIdx]) becomes the header of the new section
@@ -1506,52 +1795,36 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     setSections(updatedSections);
   };
 
-  const totalDist = sections.reduce((acc, sec) => acc + sec.segments.reduce((sAcc, s) => sAcc + (s.distance || 0), 0), 0);
-  const totalAscent = sections.reduce((acc, sec) => acc + sec.segments.reduce((sAcc, s) => sAcc + (s.ascent || 0), 0), 0);
+  const totalDist = useMemo(() => sections.reduce((acc, sec) => acc + sec.segments.reduce((sAcc, s) => sAcc + (s.distance || 0), 0), 0), [sections]);
+  const totalAscent = useMemo(() => sections.reduce((acc, sec) => acc + sec.segments.reduce((sAcc, s) => sAcc + (s.ascent || 0), 0), 0), [sections]);
 
   const surfaceGeoJSON = useMemo(() => ({
     type: 'FeatureCollection',
     features: sections.flatMap((sec, secIdx) => sec.segments.flatMap((s, segIdx) => {
-        // Base Props
-        const props = { 
-            color: sec.color, // Default Section Color
-            sectionIndex: secIdx, 
-            segmentIndex: segIdx 
+        const props = {
+            color: sec.color,
+            sectionIndex: secIdx,
+            segmentIndex: segIdx,
+            sectionColor: sec.color
         };
 
-        // Override color based on state
         if (s.type === 'mock') props.color = '#FFA726';
         else if (s.type === 'loading') props.color = '#9E9E9E';
         else if (s.type === 'error') props.color = '#F44336';
-        
-        // If hovered in menu, force section color highlight
-        if (hoveredSectionIndex === secIdx) {
-            props.color = sec.color; 
-            // Maybe brighten or thicken? For now just color is fine.
-        }
 
         if (s.surfaceSegments && s.surfaceSegments.length > 0) {
-            return s.surfaceSegments.map(fs => {
-                const finalProps = {
-                    ...props, // 1. Base Props (Section Color)
-                    ...fs.properties, // 2. Surface Props (Override with Surface Color e.g. Green/Brown)
-                    sectionColor: sec.color // Keep original section color for reference
-                };
-
-                // 3. Force Section Color if Hovered (Highest Priority)
-                if (hoveredSectionIndex === secIdx) {
-                    finalProps.color = sec.color;
+            return s.surfaceSegments.map(fs => ({
+                ...fs,
+                properties: {
+                    ...props,
+                    ...fs.properties,
+                    sectionColor: sec.color
                 }
-
-                return { 
-                    ...fs, 
-                    properties: finalProps
-                };
-            });
+            }));
         }
         return [{ type: 'Feature', geometry: s.geometry, properties: props }];
     }))
-  }), [sections, hoveredSectionIndex]);
+  }), [sections]);
 
   const previewGeoJSON = useMemo(() => {
     if (!previewRoute) return null;
@@ -1728,25 +2001,15 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
              payload.route_id = currentRouteId;
           }
 
-          const res = await fetch('/api/routes', {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${idToken}`
-              },
-              body: JSON.stringify(payload)
-          });
-
-          if (!res.ok) {
-              const err = await res.json();
-              throw new Error(err.detail || 'Failed to save');
-          }
-
-          const result = await res.json();
+          const result = await apiClient.post('/api/routes', payload);
+          console.log('[Save] response:', result, 'route_id:', result.route_id, 'uuid:', result.uuid);
+          analytics.routeCreated(result.route_id, result.distance, result.elevation_gain, modalData.tags?.length || 0);
+          posthog.capture('route_created', { route_id: result.route_id, distance: result.distance, elevation_gain: result.elevation_gain, tags: modalData.tags, is_overwrite: modalData.isOverwrite });
           alert(modalData.isOverwrite ? "Route updated!" : "Route saved successfully!");
           
           // Update local state with saved metadata
           setCurrentRouteId(result.route_id);
+          setRouteUuid(result.uuid || null);
           setRouteName(modalData.title);
           setRouteDescription(modalData.description);
           setRouteStatus(modalData.status);
@@ -1755,6 +2018,15 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           setIsDirty(false); // Changes saved
           setIsMenuOpen(false);
           setIsSearchOpen(false);
+          setSearchRefreshTrigger(prev => prev + 1);
+
+          // If nearby mode was pending after save, activate it now
+          if (pendingNearbyAfterSaveRef.current) {
+              pendingNearbyAfterSaveRef.current = false;
+              resetRoute();
+              setIsNearbyMode(true);
+              fetchNearbyRoutes();
+          }
       } catch (e) {
           console.error(e);
           alert(`Error saving route: ${e.message}`);
@@ -1771,17 +2043,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           const formData = new FormData();
           formData.append('file', file);
 
-          const res = await fetch('/api/routes/import', {
-              method: 'POST',
-              body: formData
-          });
-
-          if (!res.ok) {
-              const errData = await res.json().catch(() => ({}));
-              throw new Error(errData.detail || 'Failed to import GPX');
-          }
-
-          const data = await res.json();
+          // Use apiClient with formData (don't stringify, don't override content-type)
+          const data = await apiClient.post('/api/routes/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
           const { waypoints, full_geometry, summary, display_geojson } = data;
           
           if (!full_geometry || !full_geometry.coordinates || full_geometry.coordinates.length < 2) {
@@ -1932,8 +2195,9 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           setSections(newSections);
           
           setCurrentRouteId(null);
+          setRouteUuid(null);
           setRouteName('Imported GPX');
-          setRouteDescription('Imported from GPX file');
+          setRouteDescription('');
           setRouteStatus('PUBLIC');
           setRouteTags([]);
           setRouteOwnerId(null);
@@ -1974,29 +2238,68 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           
           const data = await res.json();
           
+          let loadedSections = null;
+
           if (data.editor_state && data.editor_state.sections) {
-              setSections(data.editor_state.sections);
-              
+              loadedSections = data.editor_state.sections;
+          } else if (data.points && Array.isArray(data.points.lat) && data.points.lat.length >= 2) {
+              // v1.0 columnar format fallback (imported routes without editor_state)
+              const lats = data.points.lat;
+              const lons = data.points.lon;
+              const eles = data.points.ele || lats.map(() => 0);
+              const coords = lats.map((lat, i) => [lons[i], lat, eles[i]]);
+
+              const surfColors = { 1: '#2979FF', 2: '#2979FF', 3: '#9E9E9E', 4: '#FFC400', 5: '#00E676', 6: '#8D6E63', 7: '#8D6E63', 0: '#9E9E9E' };
+              const segs = data.segments || {};
+              const displayFeatures = (segs.p_start || []).map((sIdx, i) => ({
+                  type: 'Feature',
+                  geometry: { type: 'LineString', coordinates: coords.slice(sIdx, (segs.p_end[i] || sIdx) + 1) },
+                  properties: { color: surfColors[segs.surf_id?.[i]] ?? '#9E9E9E', start_index: sIdx, end_index: segs.p_end?.[i] }
+              }));
+
+              const startPt = { id: generateId(), lng: coords[0][0], lat: coords[0][1], type: 'via', name: 'Start' };
+              const endPt   = { id: generateId(), lng: coords[coords.length - 1][0], lat: coords[coords.length - 1][1], type: 'via', name: 'End' };
+              loadedSections = [{
+                  id: generateId(),
+                  name: 'Route',
+                  points: [startPt, endPt],
+                  segments: [{
+                      id: generateId(),
+                      startPointId: startPt.id,
+                      endPointId: endPt.id,
+                      geometry: { type: 'LineString', coordinates: coords },
+                      distance: (data.distance || 0) / 1000,
+                      ascent: data.elevation_gain || 0,
+                      type: 'api',
+                      surfaceSegments: displayFeatures
+                  }],
+                  color: SECTION_COLORS[0]
+              }];
+          }
+
+          if (loadedSections) {
+              setSections(loadedSections);
+
               // Update all metadata to enable Correct Fork/Overwrite behavior
               setCurrentRouteId(data.route_id);
+              setRouteUuid(data.uuid || null);
               setRouteName(data.title || '');
               setRouteDescription(data.description || '');
               setRouteStatus(data.status || 'PUBLIC');
               setRouteTags(data.tags || []);
               setRouteOwnerId(data.owner_id);
               setRouteStats(data.stats || { views: 0, downloads: 0 });
-              
-              setHistory({ past: [], future: [] }); // Reset history
-              setIsDirty(false); // Freshly loaded
+
+              setHistory({ past: [], future: [] });
+              setIsDirty(false);
               setIsMenuOpen(false);
               setIsSearchOpen(false);
-              
-              // Focus Map
-              fitMapToSections(data.editor_state.sections);
+
+              fitMapToSections(loadedSections);
 
               if (!skipConfirm) alert("Route loaded!");
           } else {
-              alert("This route data is missing editor state (Legacy format?). Cannot load into editor.");
+              alert("Invalid route data: no editor state or points data found.");
           }
 
       } catch (e) {
@@ -2008,10 +2311,10 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
       }
   };
 
-  // Auto-load route from URL
+  // Auto-load route from URL (preview mode)
   React.useEffect(() => {
     if (initialRouteId) {
-      handleLoadRoute(initialRouteId, true);
+      handlePreviewRoute(initialRouteId);
     }
   }, [initialRouteId]);
 
@@ -2032,21 +2335,35 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     });
   };
 
-  const handleNewRoute = () => {
-    if (sections.some(s => s.points.length > 0)) {
-        if (!confirm("Your unsaved changes will be lost. Create a new route?")) return;
-    }
+  const resetRoute = () => {
     setSections([{ id: generateId(), name: 'Section 1', points: [], segments: [], color: SECTION_COLORS[0] }]);
     setRouteName('');
     setRouteDescription('');
     setRouteStatus('PUBLIC');
     setRouteTags([]);
     setCurrentRouteId(null);
+    setRouteUuid(null);
     setRouteOwnerId(null);
     setHistory({ past: [], future: [] });
     setIsDirty(false);
     setIsMenuOpen(false);
     setIsSearchOpen(false);
+  };
+
+  const handleNewRoute = () => {
+    if (sections.some(s => s.points.length > 0)) {
+        if (!confirm("Your unsaved changes will be lost. Create a new route?")) return;
+    }
+    // Exit nearby mode if active
+    if (isNearbyMode) {
+        if (nearbyDebounceRef.current) clearTimeout(nearbyDebounceRef.current);
+        setIsNearbyMode(false);
+        setNearbyRoutes(null);
+        setNearbyCenter(null);
+    }
+    setPreviewRoute(null);
+    setMobilePreviewExpanded(false);
+    resetRoute();
   };
 
   const isClean = sections.length === 1 && sections[0].points.length === 0;
@@ -2072,19 +2389,20 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   return (
     <div className="flex w-full h-full relative overflow-hidden">
       {/* 1. Left Sidebar Navigation (Toolbar) */}
-      <SidebarNav 
-        isMenuOpen={isMenuOpen} 
-        isSearchOpen={isSearchOpen} 
-        onToggleMenu={toggleMenu} 
-        onToggleSearch={toggleSearch} 
+      <SidebarNav
+        isMenuOpen={isMenuOpen}
+        isSearchOpen={isSearchOpen}
+        onToggleMenu={toggleMenu}
+        onToggleSearch={toggleSearch}
         onNewRoute={handleNewRoute}
         onImportGPX={handleImportGPX}
         onExportGPX={handleOpenExportModal}
         isClean={isClean}
         isNearbyMode={isNearbyMode}
         onToggleNearby={toggleNearby}
+        isWaypointMode={isWaypointMode}
+        onToggleWaypoint={toggleWaypointMode}
       />
-
       {/* 2. Panels Container (Stackable) */}
       <div className="absolute top-0 left-0 h-full z-40 pointer-events-none flex md:relative md:shrink-0 md:pointer-events-auto">
         {/* Menu Panel */}
@@ -2093,8 +2411,10 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             h-full bg-gray-900 overflow-hidden transition-all duration-300 ease-in-out
         `}>
             <div className="w-80 h-full"> {/* Inner Fixed Width Container */}
-                <MenuPanel 
+                <MenuPanel
                     currentRouteId={currentRouteId}
+                    routeUuid={routeUuid}
+                    routeStatus={routeStatus}
                     routeStats={routeStats}
                     history={history}
                     onUndo={handleUndo}
@@ -2113,6 +2433,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     onSectionMerge={handleSectionMerge}
                     onSectionRename={handleSectionRename}
                     onSectionDownload={handleSectionDownload}
+                    onPointTypeChange={handlePointTypeChange}
                     onImportGPX={handleImportGPX}
                     isMockMode={isMockMode}
                     setIsMockMode={setIsMockMode}
@@ -2126,10 +2447,40 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             h-full bg-gray-900 overflow-hidden transition-all duration-300 ease-in-out
         `}>
              <div className="w-80 h-full"> {/* Inner Fixed Width Container */}
-                <SearchPanel onLoadRoute={handlePreviewRoute} activePreviewId={previewRoute?.id ?? null} />
+                 <SearchPanel
+                     onLoadRoute={handlePreviewRoute}
+                     activePreviewId={previewRoute?.id ?? null}
+                     routeFilters={routeFilters}
+                     onFiltersChange={(filters) => {
+                         setRouteFilters(filters);
+                         routeFiltersRef.current = filters;
+                     }}
+                     refreshTrigger={searchRefreshTrigger}
+                 />
              </div>
         </div>
 
+        {/* Waypoint Panel */}
+        <div className={`
+            ${isWaypointMode ? 'w-80 border-r border-gray-800 pointer-events-auto shadow-2xl' : 'w-0'}
+            h-full bg-gray-900 overflow-hidden transition-all duration-300 ease-in-out
+        `}>
+             <div className="w-80 h-full"> {/* Inner Fixed Width Container */}
+                 {isWaypointMode && (
+                     <WaypointPanel
+                         onWaypointClick={(wp) => {
+                             setSelectedWaypointId(wp.id);
+                             flyMapToPoint({ lng: wp.lng, lat: wp.lat });
+                         }}
+                         onWaypointAdd={(wp) => {
+                             const e = { lngLat: { lng: wp.lng, lat: wp.lat } };
+                             handleMapClick({ ...e, originalEvent: { target: document.createElement('div') } });
+                         }}
+                         onClose={toggleWaypointMode}
+                     />
+                 )}
+             </div>
+        </div>
         {/* Desktop Preview Detail Panel (md+) - slides in next to search panel */}
         <div className={`
             hidden md:block
@@ -2144,7 +2495,13 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                             {previewRoute.data.route_num && (
-                                <span className="text-[11px] text-gray-500 font-mono">#{previewRoute.data.route_num}</span>
+                                <button
+                                    onClick={copyShareLink}
+                                    className={`text-[11px] font-mono transition-colors cursor-pointer hover:text-riduck-primary ${previewLinkCopied ? 'text-green-400' : 'text-gray-500'}`}
+                                    title={previewLinkCopied ? 'Copied!' : 'Copy share link'}
+                                >
+                                    {previewLinkCopied ? 'Copied!' : `#${previewRoute.data.route_num}`}
+                                </button>
                             )}
                             <h2 className="text-white font-bold text-base leading-snug mt-0.5">{previewRoute.data.title || 'Untitled Route'}</h2>
                         </div>
@@ -2197,19 +2554,42 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                         </div>
                     </div>
 
-                    {/* View/Download counts */}
-                    {(previewRoute.data.stats?.views > 0 || previewRoute.data.stats?.downloads > 0) && (
+                    {/* View/Download counts + Export button */}
+                    <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4 text-xs text-gray-500">
-                            <span className="flex items-center gap-1">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                {previewRoute.data.stats.views.toLocaleString()}
-                            </span>
-                            <span className="flex items-center gap-1">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                                {previewRoute.data.stats.downloads.toLocaleString()}
-                            </span>
+                            {(previewRoute.data.stats?.views > 0 || previewRoute.data.stats?.downloads > 0) && (<>
+                                <span className="flex items-center gap-1">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                    {previewRoute.data.stats.views.toLocaleString()}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                    {previewRoute.data.stats.downloads.toLocaleString()}
+                                </span>
+                            </>)}
                         </div>
-                    )}
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={copyShareLink}
+                                className={`flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg hover:bg-gray-800 ${previewLinkCopied ? 'text-green-400' : 'text-gray-400 hover:text-riduck-primary'}`}
+                                title={previewLinkCopied ? 'Copied!' : 'Copy share link'}
+                            >
+                                {previewLinkCopied ? (
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+                                ) : (
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                                )}
+                            </button>
+                            <button
+                                onClick={handleOpenExportModal}
+                                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-riduck-primary transition-colors px-2 py-1 rounded-lg hover:bg-gray-800"
+                                title="Export GPX/TCX"
+                            >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                GPX/TCX
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Scrollable: Description only */}
@@ -2277,48 +2657,104 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     </div>
                 </button>}
 
-                {/* 2. Place Search Bar (Floating) */}
-                <div className={`pointer-events-auto flex items-center bg-gray-900/90 backdrop-blur-md border border-gray-700 shadow-xl rounded-full transition-all duration-300 ease-in-out h-10 md:h-12 overflow-hidden ${isPlaceSearchOpen ? 'w-64 px-4' : 'w-10 md:w-12 justify-center'}`}>
-                    
-                    {/* Input Field (Visible only when open) */}
-                    <input 
-                        type="text"
-                        placeholder="Not supported yet (미지원)"
-                        value={placeSearchQuery}
-                        onChange={(e) => setPlaceSearchQuery(e.target.value)}
-                        disabled
-                        className={`bg-transparent text-gray-500 text-sm outline-none transition-all duration-300 h-full ${isPlaceSearchOpen ? 'flex-1 opacity-100' : 'w-0 opacity-0'}`}
-                    />
+                {/* 2. Share + Place Search Bar (Floating) */}
+                <div className="pointer-events-auto relative flex items-center gap-2">
+                    {/* Share Link */}
+                    {(previewRoute || currentRouteId) && !isPlaceSearchOpen && (
+                        <button
+                            onClick={copyShareLink}
+                            className={`flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-full shadow-xl backdrop-blur-md transition-all active:scale-95 ${
+                                previewLinkCopied
+                                    ? 'bg-green-500/90 text-white border border-green-500'
+                                    : 'bg-gray-900/90 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500'
+                            }`}
+                            title={previewLinkCopied ? 'Copied!' : 'Copy share link'}
+                        >
+                            {previewLinkCopied ? (
+                                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+                            ) : (
+                                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                            )}
+                        </button>
+                    )}
+                    {/* Search */}
+                    <div className={`flex items-center bg-gray-900/90 backdrop-blur-md border border-gray-700 shadow-xl rounded-full transition-all duration-300 ease-in-out h-10 md:h-12 overflow-hidden ${isPlaceSearchOpen ? 'w-64 md:w-80 px-4' : 'w-10 md:w-12 justify-center'}`}>
 
-                    {/* Toggle Button (Magnifying Glass) */}
-                    <button 
-                        onClick={() => {
-                            if (!isPlaceSearchOpen) {
-                                setIsPlaceSearchOpen(true);
-                            } else {
-                                alert("Place search is not supported yet (미지원).");
-                                setIsPlaceSearchOpen(false);
-                            }
-                        }}
-                        className={`text-gray-400 hover:text-white transition-colors shrink-0 flex items-center justify-center ${isPlaceSearchOpen ? 'ml-2' : ''}`}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isPlaceSearchOpen && placeSearchQuery ? "M6 18L18 6M6 6l12 12" : "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"} />
-                        </svg>
-                    </button>
+                        {/* Input Field (Visible only when open) */}
+                        <input
+                            type="text"
+                            placeholder="장소 검색 또는 좌표 입력"
+                            value={placeSearchQuery}
+                            onChange={(e) => handlePlaceSearchInput(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    if (placeSearchTimerRef.current) clearTimeout(placeSearchTimerRef.current);
+                                    performPlaceSearch(placeSearchQuery);
+                                }
+                            }}
+                            className={`bg-transparent text-white text-sm outline-none transition-all duration-300 h-full placeholder-gray-500 ${isPlaceSearchOpen ? 'flex-1 opacity-100' : 'w-0 opacity-0'}`}
+                        />
+
+                        {/* Loading Spinner */}
+                        {placeSearchLoading && isPlaceSearchOpen && (
+                            <div className="ml-1 shrink-0">
+                                <div className="w-4 h-4 border-2 border-gray-500 border-t-white rounded-full animate-spin" />
+                            </div>
+                        )}
+
+                        {/* Toggle Button (Magnifying Glass / Close) */}
+                        <button
+                            onClick={() => {
+                                if (!isPlaceSearchOpen) {
+                                    setIsPlaceSearchOpen(true);
+                                } else {
+                                    closePlaceSearch();
+                                }
+                            }}
+                            className={`text-gray-400 hover:text-white transition-colors shrink-0 flex items-center justify-center ${isPlaceSearchOpen ? 'ml-2' : ''}`}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isPlaceSearchOpen && placeSearchQuery ? "M6 18L18 6M6 6l12 12" : "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"} />
+                            </svg>
+                        </button>
+                    </div>
+
+                    {/* Search Results Dropdown */}
+                    {isPlaceSearchOpen && placeSearchResults.length > 0 && (
+                        <div className="absolute top-full mt-2 left-0 right-0 bg-gray-900/95 backdrop-blur-md border border-gray-700 rounded-xl shadow-2xl overflow-hidden z-50">
+                            {placeSearchResults.map((result, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => handlePlaceSelect(result)}
+                                    className="w-full text-left px-4 py-3 hover:bg-gray-700/50 transition-colors border-b border-gray-800 last:border-b-0"
+                                >
+                                    <div className="text-white text-sm font-medium truncate">{result.name}</div>
+                                    <div className="text-gray-400 text-xs truncate mt-0.5">{result.address}</div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
 
             {/* Stats Overlay / Nearby Mode Badge */}
             {isNearbyMode ? (
                 <div className="absolute top-4 left-4 md:top-6 md:left-6 z-10 flex items-center gap-2">
-                    <div className="backdrop-blur-md bg-blue-500/15 border border-blue-400/40 px-4 py-2 md:px-6 md:py-3 rounded-2xl shadow-2xl pointer-events-none">
+                    <button
+                        onClick={() => setIsNearbyFilterOpen(true)}
+                        className="relative backdrop-blur-md bg-blue-500/15 border border-blue-400/40 px-4 py-2 md:px-6 md:py-3 rounded-2xl shadow-2xl cursor-pointer hover:bg-blue-500/25 transition-colors text-left"
+                    >
+                        {(routeFilters.minDistance !== '' || routeFilters.maxDistance !== '' ||
+                          routeFilters.minElevation !== '' || routeFilters.maxElevation !== '' ||
+                          routeFilters.tags.length > 0 || routeFilters.limit !== 7) && (
+                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-400 rounded-full border-2 border-gray-900" />
+                        )}
                         <p className="text-[9px] md:text-[10px] text-blue-300 uppercase font-bold tracking-wider mb-0.5">탐색 모드</p>
                         <p className="text-sm md:text-base font-bold text-white leading-none">
                             반경 {nearbyCenter ? nearbyCenter.radiusKm : '—'}km
-                            <span className="text-[10px] md:text-xs text-blue-300 font-normal ml-1.5">인기순 7개</span>
+                            <span className="text-[10px] md:text-xs text-blue-300 font-normal ml-1.5">인기순 {routeFilters.limit}개</span>
                         </p>
-                    </div>
+                    </button>
                     <button
                         onClick={() => {
                             if (!navigator.geolocation) return;
@@ -2343,7 +2779,10 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     </button>
                 </div>
             ) : (
-                <div className={`absolute top-4 left-4 md:top-6 md:left-6 z-10 backdrop-blur-md px-5 py-2 md:px-8 md:py-3 rounded-2xl border shadow-2xl flex gap-4 md:gap-8 items-center pointer-events-none transition-all ${previewRoute ? 'bg-riduck-primary/15 border-riduck-primary/40' : 'bg-gray-900/90 border-gray-700'}`}>
+                <div 
+                    className={`absolute top-4 left-4 md:top-6 md:left-6 z-10 backdrop-blur-md px-5 py-2 md:px-8 md:py-3 rounded-2xl border shadow-2xl flex gap-4 md:gap-8 items-center transition-all duration-300 ${previewRoute ? 'bg-riduck-primary/15 border-riduck-primary/40 pointer-events-none' : isClean ? 'bg-gray-900/90 border-gray-700 pointer-events-none' : 'bg-gray-900/90 border-riduck-primary/50 shadow-[0_0_12px_rgba(42,158,146,0.25)] pointer-events-auto cursor-pointer hover:border-riduck-primary/80 hover:shadow-[0_0_18px_rgba(42,158,146,0.4)] hover:bg-gray-800/90 active:scale-[0.98]'}`}
+                    onClick={!previewRoute ? openSaveModal : undefined}
+                >
                     {previewRoute && (
                         <span className="text-riduck-primary text-[9px] md:text-[10px] font-bold uppercase tracking-wider absolute -top-2.5 left-3 bg-gray-900 px-1.5 rounded">Preview</span>
                     )}
@@ -2367,16 +2806,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
             {/* Mobile Only: Sidebar Toggles (Below Stats) */}
             <div className={`absolute top-[80px] left-4 z-10 gap-2 md:hidden ${mobilePreviewExpanded ? 'hidden' : 'flex'}`}>
-                <button 
-                    onClick={handleNewRoute}
-                    disabled={isClean}
-                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isClean ? 'bg-gray-800/50 border-gray-800 text-gray-600 opacity-50 cursor-not-allowed' : 'bg-gray-900/90 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800'}`}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                </button>
-                <button 
+                <button
                     onClick={toggleMenu}
                     className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isMenuOpen ? 'bg-riduck-primary border-riduck-primary text-white shadow-riduck-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
                 >
@@ -2384,7 +2814,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                     </svg>
                 </button>
-                <button 
+                <button
                     onClick={toggleSearch}
                     className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isSearchOpen ? 'bg-riduck-primary border-riduck-primary text-white shadow-riduck-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
                 >
@@ -2392,27 +2822,64 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.58 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.58 4 8 4s8-1.79 8-4M4 7c0-2.21 3.58-4 8-4s8 1.79 8 4" />
                     </svg>
                 </button>
-                <label className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all bg-gray-900/90 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800 cursor-pointer flex items-center justify-center`}>
-                    <input type="file" accept=".gpx,.tcx" className="hidden" onChange={(e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                            handleImportGPX(file);
-                            e.target.value = '';
-                        }
-                    }} />
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                </label>
-                <button 
-                    onClick={handleOpenExportModal}
-                    disabled={isClean}
-                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isClean ? 'bg-gray-800/50 border-gray-800 text-gray-600 opacity-50 cursor-not-allowed' : 'bg-gray-900/90 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                <button
+                    onClick={toggleNearby}
+                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isNearbyMode ? 'bg-riduck-primary border-riduck-primary text-white shadow-riduck-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
                     </svg>
                 </button>
+                <div className="relative" ref={moreMenuRef}>
+                    <button
+                        onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+                        className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${moreMenuOpen ? 'bg-riduck-primary border-riduck-primary text-white shadow-riduck-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
+                        </svg>
+                    </button>
+                    {moreMenuOpen && (
+                        <div className="absolute top-full mt-2 left-0 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl backdrop-blur-md overflow-hidden animate-fade-in-up min-w-[160px]">
+                            <button
+                                onClick={() => { handleNewRoute(); setMoreMenuOpen(false); }}
+                                disabled={isClean}
+                                className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-all ${isClean ? 'text-gray-600 cursor-not-allowed' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                New Route
+                            </button>
+                            <label
+                                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-all cursor-pointer"
+                            >
+                                <input type="file" accept=".gpx,.tcx" className="hidden" onChange={(e) => {
+                                    const file = e.target.files[0];
+                                    if (file) {
+                                        handleImportGPX(file);
+                                        e.target.value = '';
+                                    }
+                                    setMoreMenuOpen(false);
+                                }} />
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                </svg>
+                                Import GPX/TCX
+                            </label>
+                            <button
+                                onClick={() => { handleOpenExportModal(); setMoreMenuOpen(false); }}
+                                disabled={isClean}
+                                className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-all ${isClean ? 'text-gray-600 cursor-not-allowed' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                Export GPX/TCX
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <Map 
@@ -2429,10 +2896,16 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 onTouchEnd={handleTouchEnd}
 
                 onMouseLeave={() => { setHoverInfo(null); setDragState(null); setMapHoverCoord(null); }} // Cancel drag if leave?
-                interactiveLayerIds={['route-layer', 'nearby-routes-layer']}
+                interactiveLayerIds={['route-layer', 'nearby-routes-layer', 'admin-waypoints-layer']}
                 style={{ width: '100%', height: '100%' }} 
-                cursor={isLoading ? 'wait' : (dragState ? 'grabbing' : (insertCandidate ? 'grab' : (isNearbyMode ? 'default' : 'crosshair')))}
+                cursor={isLoading ? 'wait' : (dragState ? 'grabbing' : (insertCandidate ? 'grab' : (isNearbyMode ? 'default' : (hoverInfo?.isWaypoint ? 'pointer' : 'crosshair'))))}
             >
+                {placeSearchPulse && (
+                    <Marker longitude={placeSearchPulse.lon} latitude={placeSearchPulse.lat} anchor="center">
+                        <div className="place-search-pulse" />
+                    </Marker>
+                )}
+
                 {nearbyCenter && (
                     <>
                         <Source id="nearby-radius-source" type="geojson" data={makeCircleGeoJSON(nearbyCenter.lat, nearbyCenter.lng, nearbyCenter.radiusKm)}>
@@ -2445,8 +2918,9 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     </>
                 )}
 
-                {nearbyRoutes && (
+                {isNearbyMode && nearbyRoutes && (
                     <Source id="nearby-routes-source" type="geojson" data={nearbyRoutes}>
+                        {/* 
                         <Layer
                             id="nearby-routes-layer"
                             type="line"
@@ -2456,13 +2930,57 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                                 'line-width': 4,
                                 'line-opacity': 0.85
                             }}
+                        /> 
+                        */}
+                        <Layer
+                            id="nearby-routes-layer-casing"
+                            type="line"
+                            layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+                            paint={{
+                                'line-color': '#FFFFFF',
+                                'line-width': previewRoute ? 5 : 6,
+                                'line-opacity': previewRoute ? 0.15 : 0.6
+                            }}
+                        />
+                        <Layer
+                            id="nearby-routes-layer"
+                            type="line"
+                            layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+                            paint={{
+                                'line-color': ['get', 'zone_color'],
+                                'line-width': previewRoute ? 3 : 4,
+                                'line-opacity': previewRoute ? 0.4 : 1.0
+                            }}
+                        />
+                    </Source>
+                )}
+
+                {isWaypointMode && adminWaypointsGeoJSON && (
+                    <Source id="admin-waypoints-source" type="geojson" data={adminWaypointsGeoJSON}>
+                        <Layer 
+                            id="admin-waypoints-layer" 
+                            type="circle" 
+                            paint={{
+                                'circle-radius': ['step', ['get', 'tour_count'], 4, 2, 6, 5, 8],
+                                'circle-color': ['step', ['get', 'tour_count'], '#377eb8', 2, '#ff7f00', 5, '#e41a1c'],
+                                'circle-stroke-width': 2,
+                                'circle-stroke-color': '#FFFFFF'
+                            }} 
                         />
                     </Source>
                 )}
 
                 {surfaceGeoJSON.features.length > 0 && (
                     <Source id="route-source" type="geojson" data={surfaceGeoJSON}>
-                        <Layer id="route-layer" type="line" layout={{ 'line-join': 'round', 'line-cap': 'round' }} paint={{ 'line-color': ['get', 'color'], 'line-width': 6, 'line-opacity': 0.9 }} />
+                        <Layer id="route-layer" type="line" layout={{ 'line-join': 'round', 'line-cap': 'round' }} paint={{
+                            'line-color': hoveredSectionIndex !== null
+                                ? ['case', ['==', ['get', 'sectionIndex'], hoveredSectionIndex], ['get', 'sectionColor'], ['get', 'color']]
+                                : ['get', 'color'],
+                            'line-width': hoveredSectionIndex !== null
+                                ? ['case', ['==', ['get', 'sectionIndex'], hoveredSectionIndex], 8, 6]
+                                : 6,
+                            'line-opacity': 0.9
+                        }} />
                     </Source>
                 )}
 
@@ -2582,34 +3100,49 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     </Marker>
                 )}
 
-                {sections.flatMap((sec, sIdx) => sec.points.map((p, pIdx, arr) => (
-                    <Marker 
-                        key={`${sec.id}-${p.id}`} 
-                        longitude={p.lng} 
-                        latitude={p.lat} 
+                {sections.flatMap((sec, sIdx) => sec.points.map((p, pIdx, arr) => {
+                    const isFirst = sIdx === 0 && pIdx === 0;
+                    const isLast = sIdx === sections.length - 1 && pIdx === arr.length - 1;
+                    const tier = getPointTier(p, isFirst, isLast);
+                    const tierStyle = TIER_STYLES[tier];
+                    const typeConfig = POINT_TYPE_CONFIG[p.type] || POINT_TYPE_CONFIG.via;
+                    const IconComponent = typeConfig.icon;
+                    const markerColor = isFirst ? '#10B981' : isLast ? '#EF4444'
+                      : typeConfig.color || sec.color;
+
+                    return (
+                    <Marker
+                        key={`${sec.id}-${p.id}`}
+                        longitude={p.lng}
+                        latitude={p.lat}
                         anchor="center"
                         draggable={true}
                         onDragEnd={(evt) => handlePointMove(sIdx, pIdx, evt)}
                     >
                     {(() => {
                       const isFocusedPoint = focusedPointId === p.id;
+                      const showIcon = tier === 'large' && p.type !== 'via' && p.type !== 'section_start';
                       return (
-                    <div 
-                      className={`group relative flex items-center justify-center w-6 h-6 rounded-full border-2 border-white cursor-pointer text-white text-xs font-black z-50 transition-transform ${
+                    <div
+                      className={`group relative flex items-center justify-center ${tierStyle.map} rounded-full border-2 border-white cursor-pointer text-white font-black z-50 transition-transform ${
                         isFocusedPoint ? 'scale-125 shadow-[0_0_0_2px_rgba(42,158,146,0.35),0_0_14px_rgba(42,158,146,0.65)]' : 'shadow-lg hover:scale-110'
-                      }`} 
-                      style={{ backgroundColor: sIdx === 0 && pIdx === 0 ? '#10B981' : (sIdx === sections.length - 1 && pIdx === arr.length - 1 ? '#EF4444' : sec.color) }}
+                      }`}
+                      style={{ backgroundColor: markerColor }}
                       onClick={(e) => handlePointRemove(sIdx, pIdx, e)}
                     >
                         {isFocusedPoint && (
                           <span className="pointer-events-none absolute -inset-2 rounded-full border border-riduck-primary/60 animate-ping"></span>
                         )}
-                        <span className="group-hover:hidden">{pIdx + 1}</span><span className="hidden group-hover:block">✕</span>
+                        <span className="group-hover:hidden">
+                          {showIcon ? <IconComponent size={14} strokeWidth={2.5} /> : pIdx + 1}
+                        </span>
+                        <span className="hidden group-hover:block">✕</span>
                     </div>
                       );
                     })()}
                     </Marker>
-                )))}
+                    );
+                }))}
                 {ambiguityPopup && (
                     <Popup
                         longitude={ambiguityPopup.lng}
@@ -2673,18 +3206,40 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 )}
                 {hoverInfo && (
                     <div className="absolute z-50 pointer-events-none bg-gray-900/95 text-white p-3 rounded-lg text-xs border border-gray-600 shadow-xl backdrop-blur-md" style={{left: hoverInfo.x + 15, top: hoverInfo.y + 15}}>
-                        <div className="flex items-center gap-2 mb-1">
-                            <div className="w-3 h-3 rounded-full shadow-sm" style={{backgroundColor: hoverInfo.feature.properties.color}}></div>
-                            <span className="font-bold text-sm">{hoverInfo.feature.properties.surface}</span>
-                        </div>
-                        {hoverInfo.feature.properties.description && (
-                            <div className="mt-1 text-[11px] text-gray-400 leading-tight max-w-[200px]">
-                                {hoverInfo.feature.properties.description}
-                            </div>
+                        {hoverInfo.isWaypoint ? (
+                            <>
+                                <div className="font-bold text-sm text-riduck-primary mb-1">
+                                    {hoverInfo.feature.properties.name}
+                                </div>
+                                <div className="text-[11px] text-gray-300">
+                                    {hoverInfo.feature.properties.description && (
+                                        <div className="mb-1 text-gray-400 max-w-[200px] whitespace-normal">
+                                            {hoverInfo.feature.properties.description}
+                                        </div>
+                                    )}
+                                    <div>Type: {hoverInfo.feature.properties.type}</div>
+                                    <div>Tours: {hoverInfo.feature.properties.tour_count}</div>
+                                    {hoverInfo.feature.properties.has_images && <div>🖼️ Images available</div>}
+                                    {hoverInfo.feature.properties.has_tips && <div>💡 Tips available</div>}
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="w-3 h-3 rounded-full shadow-sm" style={{backgroundColor: hoverInfo.feature.properties.color}}></div>
+                                    <span className="font-bold text-sm">{hoverInfo.feature.properties.surface}</span>
+                                </div>
+                                {hoverInfo.feature.properties.description && (
+                                    <div className="mt-1 text-[11px] text-gray-400 leading-tight max-w-[200px]">
+                                        {hoverInfo.feature.properties.description}
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 )}
             </Map>
+
 
             {/* Preview Control UI — Mobile only (floating bottom sheet) */}
             {previewRoute && (
@@ -2703,7 +3258,13 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                             <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
                                     {previewRoute.data.route_num && (
-                                        <span className="text-[11px] text-gray-500 font-mono">#{previewRoute.data.route_num}</span>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); copyShareLink(); }}
+                                            className={`text-[11px] font-mono transition-colors cursor-pointer hover:text-riduck-primary ${previewLinkCopied ? 'text-green-400' : 'text-gray-500'}`}
+                                            title={previewLinkCopied ? 'Copied!' : 'Copy share link'}
+                                        >
+                                            {previewLinkCopied ? 'Copied!' : `#${previewRoute.data.route_num}`}
+                                        </button>
                                     )}
                                     <h3 className="text-white font-bold text-base leading-snug">{previewRoute.data.title || 'Untitled Route'}</h3>
                                 </div>
@@ -2867,11 +3428,12 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         {/* Save Route Modal */}
         <SaveRouteModal 
             isOpen={isSaveModalOpen}
-            onClose={() => setIsSaveModalOpen(false)}
+            onClose={() => { setIsSaveModalOpen(false); pendingNearbyAfterSaveRef.current = false; }}
             onSave={handleSaveRoute}
             isLoading={isLoading}
             isOwner={user && (routeOwnerId === user.uid || routeOwnerId === user.id)}
             isMapChanged={isDirty}
+            sectionsVersion={sectionsVersion}
             initialData={{
                 id: currentRouteId,
                 title: routeName,
@@ -2879,15 +3441,48 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 status: routeStatus,
                 tags: routeTags
             }}
+            autoTagPayload={{
+                title: routeName || 'Untitled',
+                editor_state: { sections: sectionsWithPointDistances }
+            }}
+            onAutoTagsGenerated={(newDesc, newTags, newTitle) => {
+                if (newDesc) setRouteDescription(newDesc);
+                if (newTags && newTags.length > 0) {
+                    setRouteTags(prev => Array.from(new Set([...prev, ...newTags])));
+                }
+                if (newTitle && !routeName) setRouteName(newTitle);
+            }}
         />
         
         <ExportRouteModal
             isOpen={isExportModalOpen}
             onClose={() => setIsExportModalOpen(false)}
             onExport={performExport}
-            initialTitle={routeName}
+            initialTitle={previewRoute ? (previewRoute.data.title || '') : routeName}
+        />
+
+        <NearbyFilterModal
+            isOpen={isNearbyFilterOpen}
+            onClose={() => setIsNearbyFilterOpen(false)}
+            currentFilters={routeFilters}
+            onApply={(filters) => {
+                setRouteFilters(filters);
+                routeFiltersRef.current = filters;
+                // Re-fetch with new filters
+                if (isNearbyMode) {
+                    fetchNearbyRoutes();
+                }
+            }}
         />
       </div>
+
+      {/* Waypoint Detail Modal */}
+      {selectedWaypointId && (
+        <WaypointDetailModal
+          waypointId={selectedWaypointId}
+          onClose={() => setSelectedWaypointId(null)}
+        />
+      )}
     </div>
   );
 };

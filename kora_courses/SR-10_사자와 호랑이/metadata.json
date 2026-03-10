@@ -1,0 +1,31 @@
+{
+  "type": "superrando",
+  "code": "SR-10",
+  "name": "사자와 호랑이",
+  "distance": "614km",
+  "elevation": "10,398 m",
+  "time_limit": "대구",
+  "start": "광주",
+  "end": "권영민",
+  "designer": "",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/superrando/info-SR10.htm",
+  "description": "주의 NOTICE\nCP 7 남산 전후(km 155~160)에 약 5km의 비포장 구간이 있습니다. 내리막 구간의 노면상태가 좋지 않으므로 조심하세요. 반드시 서행하시길 바랍니다.\nThere is an unpaved section of about 5km before and after CP 7 Namsan(km 155~160), and the downhill part of this section has poor road conditions, so please be careful and absolutely slow down.",
+  "links": [
+    {
+      "text": "모든 서류 / all documents",
+      "url": "https://drive.google.com/drive/folders/1oF5c8r-mVyD-b0IO7zkC1Jf6MJdBtEh0?usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/40681955"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/D6we7soqB"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/BOS70MQgz"
+    }
+  ]
+}

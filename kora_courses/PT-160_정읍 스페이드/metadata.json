@@ -1,0 +1,27 @@
+{
+  "type": "permanents",
+  "code": "PT-160",
+  "name": "정읍 스페이드",
+  "distance": "203km",
+  "elevation": "1,348m",
+  "time_limit": "13:32",
+  "start": "정읍",
+  "end": "정읍",
+  "designer": "이승룡/김진학",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT160.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/18HImKDJqNIrq9VqLNmmV323N_FKkvD2X?usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/53351464"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/N0AbrH0jT"
+    }
+  ]
+}

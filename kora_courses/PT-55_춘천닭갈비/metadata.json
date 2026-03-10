@@ -1,0 +1,31 @@
+{
+  "type": "permanents",
+  "code": "PT-55",
+  "name": "춘천닭갈비",
+  "distance": "222km",
+  "elevation": "1,727m",
+  "time_limit": "14:48",
+  "start": "서울 광나루",
+  "end": "서울 광나루",
+  "designer": "김영삼",
+  "detail_url": "http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT55.htm",
+  "description": "",
+  "links": [
+    {
+      "text": "퍼머넌트 시트 (Permanent Sheet)",
+      "url": "https://drive.google.com/drive/folders/1d4bBSaMiA8knD5djs6d_XzHK5tBIvl0_?usp=sharing"
+    },
+    {
+      "text": "구글 지도 경로 (Google map)",
+      "url": "https://drive.google.com/open?id=1IPYWAz0BUhwZw1ylwCef89vddQc&usp=sharing"
+    },
+    {
+      "text": "RwGPS 경로 (RwGPS map)",
+      "url": "https://ridewithgps.com/routes/48392758"
+    },
+    {
+      "text": "지도보기 (VIEW)",
+      "url": "http://kko.to/iyB138YuB"
+    }
+  ]
+}
