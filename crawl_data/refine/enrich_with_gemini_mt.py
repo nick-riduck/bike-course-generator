@@ -245,7 +245,7 @@ def main():
     parser.add_argument("--workers", type=int, default=1, help="동시 처리 수 (default: 1)")
     args = parser.parse_args()
 
-    api_key = "AIzaSyAZunIBnGhBa491-I9RWiaOCTq1eVQWh0I"
+    api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         print("ERROR: API key not set")
         sys.exit(1)
