@@ -25,9 +25,21 @@ if os.path.exists(storage_dir):
     app.mount("/storage", StaticFiles(directory=storage_dir), name="storage")
 
 # CORS Configuration
+_default_origins = ",".join([
+    "https://routy.cc",
+    "https://riduck-bike-course-generator.web.app",
+    "https://riduck-bike-course-generator.firebaseapp.com",
+    "https://riduck-bike-course-simulator.web.app",
+    "https://riduck-bike-course-simulator.firebaseapp.com",
+    "http://localhost:5173",
+    "http://100.102.179.40:5173",
+    "http://192.168.100.148:5173",
+])
+allow_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", _default_origins).split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Adjust in production
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
