@@ -12,6 +12,7 @@ from app.models.route import RouteCreateRequest
 from app.models.common import Location
 from app.services.image_service import generate_thumbnail
 from app.services.embedding_service import get_embedding
+from app.services.auto_tag_service import generate_tags_and_description
 from google.cloud import storage
 
 from valhalla import ValhallaClient
@@ -754,3 +755,33 @@ async def import_gpx(file: UploadFile = File(...)):
         return loader.process_with_valhalla(valhalla_client)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/auto-tag")
+async def generate_auto_tag_and_desc(route: RouteCreateRequest, authorization: str = Header(None)):
+    """Generate AI tags and description"""
+    # Just need full_data
+    full_data = route.full_data
+    if not full_data and route.editor_state and route.editor_state.get('sections'):
+        all_points = []
+        for section in route.editor_state['sections']:
+            for segment in section.get('segments', []):
+                coords = segment.get('geometry', {}).get('coordinates', [])
+                for coord in coords:
+                    all_points.append({"lat": coord[1], "lon": coord[0]})
+        if len(all_points) > 1:
+            full_data = valhalla_client.get_standard_course(all_points)
+            full_data['editor_state'] = route.editor_state
+    
+    if not full_data:
+        return {"tags": [], "description": ""}
+
+    conn = get_db_conn()
+    try:
+        result = generate_tags_and_description(conn, full_data)
+        return result
+    except Exception as e:
+        print(f"Auto-tag generation error: {e}")
+        return {"tags": [], "description": ""}
+    finally:
+        conn.close()

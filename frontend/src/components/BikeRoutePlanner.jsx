@@ -167,6 +167,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const [hoveredSectionIndex, setHoveredSectionIndex] = useState(null);
   const [ambiguityPopup, setAmbiguityPopup] = useState(null);
   const [isDirty, setIsDirty] = useState(false); // Track unsaved map changes
+  const [sectionsVersion, setSectionsVersion] = useState(0); // Increments on route edits
 
   // Route Metadata (Received via props)
   const [routeDescription, setRouteDescription] = useState('');
@@ -537,15 +538,19 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
       const pointIdSet = new Set(points.map((p) => p.id));
       const distanceByPointId = new globalThis.Map();
 
+      // Build segment lookup map: "startId->endId" → segment (O(n) instead of O(n²) .find())
+      const segmentLookup = new globalThis.Map();
+      for (const seg of segmentList) {
+        segmentLookup.set(`${seg.startPointId}->${seg.endPointId}`, seg);
+      }
+
       if (points.length > 0) {
         distanceByPointId.set(points[0].id, cumulativeDistKm);
 
         for (let i = 0; i < points.length - 1; i++) {
           const startPoint = points[i];
           const endPoint = points[i + 1];
-          const linkingSegment = segmentList.find(
-            (segment) => segment.startPointId === startPoint.id && segment.endPointId === endPoint.id
-          );
+          const linkingSegment = segmentLookup.get(`${startPoint.id}->${endPoint.id}`);
 
           cumulativeDistKm += getSegmentDistanceKm(linkingSegment, startPoint, endPoint);
           distanceByPointId.set(endPoint.id, cumulativeDistKm);
@@ -556,9 +561,14 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           const lastPoint = points[points.length - 1];
 
           if (lastPoint && nextSectionFirstPoint) {
-            const connectorSegment = segmentList.find(
-              (segment) => segment.startPointId === lastPoint.id && !pointIdSet.has(segment.endPointId)
-            );
+            // Find connector: segment starting from lastPoint going outside this section
+            let connectorSegment;
+            for (const seg of segmentList) {
+              if (seg.startPointId === lastPoint.id && !pointIdSet.has(seg.endPointId)) {
+                connectorSegment = seg;
+                break;
+              }
+            }
             cumulativeDistKm += getSegmentDistanceKm(connectorSegment, lastPoint, nextSectionFirstPoint);
           }
         }
@@ -1155,7 +1165,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     const prev = history.past[history.past.length - 1];
     setHistory(curr => ({ 
       past: curr.past.slice(0, -1), 
-      future: [JSON.parse(JSON.stringify(sections)), ...curr.future] 
+      future: [structuredClone(sections), ...curr.future] 
     }));
     setSections(prev);
   };
@@ -1164,7 +1174,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     if (history.future.length === 0) return;
     const next = history.future[0];
     setHistory(curr => ({ 
-      past: [...curr.past, JSON.parse(JSON.stringify(sections))], 
+      past: [...curr.past, structuredClone(sections)], 
       future: curr.future.slice(1) 
     }));
     setSections(next);
@@ -1172,9 +1182,10 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
   const saveToHistory = (currentSections) => {
     setIsDirty(true);
-    setHistory(curr => ({ 
-      past: [...curr.past, JSON.parse(JSON.stringify(currentSections))], 
-      future: [] 
+    setSectionsVersion(v => v + 1);
+    setHistory(curr => ({
+      past: [...curr.past, structuredClone(currentSections)],
+      future: []
     }));
   };
 
@@ -1478,7 +1489,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     e?.stopPropagation();
     saveToHistory(sections);
     
-    let updatedSections = JSON.parse(JSON.stringify(sections)); // Deep copy to avoid mutation issues
+    let updatedSections = structuredClone(sections); // Deep copy to avoid mutation issues
     const targetSection = updatedSections[sectionIdx];
     const targetPoint = targetSection.points[pointIdx];
 
@@ -1582,7 +1593,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             await Promise.all(segmentsToFetch.map(async ({ sectionIdx: sIdx, segmentId, start, end }) => {
                 const realData = await fetchSegmentData(start, end, isMockMode ? 'mock' : 'real');
                 setSections(prev => {
-                    const latest = JSON.parse(JSON.stringify(prev));
+                    const latest = structuredClone(prev);
                     const sec = latest[sIdx];
                     sec.segments = sec.segments.map(s => s.id === segmentId ? { ...s, ...realData } : s);
                     return latest;
@@ -1595,7 +1606,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   // Section Management Handlers
   const handleSectionDelete = async (sectionIdx) => {
       saveToHistory(sections);
-      let updatedSections = JSON.parse(JSON.stringify(sections));
+      let updatedSections = structuredClone(sections);
       
       const segmentsToFetch = deleteSection(sectionIdx, updatedSections);
       
@@ -1607,7 +1618,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             await Promise.all(segmentsToFetch.map(async ({ sectionIdx: sIdx, segmentId, start, end }) => {
                 const realData = await fetchSegmentData(start, end, isMockMode ? 'mock' : 'real');
                 setSections(prev => {
-                    const latest = JSON.parse(JSON.stringify(prev));
+                    const latest = structuredClone(prev);
                     const sec = latest[sIdx];
                     sec.segments = sec.segments.map(s => s.id === segmentId ? { ...s, ...realData } : s);
                     return latest;
@@ -1622,7 +1633,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
       if (sectionIdx >= sections.length - 1) return;
       saveToHistory(sections);
       
-      let updatedSections = JSON.parse(JSON.stringify(sections));
+      let updatedSections = structuredClone(sections);
       const currSec = updatedSections[sectionIdx];
       const nextSec = updatedSections[sectionIdx + 1];
       
@@ -1665,7 +1676,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     const { lng, lat } = evt.lngLat;
     saveToHistory(sections);
 
-    let updatedSections = JSON.parse(JSON.stringify(sections));
+    let updatedSections = structuredClone(sections);
     const targetSection = updatedSections[sectionIdx];
     
     // Update Point Location
@@ -1735,7 +1746,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             await Promise.all(segmentsToFetch.map(async ({ sectionIdx: sIdx, segmentId, start, end }) => {
                 const realData = await fetchSegmentData(start, end, isMockMode ? 'mock' : 'real');
                 setSections(prev => {
-                    const latest = JSON.parse(JSON.stringify(prev));
+                    const latest = structuredClone(prev);
                     const sec = latest[sIdx];
                     sec.segments = sec.segments.map(s => s.id === segmentId ? { ...s, ...realData } : s);
                     return latest;
@@ -1749,7 +1760,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     if (pointIdx <= 0 || pointIdx >= sections[sectionIdx].points.length) return;
     
     saveToHistory(sections);
-    const updatedSections = JSON.parse(JSON.stringify(sections));
+    const updatedSections = structuredClone(sections);
     const targetSection = updatedSections[sectionIdx];
     
     // P_new_1 (targetSection.points[pointIdx]) becomes the header of the new section
@@ -1784,52 +1795,36 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     setSections(updatedSections);
   };
 
-  const totalDist = sections.reduce((acc, sec) => acc + sec.segments.reduce((sAcc, s) => sAcc + (s.distance || 0), 0), 0);
-  const totalAscent = sections.reduce((acc, sec) => acc + sec.segments.reduce((sAcc, s) => sAcc + (s.ascent || 0), 0), 0);
+  const totalDist = useMemo(() => sections.reduce((acc, sec) => acc + sec.segments.reduce((sAcc, s) => sAcc + (s.distance || 0), 0), 0), [sections]);
+  const totalAscent = useMemo(() => sections.reduce((acc, sec) => acc + sec.segments.reduce((sAcc, s) => sAcc + (s.ascent || 0), 0), 0), [sections]);
 
   const surfaceGeoJSON = useMemo(() => ({
     type: 'FeatureCollection',
     features: sections.flatMap((sec, secIdx) => sec.segments.flatMap((s, segIdx) => {
-        // Base Props
-        const props = { 
-            color: sec.color, // Default Section Color
-            sectionIndex: secIdx, 
-            segmentIndex: segIdx 
+        const props = {
+            color: sec.color,
+            sectionIndex: secIdx,
+            segmentIndex: segIdx,
+            sectionColor: sec.color
         };
 
-        // Override color based on state
         if (s.type === 'mock') props.color = '#FFA726';
         else if (s.type === 'loading') props.color = '#9E9E9E';
         else if (s.type === 'error') props.color = '#F44336';
-        
-        // If hovered in menu, force section color highlight
-        if (hoveredSectionIndex === secIdx) {
-            props.color = sec.color; 
-            // Maybe brighten or thicken? For now just color is fine.
-        }
 
         if (s.surfaceSegments && s.surfaceSegments.length > 0) {
-            return s.surfaceSegments.map(fs => {
-                const finalProps = {
-                    ...props, // 1. Base Props (Section Color)
-                    ...fs.properties, // 2. Surface Props (Override with Surface Color e.g. Green/Brown)
-                    sectionColor: sec.color // Keep original section color for reference
-                };
-
-                // 3. Force Section Color if Hovered (Highest Priority)
-                if (hoveredSectionIndex === secIdx) {
-                    finalProps.color = sec.color;
+            return s.surfaceSegments.map(fs => ({
+                ...fs,
+                properties: {
+                    ...props,
+                    ...fs.properties,
+                    sectionColor: sec.color
                 }
-
-                return { 
-                    ...fs, 
-                    properties: finalProps
-                };
-            });
+            }));
         }
         return [{ type: 'Feature', geometry: s.geometry, properties: props }];
     }))
-  }), [sections, hoveredSectionIndex]);
+  }), [sections]);
 
   const previewGeoJSON = useMemo(() => {
     if (!previewRoute) return null;
@@ -2202,7 +2197,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
           setCurrentRouteId(null);
           setRouteUuid(null);
           setRouteName('Imported GPX');
-          setRouteDescription('Imported from GPX file');
+          setRouteDescription('');
           setRouteStatus('PUBLIC');
           setRouteTags([]);
           setRouteOwnerId(null);
@@ -2977,7 +2972,15 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
                 {surfaceGeoJSON.features.length > 0 && (
                     <Source id="route-source" type="geojson" data={surfaceGeoJSON}>
-                        <Layer id="route-layer" type="line" layout={{ 'line-join': 'round', 'line-cap': 'round' }} paint={{ 'line-color': ['get', 'color'], 'line-width': 6, 'line-opacity': 0.9 }} />
+                        <Layer id="route-layer" type="line" layout={{ 'line-join': 'round', 'line-cap': 'round' }} paint={{
+                            'line-color': hoveredSectionIndex !== null
+                                ? ['case', ['==', ['get', 'sectionIndex'], hoveredSectionIndex], ['get', 'sectionColor'], ['get', 'color']]
+                                : ['get', 'color'],
+                            'line-width': hoveredSectionIndex !== null
+                                ? ['case', ['==', ['get', 'sectionIndex'], hoveredSectionIndex], 8, 6]
+                                : 6,
+                            'line-opacity': 0.9
+                        }} />
                     </Source>
                 )}
 
@@ -3430,12 +3433,24 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             isLoading={isLoading}
             isOwner={user && (routeOwnerId === user.uid || routeOwnerId === user.id)}
             isMapChanged={isDirty}
+            sectionsVersion={sectionsVersion}
             initialData={{
                 id: currentRouteId,
                 title: routeName,
                 description: routeDescription,
                 status: routeStatus,
                 tags: routeTags
+            }}
+            autoTagPayload={{
+                title: routeName || 'Untitled',
+                editor_state: { sections: sectionsWithPointDistances }
+            }}
+            onAutoTagsGenerated={(newDesc, newTags, newTitle) => {
+                if (newDesc) setRouteDescription(newDesc);
+                if (newTags && newTags.length > 0) {
+                    setRouteTags(prev => Array.from(new Set([...prev, ...newTags])));
+                }
+                if (newTitle && !routeName) setRouteName(newTitle);
             }}
         />
         

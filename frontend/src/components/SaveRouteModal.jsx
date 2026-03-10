@@ -9,7 +9,10 @@ const SaveRouteModal = ({
     initialData = {},
     isOwner = false,
     isLoading = false,
-    isMapChanged = false
+    isMapChanged = false,
+    sectionsVersion = 0,
+    autoTagPayload = null,
+    onAutoTagsGenerated = () => {}
 }) => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -20,9 +23,14 @@ const SaveRouteModal = ({
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+    const [isAiGenerating, setIsAiGenerating] = useState(false);
+    const [generatedAtVersion, setGeneratedAtVersion] = useState(-1);
     const debounceRef = useRef(null);
     const suggestionsRef = useRef(null);
     const inputRef = useRef(null);
+
+    // Route changed since last AI generation?
+    const routeChangedSinceGeneration = generatedAtVersion >= 0 && sectionsVersion > generatedAtVersion;
 
     useEffect(() => {
         if (isOpen) {
@@ -33,13 +41,58 @@ const SaveRouteModal = ({
             setTagInput('');
             setSuggestions([]);
             setShowSuggestions(false);
-            setDescPreview(false);
+
+            // Set to preview mode by default
+            setDescPreview(true);
+
             // Preload popular tags
             fetchSuggestions('');
+
+            // Auto-generate only when description is empty (new route / GPX import)
+            if (autoTagPayload && !initialData.description && generatedAtVersion < 0) {
+                generateAutoTags(autoTagPayload);
+            }
         }
-        // Only reset when modal opens. Ignoring initialData changes while open to preserve user edits.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
+
+    // Reset when a different route is loaded
+    const prevRouteIdRef = useRef(initialData.id);
+    useEffect(() => {
+        if (initialData.id !== prevRouteIdRef.current) {
+            setGeneratedAtVersion(-1);
+            prevRouteIdRef.current = initialData.id;
+        }
+    }, [initialData.id]);
+
+    const generateAutoTags = async (payload) => {
+        setIsAiGenerating(true);
+        setDescPreview(false);
+        setDescription('');
+
+        try {
+            const data = await apiClient.post('/api/routes/auto-tag', payload);
+            if (data) {
+                if (data.tags && data.tags.length > 0) {
+                    setTags(prev => Array.from(new Set([...prev, ...data.tags])));
+                }
+                if (data.description) {
+                    setDescription(data.description);
+                    setDescPreview(true);
+                }
+                if (data.title && !title) {
+                    setTitle(data.title);
+                }
+                onAutoTagsGenerated(data.description, data.tags, data.title);
+                setGeneratedAtVersion(sectionsVersion);
+            }
+        } catch (err) {
+            console.error('Auto tag generation failed:', err);
+            if (!description) setDescription(initialData.description || '');
+        } finally {
+            setIsAiGenerating(false);
+        }
+    };
 
     // Close suggestions on outside click
     useEffect(() => {
@@ -151,18 +204,15 @@ const SaveRouteModal = ({
 
             {/* Modal Content */}
             <div className="relative bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-slideUp">
-                {/* Header */}
-                <div className="p-6 border-b border-gray-800 flex justify-between items-center">
-                    <h2 className="text-xl font-black text-white">Save Your Route</h2>
-                    <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
+                {/* Close Button */}
+                <button onClick={onClose} className="absolute top-5 right-5 z-10 text-gray-500 hover:text-white transition-colors bg-gray-800/50 hover:bg-gray-800 p-1.5 rounded-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
 
                 {/* Form Body */}
-                <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh] custom-scrollbar">
+                <div className="p-6 pt-8 space-y-5 overflow-y-auto max-h-[85vh] custom-scrollbar">
                     {/* Title */}
                     <div className="space-y-2">
                         <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">Route Title</label>
@@ -175,40 +225,10 @@ const SaveRouteModal = ({
                         />
                     </div>
 
-                    {/* Description */}
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between px-1">
-                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Description</label>
-                            <div className="flex bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-                                <button
-                                    onClick={() => setDescPreview(false)}
-                                    className={`px-2 py-0.5 text-[9px] font-bold uppercase transition-colors ${!descPreview ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-400'}`}
-                                >Edit</button>
-                                <button
-                                    onClick={() => setDescPreview(true)}
-                                    className={`px-2 py-0.5 text-[9px] font-bold uppercase transition-colors ${descPreview ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-400'}`}
-                                >Preview</button>
-                            </div>
-                        </div>
-                        {descPreview ? (
-                            <div className="w-full bg-gray-800 text-white px-4 py-3 rounded-2xl border border-gray-700 text-sm min-h-[84px] max-h-[120px] overflow-y-auto custom-scrollbar prose prose-invert prose-sm prose-p:my-1 prose-headings:my-1">
-                                {description ? <ReactMarkdown>{description}</ReactMarkdown> : <span className="text-gray-500">Nothing to preview</span>}
-                            </div>
-                        ) : (
-                            <textarea
-                                rows={3}
-                                value={description}
-                                onChange={(e) => setDescription(e.target.value)}
-                                placeholder="Tell more about this course..."
-                                className="w-full bg-gray-800 text-white px-4 py-3 rounded-2xl border border-gray-700 focus:outline-none focus:border-riduck-primary transition-all text-sm font-medium resize-none"
-                            />
-                        )}
-                    </div>
-
                     {/* Privacy / Status */}
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">Visibility</label>
-                        <div className="grid grid-cols-3 gap-2">
+                    <div className="flex items-center justify-between bg-gray-800/30 p-1.5 rounded-xl border border-gray-800">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-3">Visibility</label>
+                        <div className="flex bg-gray-900 rounded-lg p-0.5 border border-gray-800">
                             {[
                                 { id: 'PUBLIC', label: 'Public', icon: '🌍' },
                                 { id: 'LINK_ONLY', label: 'Link Only', icon: '🔗' },
@@ -217,14 +237,14 @@ const SaveRouteModal = ({
                                 <button
                                     key={opt.id}
                                     onClick={() => setStatus(opt.id)}
-                                    className={`py-1.5 rounded-xl border transition-all flex items-center justify-center gap-1.5 ${
+                                    className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
                                         status === opt.id
-                                        ? 'bg-riduck-primary/10 border-riduck-primary text-riduck-primary'
-                                        : 'bg-gray-800/50 border-gray-700 text-gray-500 hover:border-gray-600'
+                                        ? 'bg-gray-700 text-white shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-400 hover:bg-gray-800'
                                     }`}
                                 >
-                                    <span className="text-sm">{opt.icon}</span>
-                                    <span className="text-[10px] font-bold uppercase">{opt.label}</span>
+                                    <span className="text-[11px]">{opt.icon}</span>
+                                    <span className="text-[9px] font-bold uppercase">{opt.label}</span>
                                 </button>
                             ))}
                         </div>
@@ -232,8 +252,16 @@ const SaveRouteModal = ({
 
                     {/* Tags */}
                     <div className="space-y-2 relative">
-                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">Tags</label>
-                        <div className="bg-gray-800 rounded-2xl border border-gray-700 p-2 min-h-[56px] flex flex-wrap gap-2">
+                        <div className="flex items-center justify-between px-1">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Tags</label>
+                            {isAiGenerating && <span className="text-[9px] font-bold text-riduck-primary uppercase animate-pulse flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-riduck-primary animate-ping"></div> AI 분석 중</span>}
+                        </div>
+                        <div className={`bg-gray-800 rounded-2xl border p-2 min-h-[56px] flex flex-wrap gap-2 transition-all ${isAiGenerating ? 'border-riduck-primary/50 bg-riduck-primary/5' : 'border-gray-700'}`}>
+                            {isAiGenerating && tags.length === 0 && (
+                                <div className="text-riduck-primary/70 text-xs font-medium flex items-center h-8 px-2 animate-pulse">
+                                    최적의 태그를 추출하고 있습니다...
+                                </div>
+                            )}
                             {tags.map(tag => (
                                 <span key={tag} className="bg-riduck-primary/20 text-riduck-primary px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-riduck-primary/30">
                                     #{tag}
@@ -320,6 +348,77 @@ const SaveRouteModal = ({
                             </div>
                         )}
                     </div>
+
+                    {/* Description */}
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between px-1">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Description</label>
+                            <div className="flex items-center gap-3">
+                                {autoTagPayload && description && !isAiGenerating && (() => {
+                                    const routeChanged = routeChangedSinceGeneration;
+                                    return (
+                                        <button
+                                            onClick={() => generateAutoTags(autoTagPayload)}
+                                            className={`text-[10px] font-bold flex items-center gap-1.5 transition-all ${
+                                                routeChanged
+                                                    ? 'bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 px-2.5 py-1 rounded-lg'
+                                                    : 'text-riduck-primary hover:brightness-110'
+                                            }`}
+                                            title="AI가 현재 코스를 다시 분석하여 글을 새로 씁니다."
+                                        >
+                                            {routeChanged && <span className="text-amber-500/70">루트 변경 감지</span>}
+                                            <span>✨ AI로 다시 쓰기</span>
+                                        </button>
+                                    );
+                                })()}
+                                <div className="flex bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+                                    <button
+                                        onClick={() => setDescPreview(false)}
+                                        className={`px-2 py-0.5 text-[9px] font-bold uppercase transition-colors ${!descPreview ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-400'}`}
+                                    >Edit</button>
+                                    <button
+                                        onClick={() => setDescPreview(true)}
+                                        className={`px-2 py-0.5 text-[9px] font-bold uppercase transition-colors ${descPreview ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-400'}`}
+                                    >Preview</button>
+                                </div>
+                            </div>
+                        </div>
+                        {descPreview ? (
+                            <div
+                                className="w-full bg-gray-800 text-white px-4 py-3 rounded-2xl border border-gray-700 text-sm min-h-[200px] max-h-[400px] overflow-y-auto custom-scrollbar prose prose-invert prose-sm prose-p:my-1 prose-headings:my-1 cursor-text"
+                                onClick={() => {
+                                    // Only switch to edit if it was a simple click, not a text selection drag
+                                    if (!window.getSelection()?.toString()) {
+                                        setDescPreview(false);
+                                    }
+                                }}
+                            >
+                                {description ? <ReactMarkdown>{description}</ReactMarkdown> : <span className="text-gray-500">Nothing to preview</span>}
+                            </div>
+                        ) : (
+                            <div className="relative">
+                                <textarea
+                                    rows={12}
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    disabled={isAiGenerating}
+                                    placeholder={isAiGenerating ? "" : "Tell more about this course..."}
+                                    className={`w-full bg-gray-800 text-white px-4 py-4 rounded-2xl border focus:outline-none focus:border-riduck-primary transition-all text-sm font-medium resize-none leading-relaxed ${
+                                        isAiGenerating 
+                                        ? 'border-riduck-primary/50 bg-riduck-primary/5 text-riduck-primary/80 animate-pulse' 
+                                        : 'border-gray-700'
+                                    }`}
+                                />
+                                {isAiGenerating && !description && (
+                                    <div className="absolute top-4 left-4 text-sm text-riduck-primary/70 font-medium animate-pulse flex items-start gap-2.5">
+                                        <div className="w-4 h-4 mt-0.5 border-2 border-riduck-primary/50 border-t-riduck-primary rounded-full animate-spin shrink-0"></div>
+                                        <span>AI가 코스 데이터를 분석하여 최적의 설명을 작성하고 있습니다... ✍️</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
                 </div>
 
                 {/* Footer Actions */}
@@ -327,16 +426,17 @@ const SaveRouteModal = ({
                     {/* Overwrite / Update Button */}
                     <button
                         onClick={() => onSave({ title, description, status, tags, isOverwrite: true })}
-                        disabled={isLoading || !isOwner || !initialData.id || !title.trim() || !hasChanges}
+                        disabled={isLoading || isAiGenerating || !isOwner || !initialData.id || !title.trim() || !hasChanges}
                         className={`py-4 rounded-2xl font-bold text-sm transition-all border flex items-center justify-center ${
-                            !isOwner || !initialData.id || !hasChanges
+                            !isOwner || !initialData.id || !hasChanges || isAiGenerating
                             ? 'bg-gray-800/30 text-gray-600 border-gray-800 cursor-not-allowed opacity-70'
                             : 'bg-gray-800 hover:bg-gray-700 text-white border-gray-700'
                         }`}
                         title={
-                            !isOwner ? "You can only update your own routes" :
+                            isAiGenerating ? "AI is generating description..." :
+                            (!isOwner ? "You can only update your own routes" :
                             (!initialData.id ? "Save as new first" :
-                            (!hasChanges ? "No changes to update" : "Overwrite existing route"))
+                            (!hasChanges ? "No changes to update" : "Overwrite existing route")))
                         }
                     >
                         {hasChanges ? "Update Existing" : "No Changes"}
@@ -345,11 +445,23 @@ const SaveRouteModal = ({
                     {/* Save as New / Fork Button */}
                     <button
                         onClick={() => onSave({ title, description, status, tags, isOverwrite: false })}
-                        disabled={isLoading || !title.trim()}
-                        className="bg-riduck-primary hover:brightness-110 text-white py-4 rounded-2xl font-black text-sm shadow-lg shadow-riduck-primary/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                        disabled={isLoading || isAiGenerating || !title.trim()}
+                        className={`py-4 rounded-2xl font-black text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${
+                            isAiGenerating || isLoading
+                            ? 'bg-gray-800 border border-gray-700 text-gray-400 cursor-not-allowed'
+                            : 'bg-riduck-primary hover:brightness-110 text-white shadow-riduck-primary/20 disabled:opacity-50'
+                        }`}
                     >
-                        {isLoading ? (
-                            <div className="animate-spin h-5 w-5 border-2 border-white rounded-full border-t-transparent"></div>
+                        {isAiGenerating ? (
+                            <>
+                                <div className="animate-spin h-4 w-4 border-2 border-gray-500 rounded-full border-t-gray-400"></div>
+                                <span>AI 분석 대기중...</span>
+                            </>
+                        ) : isLoading ? (
+                            <>
+                                <div className="animate-spin h-5 w-5 border-2 border-white rounded-full border-t-transparent"></div>
+                                <span>Saving...</span>
+                            </>
                         ) : (
                             initialData.id ? 'Fork as New' : 'Save to Cloud'
                         )}
