@@ -12,3 +12,4 @@ Pillow
 google-cloud-storage
 google-genai
 pgvector
+sentry-sdk[fastapi]

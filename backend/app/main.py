@@ -4,6 +4,14 @@ import sys
 # Ensure the backend directory is in the path so we can import gpx_loader, etc.
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import sentry_sdk
+
+sentry_sdk.init(
+    dsn="https://93e723471fc93415696de14850f21982@o4511017491169280.ingest.us.sentry.io/4511017595961344",
+    traces_sample_rate=1.0,
+    send_default_pii=True,
+)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
