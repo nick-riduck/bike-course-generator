@@ -17,12 +17,18 @@ const formatRelativeTime = (dateString) => {
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
-const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChange, refreshTrigger }) => {
+const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChange, refreshTrigger, isMobileFullscreen = false, hideHeader = false, externalSearchQuery, externalSort, externalSortOrder }) => {
   const { user } = useAuth();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [internalSearchQuery, setInternalSearchQuery] = useState('');
+  const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
+  const setSearchQuery = externalSearchQuery !== undefined ? () => {} : setInternalSearchQuery;
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'my', 'favorites'
-  const [sortOption, setSortOption] = useState('latest'); // latest, updated, popular, distance, elevation
-  const [sortOrder, setSortOrder] = useState('desc'); // 'asc' or 'desc'
+  const [internalSortOption, setInternalSortOption] = useState('latest');
+  const [internalSortOrder, setInternalSortOrder] = useState('desc');
+  const sortOption = externalSort !== undefined ? externalSort : internalSortOption;
+  const setSortOption = externalSort !== undefined ? () => {} : setInternalSortOption;
+  const sortOrder = externalSortOrder !== undefined ? externalSortOrder : internalSortOrder;
+  const setSortOrder = externalSortOrder !== undefined ? () => {} : setInternalSortOrder;
 
   // Data States
   const [myRoutes, setMyRoutes] = useState([]);
@@ -352,9 +358,9 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
 
 
   return (
-    <div className="w-80 h-full bg-gray-900 border-r border-gray-800 flex flex-col animate-fadeIn shadow-xl z-40">
+    <div className={`${isMobileFullscreen ? 'w-full' : 'w-80'} h-full bg-gray-900 ${isMobileFullscreen ? '' : 'border-r border-gray-800'} flex flex-col animate-fadeIn shadow-xl z-40`}>
       {/* 1. Header & Search */}
-      <div className="p-4 border-b border-gray-800">
+      {!hideHeader && <div className="p-4 border-b border-gray-800">
         <div className="flex justify-between items-center mb-4">
             <h2 className="font-bold text-white text-lg">Library</h2>
             <div className="flex items-center gap-2">
@@ -575,7 +581,7 @@ const SearchPanel = ({ onLoadRoute, activePreviewId, routeFilters, onFiltersChan
               </button>
             ))}
         </div>
-      </div>
+      </div>}
 
       {/* 2. Scrollable Content */}
       <div 

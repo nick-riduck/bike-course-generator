@@ -26,7 +26,6 @@ const MenuPanel = ({
   onPointTypeChange
 }) => {
   const [isCopied, setIsCopied] = useState(false);
-  console.log('[MenuPanel] currentRouteId:', currentRouteId, 'routeUuid:', routeUuid);
 
   const handleCopyLink = () => {
     if (!currentRouteId) return;

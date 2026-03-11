@@ -16,10 +16,10 @@
 - [x] CORS 설정에 `routy.cc` 추가 (환경변수 `ALLOWED_ORIGINS` 방식, Firebase Auth와 동일 목록)
 
 ### 브랜딩 & 디자인
-- [ ] Routy 로고/아이콘 제작 (또는 확정)
-- [x] `index.html` title 변경 (`"frontend"` → `"Routy - Smartest Bike Course Planner"`)
-- [ ] favicon 교체
-- [x] OG 메타태그 추가 (`og:title`, `og:description` 완료, `og:image`는 로고 확정 후)
+- [x] Routy 로고/아이콘 제작 (R + 자전거 + 경로 곡선)
+- [x] `index.html` title 변경 (`"frontend"` → `"Routy - Smartest Bike Planner"`)
+- [x] favicon 교체 (16x16, 32x32 PNG + apple-touch-icon 180x180)
+- [x] OG 메타태그 추가 (`og:title`, `og:description`, `og:image` 완료)
 - [x] 앱 내 "riduck" 텍스트/CSS → "Routy" 리네이밍 (11개 파일)
 - [x] 컬러 테마 정리 (기존 유지, CSS 변수명 routy- 로 변경)
 
@@ -80,9 +80,12 @@
 ### 버그 수정 & UI 개선
 - [x] `feature/library-enhancements` 변경사항 리뷰 & 커밋
 - [x] 불필요 파일 정리 (`image.png`, `image copy.png` 삭제 완료)
+- [x] **[성능 최적화]** DB를 활용한 Gemini 임베딩 캐시 구현 (검색 300ms 지연 해결)
+- [ ] **[백엔드]** 자주 쓰이는 태그 임베딩을 DB 캐시에 미리 채워넣는 스크립트 작성
 - [ ] 모바일 반응형 깨지는 부분 수정
 - [ ] 로딩 상태/에러 상태 UX 개선
 - [ ] 자잘한 UI 버그 수정 (발견되는 대로)
+- [ ] **[성능 최적화 - 우선순위 낮음]** 고도표(ElevationChart) 등 무거운 컴포넌트 코드 스플리팅(Lazy Loading) 검토 (LCP 개선용)
 
 ### 보안 점검
 - [x] Gemini API 키 환경변수로 이동 (커밋 98e7290)

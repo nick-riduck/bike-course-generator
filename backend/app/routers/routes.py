@@ -476,72 +476,88 @@ async def search_routes(
     cur = conn.cursor()
 
     try:
-        query = """
-            SELECT 
-                r.id, r.route_num, r.uuid, r.title, r.distance, r.elevation_gain, 
-                r.created_at, r.updated_at, r.thumbnail_url, r.status, r.user_id,
-                u.username as author_name, u.profile_image_url as author_image, u.email as author_email,
-                COALESCE(ARRAY_AGG(t.slug) FILTER (WHERE t.slug IS NOT NULL), '{}') as tags,
-                COALESCE(rs.view_count, 0) as view_count,
-                COALESCE(rs.download_count, 0) as download_count
-            FROM routes r
-            LEFT JOIN users u ON r.user_id = u.id
-            LEFT JOIN route_tags rt ON r.id = rt.route_id
-            LEFT JOIN tags t ON rt.tag_id = t.id
-            LEFT JOIN route_stats rs ON r.id = rs.route_id
-            WHERE r.status != 'DELETED'
-        """
+        where_clauses = ["r.status != 'DELETED'"]
         params = []
 
         if scope == 'my':
             if not user_id:
                 raise HTTPException(status_code=401, detail="Login required for my routes")
-            query += " AND r.user_id = %s"
+            where_clauses.append("r.user_id = %s")
             params.append(user_id)
         elif scope == 'public':
-            query += " AND r.status = 'PUBLIC'"
+            where_clauses.append("r.status = 'PUBLIC'")
         
         if q:
-            query += " AND (r.title ILIKE %s OR r.description ILIKE %s)"
+            where_clauses.append("(r.title ILIKE %s OR r.description ILIKE %s)")
             search_term = f"%{q}%"
-            params.append(search_term)
-            params.append(search_term)
+            params.extend([search_term, search_term])
 
         if min_distance is not None:
-            query += " AND r.distance >= %s"
+            where_clauses.append("r.distance >= %s")
             params.append(min_distance * 1000)
         if max_distance is not None:
-            query += " AND r.distance <= %s"
+            where_clauses.append("r.distance <= %s")
             params.append(max_distance * 1000)
         if min_elevation is not None:
-            query += " AND r.elevation_gain >= %s"
+            where_clauses.append("r.elevation_gain >= %s")
             params.append(min_elevation)
         if max_elevation is not None:
-            query += " AND r.elevation_gain <= %s"
+            where_clauses.append("r.elevation_gain <= %s")
             params.append(max_elevation)
-
-        query += " GROUP BY r.id, u.id, rs.view_count, rs.download_count"
 
         if tags:
             tag_list = [t.strip() for t in tags.split(",") if t.strip()]
             if tag_list:
                 placeholders = ", ".join(["%s"] * len(tag_list))
-                query += f" HAVING ARRAY_AGG(t.slug) FILTER (WHERE t.slug IS NOT NULL) && ARRAY[{placeholders}]::varchar[]"
+                where_clauses.append(f"""
+                    EXISTS (
+                        SELECT 1 FROM route_tags rt_f
+                        INNER JOIN tags t_f ON t_f.id = rt_f.tag_id
+                        WHERE rt_f.route_id = r.id AND t_f.slug IN ({placeholders})
+                    )""")
                 params.extend(tag_list)
+
+        where_str = " AND ".join(where_clauses)
         
         direction = "ASC" if order == 'asc' else "DESC"
         if sort == 'updated':
-            query += f" ORDER BY r.updated_at {direction}, r.id DESC"
+            order_by = f"r.updated_at {direction}, r.id DESC"
         elif sort == 'popular':
-            query += f" ORDER BY download_count {direction}, r.created_at DESC, r.id DESC"
+            order_by = f"download_count {direction}, r.created_at DESC, r.id DESC"
         elif sort == 'distance':
-            query += f" ORDER BY r.distance {direction}, r.id DESC"
+            order_by = f"r.distance {direction}, r.id DESC"
         elif sort == 'elevation':
-            query += f" ORDER BY r.elevation_gain {direction}, r.id DESC"
+            order_by = f"r.elevation_gain {direction}, r.id DESC"
         else: # latest default
-            query += f" ORDER BY r.created_at {direction}, r.id DESC"
-        
-        query += " LIMIT %s OFFSET %s"
+            order_by = f"r.created_at {direction}, r.id DESC"
+
+        query = f"""
+            WITH paged_routes AS (
+                SELECT 
+                    r.id, r.route_num, r.uuid, r.title, r.distance, r.elevation_gain, 
+                    r.created_at, r.updated_at, r.thumbnail_url, r.status, r.user_id,
+                    u.username as author_name, u.profile_image_url as author_image, u.email as author_email,
+                    COALESCE(rs.view_count, 0) as view_count,
+                    COALESCE(rs.download_count, 0) as download_count
+                FROM routes r
+                LEFT JOIN users u ON r.user_id = u.id
+                LEFT JOIN route_stats rs ON r.id = rs.route_id
+                WHERE {where_str}
+                ORDER BY {order_by}
+                LIMIT %s OFFSET %s
+            )
+            SELECT 
+                pr.*,
+                COALESCE(ARRAY_AGG(t.slug) FILTER (WHERE t.slug IS NOT NULL), '{{}}') as tags
+            FROM paged_routes pr
+            LEFT JOIN route_tags rt ON pr.id = rt.route_id
+            LEFT JOIN tags t ON rt.tag_id = t.id
+            GROUP BY 
+                pr.id, pr.route_num, pr.uuid, pr.title, pr.distance, pr.elevation_gain, 
+                pr.created_at, pr.updated_at, pr.thumbnail_url, pr.status, pr.user_id,
+                pr.author_name, pr.author_image, pr.author_email, pr.view_count, pr.download_count
+            ORDER BY {order_by.replace('r.', 'pr.').replace('download_count', 'pr.download_count')}
+        """
         params.append(limit)
         params.append((page - 1) * limit)
 
