@@ -55,7 +55,7 @@ const ExportRouteModal = ({
                             value={fileName}
                             onChange={(e) => setFilename(e.target.value)}
                             placeholder="Enter filename..."
-                            className="w-full bg-gray-800 text-white px-4 py-3 rounded-2xl border border-gray-700 focus:outline-none focus:border-riduck-primary transition-all text-sm font-medium"
+                            className="w-full bg-gray-800 text-white px-4 py-3 rounded-2xl border border-gray-700 focus:outline-none focus:border-routy-primary transition-all text-sm font-medium"
                             onKeyDown={(e) => e.key === 'Enter' && handleExport()}
                             autoFocus
                         />

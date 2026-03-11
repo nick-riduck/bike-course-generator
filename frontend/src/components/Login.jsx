@@ -44,10 +44,10 @@ const Login = () => {
               <img
                 src={user.profile_image_url}
                 alt="profile"
-                className="w-8 h-8 rounded-full border border-riduck-primary"
+                className="w-8 h-8 rounded-full border border-routy-primary"
               />
             ) : (
-              <div className="w-8 h-8 rounded-full border border-riduck-primary bg-gray-700 flex items-center justify-center text-white text-sm font-bold">
+              <div className="w-8 h-8 rounded-full border border-routy-primary bg-gray-700 flex items-center justify-center text-white text-sm font-bold">
                 {(user.username || '?')[0].toUpperCase()}
               </div>
             )}
@@ -60,9 +60,9 @@ const Login = () => {
               <div className="px-4 py-3 border-b border-gray-700/50">
                 <div className="flex items-center gap-3">
                   {user.profile_image_url ? (
-                    <img src={user.profile_image_url} alt="profile" className="w-10 h-10 rounded-full border border-riduck-primary" />
+                    <img src={user.profile_image_url} alt="profile" className="w-10 h-10 rounded-full border border-routy-primary" />
                   ) : (
-                    <div className="w-10 h-10 rounded-full border border-riduck-primary bg-gray-700 flex items-center justify-center text-white text-lg font-bold">
+                    <div className="w-10 h-10 rounded-full border border-routy-primary bg-gray-700 flex items-center justify-center text-white text-lg font-bold">
                       {(user.username || '?')[0].toUpperCase()}
                     </div>
                   )}

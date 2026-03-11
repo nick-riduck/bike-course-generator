@@ -123,7 +123,7 @@ const WaypointDetailModal = ({ waypointId, onClose }) => {
         >
           {loading ? (
             <div className="flex items-center justify-center h-48">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-riduck-primary"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-routy-primary"></div>
             </div>
           ) : !detail ? (
             <div className="p-6 text-gray-400 text-center">데이터를 불러올 수 없습니다.</div>

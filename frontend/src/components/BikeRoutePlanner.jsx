@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useMemo, useEffect, startTransition } from 'react';
 import apiClient from '../utils/apiClient';
 import { Map, Source, Layer, Marker, Popup } from 'react-map-gl/maplibre';
 import { useAuth } from '../AuthContext';
@@ -13,6 +13,11 @@ import WaypointDetailModal from './WaypointDetailModal';
 import SaveRouteModal from './SaveRouteModal';
 import ExportRouteModal from './ExportRouteModal';
 import NearbyFilterModal, { DEFAULT_FILTERS } from './NearbyFilterModal';
+import MobileTabBar from './MobileTabBar';
+import MobileBottomSheet from './MobileBottomSheet';
+import MobileProfileScreen from './MobileProfileScreen';
+import RangeFilterModal from './RangeFilterModal';
+import useMobileBack from '../hooks/useMobileBack';
 import ReactMarkdown from 'react-markdown';
 import { getPointTier, POINT_TYPE_CONFIG, TIER_STYLES } from '../utils/waypointTypes';
 import posthog from 'posthog-js';
@@ -136,7 +141,102 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isElevationChartVisible, setIsElevationChartVisible] = useState(true);
-  
+  const [mobileActiveTab, setMobileActiveTab] = useState('create'); // 'explore' | 'create' | 'profile'
+  const prevTabBeforeProfile = useRef('create');
+  const [exploreSheetSnap, setExploreSheetSnap] = useState('peek'); // 'collapsed' | 'peek' | 'full'
+  const [mobileSearchQuery, setMobileSearchQuery] = useState('');
+  const [mobileSortOption, setMobileSortOption] = useState('latest');
+  const [mobileSortOrder, setMobileSortOrder] = useState('desc');
+  const [exploreRequestSnap, setExploreRequestSnap] = useState(null);
+  const [isTagSearchOpen, setIsTagSearchOpen] = useState(false);
+  const [isRangeFilterOpen, setIsRangeFilterOpen] = useState(false);
+  const [suggestedTags, setSuggestedTags] = useState([]);
+  const [mobileTagQuery, setMobileTagQuery] = useState('');
+  const [mobileTagResults, setMobileTagResults] = useState([]);
+  const tagSuggestDebounceRef = useRef(null);
+  const mobileTagSearchDebounceRef = useRef(null);
+  const mobileTagSearchRef = useRef(null);
+
+  // Fetch suggested tags based on search query (semantic search)
+  useEffect(() => {
+    if (mobileActiveTab !== 'explore') return;
+    if (tagSuggestDebounceRef.current) clearTimeout(tagSuggestDebounceRef.current);
+    tagSuggestDebounceRef.current = setTimeout(async () => {
+      try {
+        const q = mobileSearchQuery.trim();
+        const url = q
+          ? `/api/routes/tags/search?q=${encodeURIComponent(q)}`
+          : '/api/routes/tags/search';
+        const res = await fetch(url);
+        if (res.ok) {
+          const tags = await res.json();
+          setSuggestedTags(tags.map(t => t.slug));
+        }
+      } catch (err) {
+        console.error('Suggested tags fetch error:', err);
+      }
+    }, 300);
+    return () => { if (tagSuggestDebounceRef.current) clearTimeout(tagSuggestDebounceRef.current); };
+  }, [mobileSearchQuery, mobileActiveTab]);
+
+  // Mobile tag search autocomplete
+  useEffect(() => {
+    if (!isTagSearchOpen) return;
+    if (mobileTagSearchDebounceRef.current) clearTimeout(mobileTagSearchDebounceRef.current);
+    mobileTagSearchDebounceRef.current = setTimeout(async () => {
+      try {
+        const q = mobileTagQuery.trim();
+        const url = q
+          ? `/api/routes/tags/search?q=${encodeURIComponent(q)}`
+          : '/api/routes/tags/search';
+        const res = await fetch(url);
+        if (res.ok) {
+          const tags = await res.json();
+          setMobileTagResults(tags);
+        }
+      } catch (err) {
+        console.error('Mobile tag search error:', err);
+      }
+    }, 200);
+    return () => { if (mobileTagSearchDebounceRef.current) clearTimeout(mobileTagSearchDebounceRef.current); };
+  }, [mobileTagQuery, isTagSearchOpen]);
+
+  // Close mobile tag search on outside click
+  useEffect(() => {
+    if (!isTagSearchOpen) return;
+    const handler = (e) => {
+      if (mobileTagSearchRef.current && !mobileTagSearchRef.current.contains(e.target)) {
+        setIsTagSearchOpen(false);
+        setMobileTagQuery('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('touchstart', handler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+    };
+  }, [isTagSearchOpen]);
+
+  // Hide elevation chart when mobile keyboard opens, restore on close
+  const elevationBeforeKeyboard = useRef(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => {
+      const keyboardOpen = vv.height < window.innerHeight * 0.75;
+      if (keyboardOpen && elevationBeforeKeyboard.current === null) {
+        elevationBeforeKeyboard.current = isElevationChartVisible;
+        if (isElevationChartVisible) setIsElevationChartVisible(false);
+      } else if (!keyboardOpen && elevationBeforeKeyboard.current !== null) {
+        setIsElevationChartVisible(elevationBeforeKeyboard.current);
+        elevationBeforeKeyboard.current = null;
+      }
+    };
+    vv.addEventListener('resize', onResize);
+    return () => vv.removeEventListener('resize', onResize);
+  }, [isElevationChartVisible]);
+
   // 지하철/철도 라인 켜기
   const handleMapLoad = (e) => {
     const map = e.target;
@@ -160,7 +260,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const [loadingMsg, setLoadingMsg] = useState('');
   const [hoveredCoord, setHoveredCoord] = useState(null);
   const [history, setHistory] = useState({ past: [], future: [] });
-  const [hoverInfo, setHoverInfo] = useState(null);
+  const hoverInfoRef = useRef(null);
+  const hoverTooltipRef = useRef(null);
   const [insertCandidate, setInsertCandidate] = useState(null);
   const [dragState, setDragState] = useState(null); // { candidate, lng, lat }
   const dragStateRef = useRef(null);
@@ -182,6 +283,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const [searchRefreshTrigger, setSearchRefreshTrigger] = useState(0);
   const [focusedPointId, setFocusedPointId] = useState(null);
   const [mapHoverCoord, setMapHoverCoord] = useState(null);
+  const mapHoverCoordRef = useRef(null);
 
   // Preview State
   const [previewRoute, setPreviewRoute] = useState(null);
@@ -225,6 +327,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
   const previewInvalidLoggedRef = useRef(false);
   const dragPreviewInvalidLoggedRef = useRef(false);
   const previewPanelMobileRef = useRef(null);
+  const previewDragStartY = useRef(0);
+  const previewDidDrag = useRef(false);
   const pendingNearbyAfterSaveRef = useRef(false);
 
   const makeCircleGeoJSON = (lat, lng, radiusKm, steps = 64) => {
@@ -748,6 +852,9 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
      setHistory({ past: [], future: [] });
      setIsDirty(false);
 
+     // Switch to create tab on mobile
+     setMobileActiveTab('create');
+
      // Close panels
      setIsMenuOpen(false);
      setIsSearchOpen(false);
@@ -793,17 +900,82 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
   const cancelPreview = (options = {}) => {
       const { reopenSearchOnMobile = true } = options;
-      setPreviewRoute(null);
-      setMobilePreviewExpanded(false);
-      setPreviewLinkCopied(false);
-      setIsElevationChartVisible(true);
+      // All state changes in startTransition to avoid blocking INP
+      // (any urgent setState triggers a synchronous re-render of the entire component)
+      startTransition(() => {
+          setPreviewRoute(null);
+          setMobilePreviewExpanded(false);
+          setPreviewLinkCopied(false);
+          setIsElevationChartVisible(true);
+          if (reopenSearchOnMobile && window.innerWidth < 768) {
+              setIsSearchOpen(true);
+          }
+      });
       if (sections.some(s => s.points.length > 0)) {
-          fitMapToSections(sections);
-      }
-      if (reopenSearchOnMobile && window.innerWidth < 768) {
-          setIsSearchOpen(true);
+          requestAnimationFrame(() => fitMapToSections(sections));
       }
   };
+
+  // Preview panel drag handlers (mobile)
+  const handlePreviewDragStart = useCallback((e) => {
+      e.stopPropagation();
+      previewDragStartY.current = e.touches ? e.touches[0].clientY : e.clientY;
+      previewDidDrag.current = false;
+  }, []);
+
+  const handlePreviewDragEnd = useCallback((e) => {
+      const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+      const deltaY = previewDragStartY.current - clientY;
+      if (Math.abs(deltaY) < 10) return; // tap, not drag
+      previewDidDrag.current = true;
+
+      // All state changes batched in startTransition to yield to browser paint first
+      startTransition(() => {
+          if (deltaY > 40) {
+              // Swipe up → expand description
+              if (!mobilePreviewExpanded) {
+                  setMobilePreviewExpanded(true);
+                  setIsElevationChartVisible(false);
+              }
+          } else if (deltaY < -40) {
+              // Swipe down → collapse description or dismiss
+              if (mobilePreviewExpanded) {
+                  setMobilePreviewExpanded(false);
+                  setIsElevationChartVisible(true);
+              } else {
+                  cancelPreview();
+              }
+          }
+      });
+  }, [mobilePreviewExpanded, cancelPreview]);
+
+  // Centralized mobile back-button handling
+  useMobileBack([
+    // Priority 1 — Modals (topmost, close first)
+    { id: 'waypointDetail', isOpen: !!selectedWaypointId, onClose: () => setSelectedWaypointId(null) },
+    { id: 'saveModal', isOpen: isSaveModalOpen, onClose: () => setIsSaveModalOpen(false) },
+    { id: 'exportModal', isOpen: isExportModalOpen, onClose: () => setIsExportModalOpen(false) },
+    { id: 'rangeFilter', isOpen: isRangeFilterOpen, onClose: () => setIsRangeFilterOpen(false) },
+    { id: 'nearbyFilter', isOpen: isNearbyFilterOpen, onClose: () => setIsNearbyFilterOpen(false) },
+    // Priority 2 — Full screens
+    { id: 'profile', isOpen: mobileActiveTab === 'profile', onClose: () => setMobileActiveTab(prevTabBeforeProfile.current) },
+    // Priority 3 — Route preview (multi-step: expanded → collapse → close)
+    { id: 'preview', isOpen: !!previewRoute, onClose: () => {
+      if (mobilePreviewExpanded) {
+        setMobilePreviewExpanded(false);
+        setIsElevationChartVisible(true);
+      } else {
+        cancelPreview();
+      }
+    }},
+    // Priority 4 — Panels & search
+    { id: 'menu', isOpen: isMenuOpen, onClose: () => setIsMenuOpen(false) },
+    { id: 'search', isOpen: isSearchOpen, onClose: () => setIsSearchOpen(false) },
+    { id: 'tagSearch', isOpen: isTagSearchOpen, onClose: () => setIsTagSearchOpen(false) },
+    { id: 'placeSearch', isOpen: isPlaceSearchOpen, onClose: () => closePlaceSearch() },
+    // Priority 5 — Explore sheet full → peek
+    { id: 'exploreSheetFull', isOpen: mobileActiveTab === 'explore' && exploreSheetSnap === 'full', onClose: () => setExploreRequestSnap('peek') },
+  ]);
 
   const performExport = async (filename, format) => {
     const sourceSections = previewRoute ? previewRoute.sections : sectionsWithPointDistances;
@@ -836,7 +1008,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
         }));
 
         const payload = {
-            title: filename || routeName || 'Riduck Route',
+            title: filename || routeName || 'Routy Route',
             editor_state: {
                 sections: cleanSections
             },
@@ -900,7 +1072,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
     try {
         const payload = {
-            title: section.name || 'Riduck Section',
+            title: section.name || 'Routy Section',
             editor_state: {
                 sections: [section] // Send only the specific section
             },
@@ -1020,65 +1192,115 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
     setHoveredSectionIndex(index);
   }, []);
 
+  const lastHoverRef = useRef({ onRoute: false, hasInfo: false, hasCandidate: false });
+  const hoverRafRef = useRef(null);
+  const mapHoverCoordUpdateTimer = useRef(null);
+
+  // Update tooltip DOM directly (no React re-render)
+  const updateHoverTooltip = useCallback((info) => {
+    hoverInfoRef.current = info;
+    const el = hoverTooltipRef.current;
+    if (!el) return;
+    if (!info) {
+      el.style.display = 'none';
+      return;
+    }
+    el.style.display = 'block';
+    el.style.left = `${info.x + 15}px`;
+    el.style.top = `${info.y + 15}px`;
+    if (info.isWaypoint) {
+      const p = info.feature.properties;
+      el.innerHTML = `<div class="font-bold text-sm text-routy-primary mb-1">${p.name || ''}</div>
+        <div class="text-[11px] text-gray-300">
+          ${p.description ? `<div class="mb-1 text-gray-400 max-w-[200px] whitespace-normal">${p.description}</div>` : ''}
+          <div>Type: ${p.type || ''}</div>
+          <div>Tours: ${p.tour_count || 0}</div>
+          ${p.has_images ? '<div>🖼️ Images available</div>' : ''}
+          ${p.has_tips ? '<div>💡 Tips available</div>' : ''}
+        </div>`;
+    } else {
+      const p = info.feature.properties;
+      el.innerHTML = `<div class="flex items-center gap-2 mb-1">
+          <div class="w-3 h-3 rounded-full shadow-sm" style="background-color:${p.color}"></div>
+          <span class="font-bold text-sm">${p.surface || ''}</span>
+        </div>
+        ${p.description ? `<div class="mt-1 text-[11px] text-gray-400 leading-tight max-w-[200px]">${p.description}</div>` : ''}`;
+    }
+  }, []);
+
+  // Debounced mapHoverCoord setState (for ElevationChart sync, less frequent)
+  const scheduleMapHoverCoordUpdate = useCallback((coord) => {
+    mapHoverCoordRef.current = coord;
+    if (mapHoverCoordUpdateTimer.current) cancelAnimationFrame(mapHoverCoordUpdateTimer.current);
+    mapHoverCoordUpdateTimer.current = requestAnimationFrame(() => {
+      setMapHoverCoord(coord);
+    });
+  }, []);
+
   const onHover = useCallback(event => {
-    const { features, point: { x, y }, lngLat } = event;
-    const hoveredFeature = features && features[0];
-    const routeFeatures = features ? features.filter(f => f.layer.id === 'route-layer') : [];
-    const waypointFeature = features ? features.find(f => f.layer.id === 'admin-waypoints-layer') : null;
-
-    if (routeFeatures.length > 0 && lngLat && Number.isFinite(lngLat.lng) && Number.isFinite(lngLat.lat)) {
-      setMapHoverCoord({ lng: lngLat.lng, lat: lngLat.lat });
-    } else {
-      setMapHoverCoord(null);
-    }
-    
-    // 1. Surface Info Tooltip or Waypoint Tooltip
-    if (waypointFeature) {
-        setHoverInfo({ 
-            isWaypoint: true,
-            feature: waypointFeature, 
-            x, y 
-        });
-    } else if (hoveredFeature && hoveredFeature.properties.surface) {
-        setHoverInfo({ 
-            isWaypoint: false,
-            feature: hoveredFeature, 
-            x, y 
-        });
-    } else {
-        setHoverInfo(null);
-    }
-
-    // 2. Insert Candidate Detection (On Line Hover) & Drag Handling
+    // Dragging needs immediate updates (no throttle)
     if (dragStateRef.current) {
-        // Dragging: Update drag position
+        const { lngLat } = event;
         const newDragState = { ...dragStateRef.current, lng: lngLat.lng, lat: lngLat.lat };
         setDragState(newDragState);
         dragStateRef.current = newDragState;
         return;
     }
 
-    if (routeFeatures.length > 0) {
-        const candidates = routeFeatures.map(f => ({
-            sectionIdx: f.properties.sectionIndex,
-            segmentIdx: f.properties.segmentIndex
-        })).filter(c => c.sectionIdx !== undefined && c.segmentIdx !== undefined);
+    // Throttle all other hover updates to 1 per animation frame
+    if (hoverRafRef.current) return;
+    hoverRafRef.current = requestAnimationFrame(() => {
+      hoverRafRef.current = null;
+      const { features, point: { x, y }, lngLat } = event;
+      const hoveredFeature = features && features[0];
+      const routeFeatures = features ? features.filter(f => f.layer.id === 'route-layer') : [];
+      const waypointFeature = features ? features.find(f => f.layer.id === 'admin-waypoints-layer') : null;
 
-        if (candidates.length > 0) {
-            // Deduplicate if needed, but typically distinct segments
-            setInsertCandidate({
-                lng: lngLat.lng,
-                lat: lngLat.lat,
-                candidates: candidates,
-                // Primary candidate (top-most)
-                sectionIdx: candidates[0].sectionIdx,
-                segmentIdx: candidates[0].segmentIdx
-            });
-            return;
-        }
-    }
-    setInsertCandidate(null);
-  }, []);
+      // mapHoverCoord — debounced setState for ElevationChart
+      const onRoute = routeFeatures.length > 0 && lngLat && Number.isFinite(lngLat.lng) && Number.isFinite(lngLat.lat);
+      if (onRoute) {
+        scheduleMapHoverCoordUpdate({ lng: lngLat.lng, lat: lngLat.lat });
+      } else if (lastHoverRef.current.onRoute) {
+        scheduleMapHoverCoordUpdate(null);
+      }
+      lastHoverRef.current.onRoute = onRoute;
+
+      // hoverInfo — direct DOM update, no setState
+      if (waypointFeature) {
+          updateHoverTooltip({ isWaypoint: true, feature: waypointFeature, x, y });
+          lastHoverRef.current.hasInfo = true;
+      } else if (hoveredFeature && hoveredFeature.properties.surface) {
+          updateHoverTooltip({ isWaypoint: false, feature: hoveredFeature, x, y });
+          lastHoverRef.current.hasInfo = true;
+      } else if (lastHoverRef.current.hasInfo) {
+          updateHoverTooltip(null);
+          lastHoverRef.current.hasInfo = false;
+      }
+
+      // insertCandidate — still needs setState for Marker rendering
+      if (routeFeatures.length > 0) {
+          const candidates = routeFeatures.map(f => ({
+              sectionIdx: f.properties.sectionIndex,
+              segmentIdx: f.properties.segmentIndex
+          })).filter(c => c.sectionIdx !== undefined && c.segmentIdx !== undefined);
+
+          if (candidates.length > 0) {
+              setInsertCandidate({
+                  lng: lngLat.lng, lat: lngLat.lat,
+                  candidates,
+                  sectionIdx: candidates[0].sectionIdx,
+                  segmentIdx: candidates[0].segmentIdx
+              });
+              lastHoverRef.current.hasCandidate = true;
+              return;
+          }
+      }
+      if (lastHoverRef.current.hasCandidate) {
+          setInsertCandidate(null);
+      }
+      lastHoverRef.current.hasCandidate = false;
+    });
+  }, [updateHoverTooltip, scheduleMapHoverCoordUpdate]);
 
   const performInsertPoint = async (candidate, lng, lat) => {
       // Handle candidate object structure difference (direct vs via popup)
@@ -2441,8 +2663,9 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
             </div>
         </div>
 
-        {/* Search Panel */}
+        {/* Search Panel — Desktop sidebar only */}
         <div className={`
+            hidden md:block
             ${isSearchOpen ? 'w-80 border-r border-gray-800 pointer-events-auto shadow-2xl' : 'w-0'}
             h-full bg-gray-900 overflow-hidden transition-all duration-300 ease-in-out
         `}>
@@ -2497,7 +2720,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                             {previewRoute.data.route_num && (
                                 <button
                                     onClick={copyShareLink}
-                                    className={`text-[11px] font-mono transition-colors cursor-pointer hover:text-riduck-primary ${previewLinkCopied ? 'text-green-400' : 'text-gray-500'}`}
+                                    className={`text-[11px] font-mono transition-colors cursor-pointer hover:text-routy-primary ${previewLinkCopied ? 'text-green-400' : 'text-gray-500'}`}
                                     title={previewLinkCopied ? 'Copied!' : 'Copy share link'}
                                 >
                                     {previewLinkCopied ? 'Copied!' : `#${previewRoute.data.route_num}`}
@@ -2571,7 +2794,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                         <div className="flex items-center gap-1">
                             <button
                                 onClick={copyShareLink}
-                                className={`flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg hover:bg-gray-800 ${previewLinkCopied ? 'text-green-400' : 'text-gray-400 hover:text-riduck-primary'}`}
+                                className={`flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg hover:bg-gray-800 ${previewLinkCopied ? 'text-green-400' : 'text-gray-400 hover:text-routy-primary'}`}
                                 title={previewLinkCopied ? 'Copied!' : 'Copy share link'}
                             >
                                 {previewLinkCopied ? (
@@ -2582,7 +2805,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                             </button>
                             <button
                                 onClick={handleOpenExportModal}
-                                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-riduck-primary transition-colors px-2 py-1 rounded-lg hover:bg-gray-800"
+                                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-routy-primary transition-colors px-2 py-1 rounded-lg hover:bg-gray-800"
                                 title="Export GPX/TCX"
                             >
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
@@ -2613,9 +2836,9 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     </button>
                     <button
                         onClick={confirmPreviewLoad}
-                        className="py-2.5 rounded-xl bg-riduck-primary hover:bg-riduck-primary/90 text-white font-bold text-sm shadow-lg shadow-riduck-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+                        className="py-2.5 rounded-xl bg-routy-primary hover:bg-routy-primary/90 text-white font-bold text-sm shadow-lg shadow-routy-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
                     >
-                        Load Route
+                        Edit Route
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
                     </button>
                 </div>
@@ -2626,10 +2849,185 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
 
       {/* 3. Main Content (Right) - Map & Chart */}
       <div className="flex-1 flex flex-col relative h-full min-w-0">
-        {isLoading && <div className="absolute inset-0 z-[9999] bg-black/30 backdrop-blur-[2px] flex flex-col items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-riduck-primary mb-4"></div><div className="text-white font-bold text-lg animate-pulse">{loadingMsg}</div></div>}
-        
+        {isLoading && <div className="absolute inset-0 z-[9999] bg-black/30 backdrop-blur-[2px] flex flex-col items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-routy-primary mb-4"></div><div className="text-white font-bold text-lg animate-pulse">{loadingMsg}</div></div>}
+
         {/* Map Area */}
         <div className="flex-1 relative">
+            {/* Mobile Profile button — visible during explore (including preview) */}
+            {mobileActiveTab === 'explore' && exploreSheetSnap !== 'full' && (
+              <div className="md:hidden absolute top-3 right-3 z-20 pointer-events-auto">
+                <button
+                  onClick={() => { prevTabBeforeProfile.current = mobileActiveTab; setMobileActiveTab('profile'); }}
+                  className="w-10 h-10 rounded-full bg-gray-800/90 border border-gray-700 flex items-center justify-center"
+                >
+                  {user?.photoURL ? (
+                    <img src={user.photoURL} alt="" className="w-full h-full rounded-full object-cover" />
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* Mobile My Location FAB — visible in explore (collapsed/peek) and create */}
+            {!mobilePreviewExpanded && (mobileActiveTab === 'create' || (mobileActiveTab === 'explore' && exploreSheetSnap !== 'full')) && (
+              <button
+                className={`md:hidden absolute right-4 z-20 pointer-events-auto w-11 h-11 rounded-full bg-gray-800/90 border border-gray-700 flex items-center justify-center shadow-xl backdrop-blur-md transition-all active:scale-95 ${
+                  mobileActiveTab === 'explore' && exploreSheetSnap === 'peek' ? 'bottom-[48%]' : mobileActiveTab === 'explore' ? 'bottom-[9%]' : 'bottom-3'
+                }`}
+                onClick={() => {
+                  if (!navigator.geolocation) return;
+                  navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                      const { latitude, longitude } = pos.coords;
+                      const map = mapRef.current?.getMap ? mapRef.current.getMap() : mapRef.current;
+                      if (map) {
+                        map.flyTo({ center: [longitude, latitude], zoom: Math.max(map.getZoom(), 12), duration: 1000 });
+                      }
+                    },
+                    () => alert('위치 정보를 가져올 수 없습니다.')
+                  );
+                }}
+                title="내 위치로 이동"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <circle cx="12" cy="12" r="3" />
+                  <path strokeLinecap="round" d="M12 2v3m0 14v3M2 12h3m14 0h3" />
+                </svg>
+              </button>
+            )}
+
+            {/* Mobile Explore Overlay — search, filters, tags (hidden during preview) */}
+            {mobileActiveTab === 'explore' && exploreSheetSnap !== 'full' && !previewRoute && (
+              <div className="md:hidden absolute top-0 left-0 right-0 z-20 pointer-events-auto flex flex-col gap-0">
+                {/* Row 1: Search (profile button is separate overlay above) */}
+                <div className="flex items-center gap-2 px-3 pt-3 pb-2 pr-16">
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={mobileSearchQuery}
+                      onChange={(e) => setMobileSearchQuery(e.target.value)}
+                      placeholder="루트 검색..."
+                      className="w-full bg-gray-800/90 text-white text-sm pl-9 pr-3 py-2.5 rounded-xl border border-gray-700 focus:outline-none focus:border-routy-primary placeholder-gray-500"
+                    />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Row 2 & 3: Filters + Tags (collapsed only) */}
+                {exploreSheetSnap === 'collapsed' && (
+                  <>
+                    <div className="flex items-center gap-2 px-3 py-1.5">
+                      {!isTagSearchOpen && (
+                        <>
+                          <button
+                            onClick={() => setIsRangeFilterOpen(true)}
+                            className={`shrink-0 flex items-center justify-center gap-1 min-w-[5.5rem] px-3 py-1.5 rounded-full text-xs font-medium border backdrop-blur-md transition-all ${
+                              routeFilters.minDistance || routeFilters.maxDistance
+                                ? 'bg-routy-primary/20 border-routy-primary/40 text-routy-primary'
+                                : 'border-gray-700 bg-gray-800/90 text-gray-300 active:bg-gray-700'
+                            }`}
+                          >
+                            {routeFilters.minDistance || routeFilters.maxDistance ? (
+                              <>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                                {`${routeFilters.minDistance ? Math.round(routeFilters.minDistance / 1000) : 0}~${routeFilters.maxDistance ? Math.round(routeFilters.maxDistance / 1000) : '∞'}km`}
+                              </>
+                            ) : '거리 ▾'}
+                          </button>
+                          <button
+                            onClick={() => setIsRangeFilterOpen(true)}
+                            className={`shrink-0 flex items-center justify-center gap-1 min-w-[5.5rem] px-3 py-1.5 rounded-full text-xs font-medium border backdrop-blur-md transition-all ${
+                              routeFilters.minElevation || routeFilters.maxElevation
+                                ? 'bg-routy-primary/20 border-routy-primary/40 text-routy-primary'
+                                : 'border-gray-700 bg-gray-800/90 text-gray-300 active:bg-gray-700'
+                            }`}
+                          >
+                            {routeFilters.minElevation || routeFilters.maxElevation ? (
+                              <>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15l5-5 4 4 8-8" /></svg>
+                                {`${routeFilters.minElevation || 0}~${routeFilters.maxElevation || '∞'}m`}
+                              </>
+                            ) : '획고 ▾'}
+                          </button>
+                          <div className="flex-1" />
+                        </>
+                      )}
+                      {isTagSearchOpen && (
+                        <div ref={mobileTagSearchRef} className="flex-1 relative animate-fade-in-up">
+                          <input
+                            autoFocus
+                            type="text"
+                            value={mobileTagQuery}
+                            onChange={(e) => setMobileTagQuery(e.target.value)}
+                            placeholder="태그 검색..."
+                            className="w-full bg-gray-800/90 text-white text-xs pl-3 pr-10 py-1.5 rounded-full border border-routy-primary/40 focus:outline-none placeholder-gray-500 backdrop-blur-md"
+                          />
+                          <button
+                            onClick={() => { setIsTagSearchOpen(false); setMobileTagQuery(''); }}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 active:text-white p-1.5"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
+                      {!isTagSearchOpen && (
+                        <button
+                          onClick={() => { setIsTagSearchOpen(true); setMobileTagQuery(''); }}
+                          className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border backdrop-blur-md transition-all border-gray-700 bg-gray-800/90 text-gray-300 active:bg-gray-700"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                          </svg>
+                          태그 검색
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Row 3: Selected tags + available tags (search results or suggestions) */}
+                    <div className="flex items-center gap-1.5 px-3 py-1 overflow-x-auto no-scrollbar">
+                      {routeFilters?.tags?.length > 0 && routeFilters.tags.map(slug => (
+                        <button
+                          key={slug}
+                          onClick={() => {
+                            const newFilters = { ...routeFilters, tags: routeFilters.tags.filter(t => t !== slug) };
+                            setRouteFilters(newFilters);
+                            routeFiltersRef.current = newFilters;
+                          }}
+                          className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium bg-routy-primary/20 text-routy-primary border border-routy-primary/40"
+                        >
+                          #{slug} ✕
+                        </button>
+                      ))}
+                      {(isTagSearchOpen
+                        ? mobileTagResults.filter(t => !routeFilters?.tags?.includes(t.slug)).map(t => ({ slug: t.slug, name: t.name }))
+                        : suggestedTags.filter(t => !routeFilters?.tags?.includes(t)).slice(0, 8).map(t => ({ slug: t, name: t }))
+                      ).map(tag => (
+                        <button
+                          key={tag.slug}
+                          onClick={() => {
+                            const newFilters = { ...routeFilters, tags: [...(routeFilters?.tags || []), tag.slug] };
+                            setRouteFilters(newFilters);
+                            routeFiltersRef.current = newFilters;
+                            if (isTagSearchOpen) setMobileTagQuery('');
+                          }}
+                          className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium bg-gray-800/90 text-gray-400 border border-gray-700 backdrop-blur-md"
+                        >
+                          #{tag.name}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
                         {/* Top Right: Tools Container */}
             <div className={`absolute top-4 right-4 md:top-6 md:right-6 z-10 flex-col items-end gap-3 pointer-events-none ${mobilePreviewExpanded ? 'hidden md:flex' : 'flex'}`}>
                 {/* 1. Straight Line Mode Toggle */}
@@ -2637,7 +3035,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                     onClick={() => setIsMockMode(!isMockMode)}
                     className={`pointer-events-auto flex items-center justify-between gap-2 md:gap-4 px-3 py-2 md:px-5 md:py-3 rounded-2xl border shadow-xl backdrop-blur-md transition-all duration-300 ${
                         isMockMode 
-                        ? 'bg-riduck-primary/90 border-riduck-primary text-white shadow-riduck-primary/20' 
+                        ? 'bg-routy-primary/90 border-routy-primary text-white shadow-routy-primary/20' 
                         : 'bg-gray-900/90 border-gray-700 text-gray-400 hover:text-white hover:border-gray-500'
                     }`}
                 >
@@ -2780,11 +3178,11 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 </div>
             ) : (
                 <div 
-                    className={`absolute top-4 left-4 md:top-6 md:left-6 z-10 backdrop-blur-md px-5 py-2 md:px-8 md:py-3 rounded-2xl border shadow-2xl flex gap-4 md:gap-8 items-center transition-all duration-300 ${previewRoute ? 'bg-riduck-primary/15 border-riduck-primary/40 pointer-events-none' : isClean ? 'bg-gray-900/90 border-gray-700 pointer-events-none' : 'bg-gray-900/90 border-riduck-primary/50 shadow-[0_0_12px_rgba(42,158,146,0.25)] pointer-events-auto cursor-pointer hover:border-riduck-primary/80 hover:shadow-[0_0_18px_rgba(42,158,146,0.4)] hover:bg-gray-800/90 active:scale-[0.98]'}`}
+                    className={`absolute top-4 left-4 md:top-6 md:left-6 z-10 backdrop-blur-md px-5 py-2 md:px-8 md:py-3 rounded-2xl border shadow-2xl flex gap-4 md:gap-8 items-center transition-all duration-300 ${previewRoute ? 'bg-routy-primary/15 border-routy-primary/40 pointer-events-none' : isClean ? 'bg-gray-900/90 border-gray-700 pointer-events-none' : 'bg-gray-900/90 border-routy-primary/50 shadow-[0_0_12px_rgba(42,158,146,0.25)] pointer-events-auto cursor-pointer hover:border-routy-primary/80 hover:shadow-[0_0_18px_rgba(42,158,146,0.4)] hover:bg-gray-800/90 active:scale-[0.98]'}`}
                     onClick={!previewRoute ? openSaveModal : undefined}
                 >
                     {previewRoute && (
-                        <span className="text-riduck-primary text-[9px] md:text-[10px] font-bold uppercase tracking-wider absolute -top-2.5 left-3 bg-gray-900 px-1.5 rounded">Preview</span>
+                        <span className="text-routy-primary text-[9px] md:text-[10px] font-bold uppercase tracking-wider absolute -top-2.5 left-3 bg-gray-900 px-1.5 rounded">Preview</span>
                     )}
                     <div className="text-center">
                         <p className="text-[8px] md:text-[10px] text-gray-400 uppercase font-bold tracking-wider">Distance</p>
@@ -2804,11 +3202,11 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 </div>
             )}
 
-            {/* Mobile Only: Sidebar Toggles (Below Stats) */}
-            <div className={`absolute top-[80px] left-4 z-10 gap-2 md:hidden ${mobilePreviewExpanded ? 'hidden' : 'flex'}`}>
+            {/* Mobile Only: Sidebar Toggles (Below Stats) — only in create tab */}
+            <div className={`absolute top-[80px] left-4 z-10 gap-2 md:hidden ${mobilePreviewExpanded || mobileActiveTab !== 'create' ? 'hidden' : 'flex'}`}>
                 <button
                     onClick={toggleMenu}
-                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isMenuOpen ? 'bg-riduck-primary border-riduck-primary text-white shadow-riduck-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
+                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isMenuOpen ? 'bg-routy-primary border-routy-primary text-white shadow-routy-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
@@ -2816,7 +3214,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 </button>
                 <button
                     onClick={toggleSearch}
-                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isSearchOpen ? 'bg-riduck-primary border-riduck-primary text-white shadow-riduck-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
+                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isSearchOpen ? 'bg-routy-primary border-routy-primary text-white shadow-routy-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.58 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.58 4 8 4s8-1.79 8-4M4 7c0-2.21 3.58-4 8-4s8 1.79 8 4" />
@@ -2824,7 +3222,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 </button>
                 <button
                     onClick={toggleNearby}
-                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isNearbyMode ? 'bg-riduck-primary border-riduck-primary text-white shadow-riduck-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
+                    className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${isNearbyMode ? 'bg-routy-primary border-routy-primary text-white shadow-routy-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
@@ -2833,7 +3231,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 <div className="relative" ref={moreMenuRef}>
                     <button
                         onClick={() => setMoreMenuOpen(!moreMenuOpen)}
-                        className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${moreMenuOpen ? 'bg-riduck-primary border-riduck-primary text-white shadow-riduck-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
+                        className={`p-2.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${moreMenuOpen ? 'bg-routy-primary border-routy-primary text-white shadow-routy-primary/20' : 'bg-gray-900/90 border-gray-700 text-gray-400'}`}
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
@@ -2898,7 +3296,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 onMouseLeave={() => { setHoverInfo(null); setDragState(null); setMapHoverCoord(null); }} // Cancel drag if leave?
                 interactiveLayerIds={['route-layer', 'nearby-routes-layer', 'admin-waypoints-layer']}
                 style={{ width: '100%', height: '100%' }} 
-                cursor={isLoading ? 'wait' : (dragState ? 'grabbing' : (insertCandidate ? 'grab' : (isNearbyMode ? 'default' : (hoverInfo?.isWaypoint ? 'pointer' : 'crosshair'))))}
+                cursor={isLoading ? 'wait' : (dragState ? 'grabbing' : (insertCandidate ? 'grab' : (isNearbyMode ? 'default' : (hoverInfoRef.current?.isWaypoint ? 'pointer' : 'crosshair'))))}
             >
                 {placeSearchPulse && (
                     <Marker longitude={placeSearchPulse.lon} latitude={placeSearchPulse.lat} anchor="center">
@@ -3082,7 +3480,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                         anchor="center"
                         draggable={false}
                     >
-                        <div className="w-5 h-5 bg-riduck-primary rounded-full shadow-lg border-2 border-white cursor-grabbing"></div>
+                        <div className="w-5 h-5 bg-routy-primary rounded-full shadow-lg border-2 border-white cursor-grabbing"></div>
                     </Marker>
                 )}
 
@@ -3094,8 +3492,8 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                         draggable={false}
                     >
                         <div className="pointer-events-none relative flex items-center justify-center">
-                            <div className="absolute h-7 w-7 rounded-full border border-riduck-primary/40 bg-riduck-primary/10"></div>
-                            <div className="h-3 w-3 rounded-full border-2 border-white bg-riduck-primary shadow-lg shadow-riduck-primary/40"></div>
+                            <div className="absolute h-7 w-7 rounded-full border border-routy-primary/40 bg-routy-primary/10"></div>
+                            <div className="h-3 w-3 rounded-full border-2 border-white bg-routy-primary shadow-lg shadow-routy-primary/40"></div>
                         </div>
                     </Marker>
                 )}
@@ -3131,7 +3529,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                       onClick={(e) => handlePointRemove(sIdx, pIdx, e)}
                     >
                         {isFocusedPoint && (
-                          <span className="pointer-events-none absolute -inset-2 rounded-full border border-riduck-primary/60 animate-ping"></span>
+                          <span className="pointer-events-none absolute -inset-2 rounded-full border border-routy-primary/60 animate-ping"></span>
                         )}
                         <span className="group-hover:hidden">
                           {showIcon ? <IconComponent size={14} strokeWidth={2.5} /> : pIdx + 1}
@@ -3169,7 +3567,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                                 {ambiguityPopup.candidates.map((cand, idx) => (
                                     <button
                                         key={idx}
-                                        className="w-full relative overflow-hidden p-3 rounded-lg bg-gray-800/50 hover:bg-riduck-primary/10 border border-gray-700/50 hover:border-riduck-primary/50 transition-all text-left group flex items-center gap-3"
+                                        className="w-full relative overflow-hidden p-3 rounded-lg bg-gray-800/50 hover:bg-routy-primary/10 border border-gray-700/50 hover:border-routy-primary/50 transition-all text-left group flex items-center gap-3"
                                         onClick={() => performInsertPoint(cand, ambiguityPopup.lng, ambiguityPopup.lat)}
                                     >
                                         {/* Color Indicator Bar */}
@@ -3178,7 +3576,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                                         <div className="flex-1 min-w-0 pl-1">
                                             {/* Top: Distance (Primary Info) */}
                                             <div className="flex items-center gap-2 mb-0.5">
-                                                <span className="text-sm font-black text-white group-hover:text-riduck-primary transition-colors font-mono tracking-tight">
+                                                <span className="text-sm font-black text-white group-hover:text-routy-primary transition-colors font-mono tracking-tight">
                                                     {cand.totalDistance.toFixed(1)} km
                                                 </span>
                                                 <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider bg-gray-800 px-1.5 py-0.5 rounded">Point</span>
@@ -3195,7 +3593,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                                         </div>
                                         
                                         {/* Right: Section Badge */}
-                                        <div className="shrink-0 px-2 py-1 bg-gray-900/80 rounded text-[10px] font-bold text-gray-500 border border-gray-700 group-hover:text-riduck-primary/80 group-hover:border-riduck-primary/30 transition-colors">
+                                        <div className="shrink-0 px-2 py-1 bg-gray-900/80 rounded text-[10px] font-bold text-gray-500 border border-gray-700 group-hover:text-routy-primary/80 group-hover:border-routy-primary/30 transition-colors">
                                             {cand.sectionName}
                                         </div>
                                     </button>
@@ -3204,40 +3602,12 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                         </div>
                     </Popup>
                 )}
-                {hoverInfo && (
-                    <div className="absolute z-50 pointer-events-none bg-gray-900/95 text-white p-3 rounded-lg text-xs border border-gray-600 shadow-xl backdrop-blur-md" style={{left: hoverInfo.x + 15, top: hoverInfo.y + 15}}>
-                        {hoverInfo.isWaypoint ? (
-                            <>
-                                <div className="font-bold text-sm text-riduck-primary mb-1">
-                                    {hoverInfo.feature.properties.name}
-                                </div>
-                                <div className="text-[11px] text-gray-300">
-                                    {hoverInfo.feature.properties.description && (
-                                        <div className="mb-1 text-gray-400 max-w-[200px] whitespace-normal">
-                                            {hoverInfo.feature.properties.description}
-                                        </div>
-                                    )}
-                                    <div>Type: {hoverInfo.feature.properties.type}</div>
-                                    <div>Tours: {hoverInfo.feature.properties.tour_count}</div>
-                                    {hoverInfo.feature.properties.has_images && <div>🖼️ Images available</div>}
-                                    {hoverInfo.feature.properties.has_tips && <div>💡 Tips available</div>}
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <div className="w-3 h-3 rounded-full shadow-sm" style={{backgroundColor: hoverInfo.feature.properties.color}}></div>
-                                    <span className="font-bold text-sm">{hoverInfo.feature.properties.surface}</span>
-                                </div>
-                                {hoverInfo.feature.properties.description && (
-                                    <div className="mt-1 text-[11px] text-gray-400 leading-tight max-w-[200px]">
-                                        {hoverInfo.feature.properties.description}
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-                )}
+                {/* Hover tooltip — updated via ref/DOM, not React state */}
+                <div
+                    ref={hoverTooltipRef}
+                    className="absolute z-50 pointer-events-none bg-gray-900/95 text-white p-3 rounded-lg text-xs border border-gray-600 shadow-xl backdrop-blur-md"
+                    style={{ display: 'none' }}
+                />
             </Map>
 
 
@@ -3246,11 +3616,18 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                 <div
                     ref={previewPanelMobileRef}
                     className="md:hidden absolute inset-x-0 bottom-0 z-30 pointer-events-auto animate-fadeInUp"
-                    onClick={() => { setIsSearchOpen(false); setIsMenuOpen(false); }}
                 >
                     <div className={`bg-gray-900/97 backdrop-blur-xl border-t border-gray-700/60 shadow-2xl rounded-t-2xl flex flex-col ${mobilePreviewExpanded ? 'max-h-[57vh] overflow-hidden' : ''}`}>
                         {/* Drag handle */}
-                        <div className="w-8 h-1 bg-gray-700 rounded-full mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
+                        <div
+                            className="touch-none cursor-grab active:cursor-grabbing pt-2 pb-1"
+                            onTouchStart={handlePreviewDragStart}
+                            onTouchEnd={handlePreviewDragEnd}
+                            onMouseDown={handlePreviewDragStart}
+                            onMouseUp={handlePreviewDragEnd}
+                        >
+                            <div className="w-10 h-1 bg-gray-600 rounded-full mx-auto" />
+                        </div>
 
                         {/* Fixed info area */}
                         <div className="px-4 pt-4 pb-3 flex flex-col gap-3 shrink-0">
@@ -3260,7 +3637,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                                     {previewRoute.data.route_num && (
                                         <button
                                             onClick={(e) => { e.stopPropagation(); copyShareLink(); }}
-                                            className={`text-[11px] font-mono transition-colors cursor-pointer hover:text-riduck-primary ${previewLinkCopied ? 'text-green-400' : 'text-gray-500'}`}
+                                            className={`text-[11px] font-mono transition-colors cursor-pointer hover:text-routy-primary ${previewLinkCopied ? 'text-green-400' : 'text-gray-500'}`}
                                             title={previewLinkCopied ? 'Copied!' : 'Copy share link'}
                                         >
                                             {previewLinkCopied ? 'Copied!' : `#${previewRoute.data.route_num}`}
@@ -3311,7 +3688,7 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                                 )}
                             </div>
 
-                            {/* Tags (always visible) */}
+                            {/* Tags */}
                             {previewRoute.data.tags?.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5">
                                     {previewRoute.data.tags.map(tag => (
@@ -3325,11 +3702,14 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
+                                        if (previewDidDrag.current) { previewDidDrag.current = false; return; }
                                         const next = !mobilePreviewExpanded;
-                                        setMobilePreviewExpanded(next);
-                                        setIsElevationChartVisible(!next);
+                                        startTransition(() => {
+                                            setMobilePreviewExpanded(next);
+                                            setIsElevationChartVisible(!next);
+                                        });
                                     }}
-                                    className="text-sm text-riduck-primary font-medium flex items-center gap-1"
+                                    className="text-sm text-routy-primary font-medium flex items-center gap-1"
                                 >
                                     {mobilePreviewExpanded ? 'Hide' : 'Show detail'}
                                     <svg className={`w-3 h-3 transition-transform ${mobilePreviewExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
@@ -3337,9 +3717,9 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                             )}
                         </div>
 
-                        {/* Scrollable: Description only */}
-                        {mobilePreviewExpanded && previewRoute.data.description && (
-                            <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pb-2 min-h-0">
+                        {/* Scrollable: Description only — always mounted, hidden via CSS to avoid INP from ReactMarkdown mount */}
+                        {previewRoute.data.description && (
+                            <div className={`flex-1 overflow-y-auto custom-scrollbar px-4 pb-2 min-h-0 ${mobilePreviewExpanded ? '' : 'hidden'}`}>
                                 <div className="prose prose-sm prose-invert max-w-none text-sm">
                                     <ReactMarkdown>{previewRoute.data.description}</ReactMarkdown>
                                 </div>
@@ -3356,74 +3736,335 @@ const BikeRoutePlanner = ({ routeName, setRouteName, initialRouteId }) => {
                             </button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); confirmPreviewLoad(); }}
-                                className="py-3 rounded-xl bg-riduck-primary hover:bg-riduck-primary/90 text-white font-bold text-sm shadow-lg shadow-riduck-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+                                className="py-3 rounded-xl bg-routy-primary hover:bg-routy-primary/90 text-white font-bold text-sm shadow-lg shadow-routy-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
                             >
-                                Load Route
+                                Edit Route
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
                             </button>
                         </div>
                     </div>
                 </div>
             )}
-        </div>
 
-        {/* Elevation Chart Panel (Collapsible) */}
-        <div className="relative z-20 shrink-0">
-            <div
-                id="elevation-chart-panel"
-                className={`relative overflow-hidden bg-gray-900/90 backdrop-blur-md transition-all duration-300 ease-in-out ${
-                    isElevationChartVisible ? 'h-40 md:h-52 opacity-100' : 'h-0 opacity-0'
-                }`}
-            >
-                <div className={`h-full px-4 transition-all duration-300 ${isElevationChartVisible ? 'pt-4 pb-0' : 'pt-0 pb-0'}`}>
-                    <ElevationChart
-                        segments={previewRoute
-                            ? previewRoute.sections.flatMap(s => s.segments)
-                            : sections.flatMap(s => s.segments)}
-                        checkpoints={previewRoute
-                            ? []
-                            : sectionsWithPointDistances.flatMap(s => s.points)}
-                        onHoverPoint={handleHoverPoint}
-                        onSelectPoint={handleChartPointSelect}
-                        mapHoverCoord={mapHoverCoord}
-                    />
+            {/* Mobile Explore Bottom Sheet */}
+            <MobileBottomSheet
+              isOpen={mobileActiveTab === 'explore' && !previewRoute}
+              onClose={() => {}}
+              title="루트 탐색"
+              icon="🔍"
+              onSnapChange={(snap) => { setExploreSheetSnap(snap); setExploreRequestSnap(null); }}
+              requestSnap={exploreRequestSnap}
+              stickyHeader={
+                <div className="border-b border-gray-800">
+                  {/* Search + Profile — full only */}
+                  {exploreSheetSnap === 'full' && (
+                    <div className="flex items-center gap-2 px-3 pt-1 pb-2">
+                      <div className="flex-1 relative" onTouchStart={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
+                        <input
+                          type="text"
+                          value={mobileSearchQuery}
+                          onChange={(e) => setMobileSearchQuery(e.target.value)}
+                          placeholder="루트 검색..."
+                          className="w-full bg-gray-800/90 text-white text-sm pl-9 pr-3 py-2.5 rounded-xl border border-gray-700 focus:outline-none focus:border-routy-primary placeholder-gray-500"
+                        />
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                      <button
+                        onClick={() => { prevTabBeforeProfile.current = mobileActiveTab; setMobileActiveTab('profile'); }}
+                        className="w-10 h-10 rounded-full bg-gray-800/90 border border-gray-700 flex items-center justify-center shrink-0"
+                        onTouchStart={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}
+                      >
+                        {user?.photoURL ? (
+                          <img src={user.photoURL} alt="" className="w-full h-full rounded-full object-cover" />
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Row 1: Tags (scroll) | Tag search (expandable left) */}
+                  <div className="flex items-center gap-1.5 px-3 py-1.5">
+                    {!isTagSearchOpen && (
+                      <div className="flex-1 relative min-w-0">
+                        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pr-4" onTouchStart={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
+                          {routeFilters?.tags?.length > 0 && routeFilters.tags.map(slug => (
+                            <button
+                              key={slug}
+                              onClick={() => {
+                                const newFilters = { ...routeFilters, tags: routeFilters.tags.filter(t => t !== slug) };
+                                setRouteFilters(newFilters);
+                                routeFiltersRef.current = newFilters;
+                              }}
+                              className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium bg-routy-primary/20 text-routy-primary border border-routy-primary/40"
+                            >
+                              #{slug} ✕
+                            </button>
+                          ))}
+                          {suggestedTags.filter(t => !routeFilters?.tags?.includes(t)).slice(0, 8).map(tag => (
+                            <button
+                              key={tag}
+                              onClick={() => {
+                                const newFilters = { ...routeFilters, tags: [...(routeFilters?.tags || []), tag] };
+                                setRouteFilters(newFilters);
+                                routeFiltersRef.current = newFilters;
+                              }}
+                              className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium bg-gray-800 text-gray-400 border border-gray-700"
+                            >
+                              #{tag}
+                            </button>
+                          ))}
+                        </div>
+                        {/* Right fade */}
+                        <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-gray-900 to-transparent pointer-events-none" />
+                      </div>
+                    )}
+                    {isTagSearchOpen && (
+                      <div ref={mobileTagSearchRef} className="flex-1 relative" onTouchStart={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
+                        <input
+                          autoFocus
+                          type="text"
+                          value={mobileTagQuery}
+                          onChange={(e) => setMobileTagQuery(e.target.value)}
+                          placeholder="태그 검색..."
+                          className="w-full bg-gray-800 text-white text-xs pl-3 pr-10 py-1.5 rounded-full border border-routy-primary/40 focus:outline-none placeholder-gray-500"
+                        />
+                        <button
+                          onClick={() => { setIsTagSearchOpen(false); setMobileTagQuery(''); }}
+                          className="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 active:text-white p-1.5"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                    {!isTagSearchOpen && (
+                      <button
+                        onClick={() => { setIsTagSearchOpen(true); setMobileTagQuery(''); }}
+                        onTouchStart={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}
+                        className="shrink-0 flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-medium border transition-all border-gray-700 bg-gray-800 text-gray-300 active:bg-gray-700"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                        </svg>
+                        태그 검색
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Row 2: Tag results (when searching) OR Distance + Elevation | Sort (default) */}
+                  {isTagSearchOpen ? (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 pb-2 overflow-x-auto no-scrollbar" onTouchStart={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
+                      {routeFilters?.tags?.length > 0 && routeFilters.tags.map(slug => (
+                        <button
+                          key={slug}
+                          onClick={() => {
+                            const newFilters = { ...routeFilters, tags: routeFilters.tags.filter(t => t !== slug) };
+                            setRouteFilters(newFilters);
+                            routeFiltersRef.current = newFilters;
+                          }}
+                          className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium bg-routy-primary/20 text-routy-primary border border-routy-primary/40"
+                        >
+                          #{slug} ✕
+                        </button>
+                      ))}
+                      {mobileTagResults.filter(t => !routeFilters?.tags?.includes(t.slug)).map(tag => (
+                        <button
+                          key={tag.slug}
+                          onClick={() => {
+                            const newFilters = { ...routeFilters, tags: [...(routeFilters?.tags || []), tag.slug] };
+                            setRouteFilters(newFilters);
+                            routeFiltersRef.current = newFilters;
+                            setMobileTagQuery('');
+                          }}
+                          className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium bg-gray-800 text-gray-300 border border-gray-700 active:bg-routy-primary/20 active:text-routy-primary active:border-routy-primary/40"
+                        >
+                          #{tag.name}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between px-3 py-1.5 pb-2">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setIsRangeFilterOpen(true)}
+                          onTouchStart={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}
+                          className={`shrink-0 flex items-center justify-center gap-1 min-w-[5rem] px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${
+                            routeFilters.minDistance || routeFilters.maxDistance
+                              ? 'bg-routy-primary/20 border-routy-primary/40 text-routy-primary'
+                              : 'border-gray-700 bg-gray-800 text-gray-300 active:bg-gray-700'
+                          }`}
+                        >
+                          {routeFilters.minDistance || routeFilters.maxDistance ? (
+                            <>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                              {`${routeFilters.minDistance ? Math.round(routeFilters.minDistance / 1000) : 0}~${routeFilters.maxDistance ? Math.round(routeFilters.maxDistance / 1000) : '∞'}km`}
+                            </>
+                          ) : '거리 ▾'}
+                        </button>
+                        <button
+                          onClick={() => setIsRangeFilterOpen(true)}
+                          onTouchStart={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}
+                          className={`shrink-0 flex items-center justify-center gap-1 min-w-[5rem] px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${
+                            routeFilters.minElevation || routeFilters.maxElevation
+                              ? 'bg-routy-primary/20 border-routy-primary/40 text-routy-primary'
+                              : 'border-gray-700 bg-gray-800 text-gray-300 active:bg-gray-700'
+                          }`}
+                        >
+                          {routeFilters.minElevation || routeFilters.maxElevation ? (
+                            <>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15l5-5 4 4 8-8" /></svg>
+                              {`${routeFilters.minElevation || 0}~${routeFilters.maxElevation || '∞'}m`}
+                            </>
+                          ) : '획고 ▾'}
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-1.5" onTouchStart={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
+                        <select
+                          value={mobileSortOption}
+                          onChange={(e) => setMobileSortOption(e.target.value)}
+                          className="bg-gray-800 text-gray-400 text-[11px] px-2 py-1 rounded-lg border border-gray-700 focus:outline-none"
+                        >
+                          <option value="latest">Latest</option>
+                          <option value="updated">Updated</option>
+                          <option value="popular">Popular</option>
+                          <option value="distance">Distance</option>
+                          <option value="elevation">Elevation</option>
+                        </select>
+                        <button
+                          onClick={() => setMobileSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                          className="bg-gray-800 text-gray-400 px-1.5 py-1 rounded-lg border border-gray-700 transition-all"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            {mobileSortOrder === 'desc' ? (
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            ) : (
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                            )}
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-            </div>
-
-            <button
-                type="button"
-                onClick={() => setIsElevationChartVisible(prev => !prev)}
-                aria-expanded={isElevationChartVisible}
-                aria-controls="elevation-chart-panel"
-                className="group flex w-full items-center justify-center gap-1.5 border-t border-gray-800 bg-gray-900/95 py-1.5 text-[11px] font-bold text-gray-400 transition hover:bg-gray-800/80 hover:text-white"
+              }
             >
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    className={`h-3.5 w-3.5 transition-transform duration-300 ${isElevationChartVisible ? '' : 'rotate-180'}`}
-                >
-                    <path
-                        fillRule="evenodd"
-                        d="M4.47 7.97a.75.75 0 011.06 0L10 12.44l4.47-4.47a.75.75 0 111.06 1.06l-5 5a.75.75 0 01-1.06 0l-5-5a.75.75 0 010-1.06z"
-                        clipRule="evenodd"
-                    />
-                </svg>
-                {isElevationChartVisible ? 'Hide Elevation' : 'Show Elevation'}
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    className={`h-3.5 w-3.5 transition-transform duration-300 ${isElevationChartVisible ? '' : 'rotate-180'}`}
-                >
-                    <path
-                        fillRule="evenodd"
-                        d="M4.47 7.97a.75.75 0 011.06 0L10 12.44l4.47-4.47a.75.75 0 111.06 1.06l-5 5a.75.75 0 01-1.06 0l-5-5a.75.75 0 010-1.06z"
-                        clipRule="evenodd"
-                    />
-                </svg>
-            </button>
+              {/* Route list */}
+              <SearchPanel
+                onLoadRoute={(routeId) => {
+                  handlePreviewRoute(routeId);
+                }}
+                activePreviewId={previewRoute?.id ?? null}
+                routeFilters={routeFilters}
+                onFiltersChange={(filters) => {
+                  setRouteFilters(filters);
+                  routeFiltersRef.current = filters;
+                }}
+                refreshTrigger={searchRefreshTrigger}
+                isMobileFullscreen={true}
+                hideHeader={true}
+                externalSearchQuery={mobileSearchQuery}
+                externalSort={mobileSortOption}
+                externalSortOrder={mobileSortOrder}
+              />
+            </MobileBottomSheet>
+
+            {/* Mobile Profile Full Screen */}
+            <MobileProfileScreen
+              isOpen={mobileActiveTab === 'profile'}
+              onClose={() => setMobileActiveTab(prevTabBeforeProfile.current)}
+            />
         </div>
+
+        {/* Bottom bar area (elevation chart + tab bar) */}
+        <div className="shrink-0">
+          {/* Elevation Chart Panel (Collapsible) */}
+          <div className="relative z-20">
+              <div
+                  id="elevation-chart-panel"
+                  className={`relative overflow-hidden bg-gray-900/90 backdrop-blur-md transition-all duration-300 ease-in-out ${
+                      isElevationChartVisible ? 'h-40 md:h-52 opacity-100' : 'h-0 opacity-0'
+                  }`}
+              >
+                  <div className={`h-full px-4 transition-all duration-300 ${isElevationChartVisible ? 'pt-4 pb-0' : 'pt-0 pb-0'}`}>
+                      <ElevationChart
+                          segments={previewRoute
+                              ? previewRoute.sections.flatMap(s => s.segments)
+                              : sections.flatMap(s => s.segments)}
+                          checkpoints={previewRoute
+                              ? []
+                              : sectionsWithPointDistances.flatMap(s => s.points)}
+                          onHoverPoint={handleHoverPoint}
+                          onSelectPoint={handleChartPointSelect}
+                          mapHoverCoord={mapHoverCoord}
+                      />
+                  </div>
+              </div>
+
+              <button
+                  type="button"
+                  onClick={() => startTransition(() => setIsElevationChartVisible(prev => !prev))}
+                  aria-expanded={isElevationChartVisible}
+                  aria-controls="elevation-chart-panel"
+                  className="group flex w-full items-center justify-center gap-1.5 border-t border-gray-800 bg-gray-900/95 py-1.5 text-[11px] font-bold text-gray-400 transition hover:bg-gray-800/80 hover:text-white"
+              >
+                  <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      className={`h-3.5 w-3.5 transition-transform duration-300 ${isElevationChartVisible ? '' : 'rotate-180'}`}
+                  >
+                      <path
+                          fillRule="evenodd"
+                          d="M4.47 7.97a.75.75 0 011.06 0L10 12.44l4.47-4.47a.75.75 0 111.06 1.06l-5 5a.75.75 0 01-1.06 0l-5-5a.75.75 0 010-1.06z"
+                          clipRule="evenodd"
+                      />
+                  </svg>
+                  {isElevationChartVisible ? 'Hide Elevation' : 'Show Elevation'}
+                  <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      className={`h-3.5 w-3.5 transition-transform duration-300 ${isElevationChartVisible ? '' : 'rotate-180'}`}
+                  >
+                      <path
+                          fillRule="evenodd"
+                          d="M4.47 7.97a.75.75 0 011.06 0L10 12.44l4.47-4.47a.75.75 0 111.06 1.06l-5 5a.75.75 0 01-1.06 0l-5-5a.75.75 0 010-1.06z"
+                          clipRule="evenodd"
+                      />
+                  </svg>
+              </button>
+          </div>
+
+          {/* Mobile Tab Bar */}
+          <MobileTabBar
+            activeTab={mobileActiveTab}
+            onTabChange={(tab) => {
+              if (tab === 'profile' && mobileActiveTab !== 'profile') {
+                prevTabBeforeProfile.current = mobileActiveTab;
+              }
+              setMobileActiveTab(tab);
+            }}
+          />
+        </div>
+
+
+        {/* Range Filter Modal (Distance + Elevation combined) */}
+        <RangeFilterModal
+          isOpen={isRangeFilterOpen}
+          onClose={() => setIsRangeFilterOpen(false)}
+          filters={routeFilters}
+          onApply={(rangeValues) => {
+            const newFilters = { ...routeFilters, ...rangeValues };
+            setRouteFilters(newFilters);
+            routeFiltersRef.current = newFilters;
+          }}
+        />
 
         {/* Save Route Modal */}
         <SaveRouteModal 

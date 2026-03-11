@@ -16,12 +16,12 @@
 - [x] CORS 설정에 `routy.cc` 추가 (환경변수 `ALLOWED_ORIGINS` 방식, Firebase Auth와 동일 목록)
 
 ### 브랜딩 & 디자인
-- [ ] Routy 로고/아이콘 제작 (또는 확정)
-- [ ] `index.html` title 변경 (`"frontend"` → `"Routy"`)
-- [ ] favicon 교체
-- [ ] OG 메타태그 추가 (`og:title`, `og:description`, `og:image`)
-- [ ] 앱 내 "riduck" 텍스트 → "Routy" 리네이밍
-- [ ] 컬러 테마 정리 (primary color 등)
+- [x] Routy 로고/아이콘 제작 (R + 자전거 + 경로 곡선)
+- [x] `index.html` title 변경 (`"frontend"` → `"Routy - Smartest Bike Planner"`)
+- [x] favicon 교체 (16x16, 32x32 PNG + apple-touch-icon 180x180)
+- [x] OG 메타태그 추가 (`og:title`, `og:description`, `og:image` 완료)
+- [x] 앱 내 "riduck" 텍스트/CSS → "Routy" 리네이밍 (11개 파일)
+- [x] 컬러 테마 정리 (기존 유지, CSS 변수명 routy- 로 변경)
 
 ---
 
@@ -37,8 +37,8 @@
 > - 로그인: DB `onboarding_completed` 플래그 우선
 > - 로그인 시 localStorage 값 → DB 동기화 (비로그인 때 봤으면 다시 안 뜸)
 
-- [ ] `users` 테이블에 `onboarding_completed BOOLEAN DEFAULT FALSE` 컬럼 추가
-- [ ] 온보딩 완료 API 엔드포인트 (`PATCH /api/users/me/onboarding`)
+- [x] `users` 테이블에 `onboarding_completed BOOLEAN DEFAULT FALSE` 컬럼 추가 (migration SQL에 포함)
+- [x] 온보딩 완료 API 엔드포인트 (`PATCH /api/auth/users/me/onboarding`)
 - [ ] 프론트: localStorage + DB 동기화 로직
 - [ ] 스텝1 구현: 경로 생성 → AI 태깅/설명 생성 가이드 (tooltip/stepper)
 - [ ] 스텝2 구현: 주요 기능 버튼 하이라이트 + 클릭 유도
@@ -62,6 +62,7 @@
 - [x] 프로덕션 postgres 이미지 교체 (postgis → postgis+pgvector)
 - [x] 프로덕션 마이그레이션 실행 (스키마 + 데이터 이관)
 - [x] 마이그레이션 후 데이터 정합성 확인 (users 6, routes 268, tags 236, waypoints 1501)
+- [x] `auth_mapping_temp` 테이블 생성 (로그인 401 수정)
 
 ---
 
@@ -78,14 +79,19 @@
 
 ### 버그 수정 & UI 개선
 - [x] `feature/library-enhancements` 변경사항 리뷰 & 커밋
-- [ ] 불필요 파일 정리 (`image.png`, `image copy.png`, `update_auto_tag_endpoint.py`)
+- [x] 불필요 파일 정리 (`image.png`, `image copy.png` 삭제 완료)
+- [x] **[성능 최적화]** DB를 활용한 Gemini 임베딩 캐시 구현 (검색 300ms 지연 해결)
+- [ ] **[백엔드]** 자주 쓰이는 태그 임베딩을 DB 캐시에 미리 채워넣는 스크립트 작성
 - [ ] 모바일 반응형 깨지는 부분 수정
 - [ ] 로딩 상태/에러 상태 UX 개선
 - [ ] 자잘한 UI 버그 수정 (발견되는 대로)
+- [ ] **[성능 최적화 - 우선순위 낮음]** 고도표(ElevationChart) 등 무거운 컴포넌트 코드 스플리팅(Lazy Loading) 검토 (LCP 개선용)
 
 ### 보안 점검
+- [x] Gemini API 키 환경변수로 이동 (커밋 98e7290)
 - [ ] GitHub Actions 하드코딩된 키 → Secrets 이동
-- [ ] `.gitignore` 민감 파일 확인
+- [x] `.gitignore` 민감 파일 확인 (`.env`, `backend/storage/`, `scripts/output/` 등 정상)
+- [x] Gemini API 키 Google Console에서 로테이션 (사용자 직접 처리)
 - [ ] Cloud Run 환경변수 점검
 
 ---
@@ -107,17 +113,17 @@
 - [ ] 발견된 버그 수정
 
 ### 최종 정리
-- [ ] main 브랜치 최종 머지
-- [ ] GitHub Actions 배포 성공 확인 (frontend + backend)
+- [x] main 브랜치 최종 머지 (PR #19, 2026-03-10)
+- [x] GitHub Actions 배포 성공 확인 (frontend + backend)
 - [ ] 프로덕션 스모크 테스트
-- [ ] 기존 도메인 → `routy.cc` 리다이렉트 설정
+- [ ] 기존 도메인 → `routy.cc` 리다이렉트 설정 (Firebase 단일사이트에서 호스트별 redirect 불가 — JS 또는 멀티사이트 필요)
 
 ---
 
 ## Day 5 - 3/14(금): 🚀 오픈
 
 - [ ] `https://routy.cc` 전체 기능 최종 확인
-- [ ] DNS/CDN 캐시 정상 확인
+- [x] DNS/CDN 캐시 정상 확인 (`routy.cc` 접속 확인됨)
 - [ ] 모니터링 대시보드 열어두기
 - [ ] 오픈 완료 🚀
 

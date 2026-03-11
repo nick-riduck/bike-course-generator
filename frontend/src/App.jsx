@@ -39,13 +39,13 @@ function Layout() {
   const [isEditingName, setIsEditingName] = useState(false);
 
   return (
-    <div className="h-screen bg-riduck-dark text-white flex flex-col overflow-hidden">
+    <div className="h-screen bg-routy-dark text-white flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="relative h-14 md:h-16 px-4 md:px-6 border-b border-gray-800 bg-gray-900 flex justify-between items-center z-30 shadow-md shrink-0 gap-4">
+      <header className="relative hidden md:flex h-16 px-6 border-b border-gray-800 bg-gray-900 justify-between items-center z-30 shadow-md shrink-0 gap-4">
         <div className="flex items-center gap-4 overflow-hidden flex-1 mr-4">
             <div className="flex items-center gap-2 md:gap-3 shrink-0">
-                <h1 className="text-lg md:text-2xl font-bold text-riduck-primary tracking-tight truncate">
-                Course <span className="text-white font-light">Planner</span>
+                <h1 className="text-lg md:text-2xl font-bold text-routy-primary tracking-tight truncate">
+                Routy
                 </h1>
                 <span className="text-[10px] text-gray-500 border border-gray-700 px-1.5 py-0.5 rounded uppercase tracking-wider hidden sm:inline-block">Alpha</span>
             </div>

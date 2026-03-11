@@ -26,7 +26,6 @@ const MenuPanel = ({
   onPointTypeChange
 }) => {
   const [isCopied, setIsCopied] = useState(false);
-  console.log('[MenuPanel] currentRouteId:', currentRouteId, 'routeUuid:', routeUuid);
 
   const handleCopyLink = () => {
     if (!currentRouteId) return;
@@ -138,7 +137,7 @@ const MenuPanel = ({
                         {editingSectionId === section.id ? (
                           <input 
                             autoFocus
-                            className="bg-gray-900 text-white text-lg font-bold px-2 py-1 rounded border border-riduck-primary focus:outline-none w-full"
+                            className="bg-gray-900 text-white text-lg font-bold px-2 py-1 rounded border border-routy-primary focus:outline-none w-full"
                             value={sectionTempName}
                             onChange={(e) => setSectionTempName(e.target.value)}
                             onBlur={() => handleFinishSectionRename(sIdx)}
@@ -146,7 +145,7 @@ const MenuPanel = ({
                           />
                         ) : (
                           <h3 
-                            className="text-lg font-bold text-white tracking-normal truncate cursor-pointer hover:text-riduck-primary transition-colors leading-tight"
+                            className="text-lg font-bold text-white tracking-normal truncate cursor-pointer hover:text-routy-primary transition-colors leading-tight"
                             onClick={() => handleStartSectionRename(section)}
                           >
                             {section.name}
@@ -251,14 +250,14 @@ const MenuPanel = ({
                           onClick={() => onPointFocus && onPointFocus(sIdx, pIdx, p)}
                           className={`group flex items-center gap-3 p-2.5 rounded-xl border transition-all cursor-pointer ${
                             isFocusedPoint
-                              ? 'bg-riduck-primary/10 border-riduck-primary/40 shadow-[0_0_0_1px_rgba(42,158,146,0.25)]'
+                              ? 'bg-routy-primary/10 border-routy-primary/40 shadow-[0_0_0_1px_rgba(42,158,146,0.25)]'
                               : 'bg-gray-800/20 border-transparent hover:border-gray-700 hover:bg-gray-800/40'
                           }`}
                         >
                           {/* Styled to match map marker */}
                           <div className="relative shrink-0">
                             <div
-                              className={`${tierStyle.sidebar} rounded-full border-2 border-white shadow-sm flex items-center justify-center font-black text-white cursor-pointer ${isFocusedPoint ? 'scale-110 shadow-riduck-primary/40' : ''}`}
+                              className={`${tierStyle.sidebar} rounded-full border-2 border-white shadow-sm flex items-center justify-center font-black text-white cursor-pointer ${isFocusedPoint ? 'scale-110 shadow-routy-primary/40' : ''}`}
                               style={{ backgroundColor: bgColor }}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -282,7 +281,7 @@ const MenuPanel = ({
                                     key={key}
                                     className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors ${
                                       p.type === key
-                                        ? 'bg-riduck-primary/20 text-riduck-primary'
+                                        ? 'bg-routy-primary/20 text-routy-primary'
                                         : 'text-gray-300 hover:bg-gray-700 hover:text-white'
                                     }`}
                                     onClick={() => {
@@ -307,7 +306,7 @@ const MenuPanel = ({
                             {editingPointId === p.id ? (
                                 <input
                                     autoFocus
-                                    className="bg-gray-900 text-white text-xs px-2 py-1 rounded border border-riduck-primary focus:outline-none w-full font-medium"
+                                    className="bg-gray-900 text-white text-xs px-2 py-1 rounded border border-routy-primary focus:outline-none w-full font-medium"
                                     value={pointTempName}
                                     onClick={(e) => e.stopPropagation()}
                                     onChange={(e) => setPointTempName(e.target.value)}
@@ -317,7 +316,7 @@ const MenuPanel = ({
                                 />
                             ) : (
                                 <p
-                                    className={`text-xs truncate transition-colors cursor-text hover:text-riduck-primary ${isNameCustom ? 'text-white font-bold' : 'text-gray-500 font-medium'}`}
+                                    className={`text-xs truncate transition-colors cursor-text hover:text-routy-primary ${isNameCustom ? 'text-white font-bold' : 'text-gray-500 font-medium'}`}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleStartPointRename(p);
@@ -419,7 +418,7 @@ const MenuPanel = ({
                 <button 
                     onClick={onSave}
                     disabled={!hasSegments}
-                    className="bg-riduck-primary hover:brightness-110 text-white py-3.5 rounded-2xl font-black text-sm shadow-lg shadow-riduck-primary/20 disabled:opacity-20 disabled:grayscale transition-all active:scale-[0.98]"
+                    className="bg-routy-primary hover:brightness-110 text-white py-3.5 rounded-2xl font-black text-sm shadow-lg shadow-routy-primary/20 disabled:opacity-20 disabled:grayscale transition-all active:scale-[0.98]"
                 >
                     SAVE TO CLOUD
                 </button>
@@ -432,7 +431,7 @@ const MenuPanel = ({
                         w-full py-3 rounded-2xl font-bold text-[11px] transition-all border flex items-center justify-center gap-2 active:scale-[0.98]
                         ${isCopied 
                           ? 'bg-green-500/20 border-green-500/50 text-green-400' 
-                          : 'bg-riduck-primary/10 border-riduck-primary/30 text-riduck-primary hover:bg-riduck-primary/20'}
+                          : 'bg-routy-primary/10 border-routy-primary/30 text-routy-primary hover:bg-routy-primary/20'}
                       `}
                   >
                       {isCopied ? (

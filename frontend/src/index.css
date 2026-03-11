@@ -2,16 +2,16 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --color-riduck-primary: #2a9e92;
-  --color-riduck-dark: #121212;
-  --color-riduck-card: #1E1E1E;
-  --color-riduck-flat: #A5D6A7;
-  --color-riduck-uphill: #F44336;
-  --color-riduck-downhill: #00ACC1;
+  --color-routy-primary: #2a9e92;
+  --color-routy-dark: #121212;
+  --color-routy-card: #1E1E1E;
+  --color-routy-flat: #A5D6A7;
+  --color-routy-uphill: #F44336;
+  --color-routy-downhill: #00ACC1;
 }
 
 :root {
-  background-color: var(--color-riduck-dark);
+  background-color: var(--color-routy-dark);
   color: white;
   font-family: 'Pretendard', system-ui, -apple-system, sans-serif;
 }
@@ -75,4 +75,22 @@ body {
 
 .animate-fade-in-up {
   animation: fadeInUp 0.15s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.animate-slideUp {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* Hide scrollbar but keep scroll functionality */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

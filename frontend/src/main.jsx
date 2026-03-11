@@ -38,6 +38,11 @@ posthog.init('phc_stRRL5l68rbqaxolbumgYm2j72tCFKsxWbQkcOxHfuQ', {
 // Initialize Google Analytics
 initGA();
 
+// INP measurement (dev only)
+if (!import.meta.env.PROD) {
+  import('./utils/measureINP.js').then(({ observeINP }) => observeINP());
+}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AuthProvider>

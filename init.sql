@@ -1,5 +1,6 @@
 CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 DROP TABLE IF EXISTS route_waypoints CASCADE;
 DROP TABLE IF EXISTS waypoints CASCADE;
@@ -91,6 +92,8 @@ CREATE TABLE routes (
 CREATE INDEX idx_routes_status_user ON routes(status, user_id);
 CREATE INDEX idx_routes_status_created ON routes(status, created_at DESC);
 CREATE INDEX idx_routes_summary_path ON routes USING GIST (summary_path);
+CREATE INDEX idx_routes_title_trgm ON routes USING GIN (title gin_trgm_ops);
+CREATE INDEX idx_routes_desc_trgm ON routes USING GIN (description gin_trgm_ops);
 
 CREATE TABLE route_stats (
     route_id BIGINT PRIMARY KEY,

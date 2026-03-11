@@ -62,7 +62,7 @@ const WaypointPanel = ({
       {/* Header */}
       <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/50 backdrop-blur-md">
         <h2 className="font-bold text-white text-lg tracking-tight flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-riduck-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-routy-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
@@ -88,7 +88,7 @@ const WaypointPanel = ({
         </div>
 
         <select
-          className="w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-xl px-3 py-2 outline-none focus:border-riduck-primary transition-colors"
+          className="w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-xl px-3 py-2 outline-none focus:border-routy-primary transition-colors"
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
         >
@@ -115,7 +115,7 @@ const WaypointPanel = ({
       <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-32 gap-3 text-gray-500">
-             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-riduck-primary"></div>
+             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-routy-primary"></div>
              <p className="text-sm font-medium">Loading...</p>
           </div>
         ) : filteredWaypoints.length === 0 ? (
@@ -156,7 +156,7 @@ const WaypointPanel = ({
                     e.stopPropagation();
                     onWaypointAdd(wp);
                   }}
-                  className="p-1 bg-riduck-primary/10 text-riduck-primary rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-riduck-primary hover:text-white shrink-0"
+                  className="p-1 bg-routy-primary/10 text-routy-primary rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-routy-primary hover:text-white shrink-0"
                   title="경로에 추가"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

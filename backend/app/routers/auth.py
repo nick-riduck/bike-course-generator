@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from firebase_admin import auth
 from app.core.database import get_db_conn
+from app.core.security import get_current_user
 from app.models.auth import LoginRequest
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -57,10 +58,31 @@ async def login(request: LoginRequest):
                 "id": user['id'],
                 "username": user['username'],
                 "email": user['email'],
-                "profile_image_url": user['profile_image_url']
+                "profile_image_url": user['profile_image_url'],
+                "onboarding_completed": user.get('onboarding_completed', False),
+                "is_admin": user.get('is_admin', False)
             }
         }
 
     except Exception as e:
         print(f"Login Error: {e}")
         raise HTTPException(status_code=401, detail=f"Invalid authentication: {str(e)}")
+
+
+@router.patch("/users/me/onboarding")
+async def complete_onboarding(user_id: int = Depends(get_current_user)):
+    conn = get_db_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "UPDATE users SET onboarding_completed = TRUE WHERE id = %s RETURNING onboarding_completed",
+            (user_id,)
+        )
+        result = cur.fetchone()
+        if not result:
+            raise HTTPException(status_code=404, detail="User not found")
+        conn.commit()
+        return {"status": "success", "onboarding_completed": True}
+    finally:
+        cur.close()
+        conn.close()

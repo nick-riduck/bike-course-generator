@@ -30,7 +30,7 @@ const SidebarNav = ({
       {/* Menu Toggle */}
       <button
         onClick={onToggleMenu}
-        className={`p-3 rounded-xl transition-colors ${isMenuOpen ? 'bg-riduck-primary text-white shadow-lg shadow-riduck-primary/20' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+        className={`p-3 rounded-xl transition-colors ${isMenuOpen ? 'bg-routy-primary text-white shadow-lg shadow-routy-primary/20' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
         title="Menu"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -41,7 +41,7 @@ const SidebarNav = ({
       {/* Search Toggle */}
       <button
         onClick={onToggleSearch}
-        className={`p-3 rounded-xl transition-colors ${isSearchOpen ? 'bg-riduck-primary text-white shadow-lg shadow-riduck-primary/20' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+        className={`p-3 rounded-xl transition-colors ${isSearchOpen ? 'bg-routy-primary text-white shadow-lg shadow-routy-primary/20' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
         title="Library"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -52,7 +52,7 @@ const SidebarNav = ({
       {/* Nearby Mode Toggle */}
       <button
         onClick={onToggleNearby}
-        className={`p-3 rounded-xl transition-colors ${isNearbyMode ? 'bg-riduck-primary text-white shadow-lg shadow-riduck-primary/20' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+        className={`p-3 rounded-xl transition-colors ${isNearbyMode ? 'bg-routy-primary text-white shadow-lg shadow-routy-primary/20' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
         title="Explore Nearby"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -64,7 +64,7 @@ const SidebarNav = ({
       {isAdmin && (
         <button
           onClick={onToggleWaypoint}
-          className={`p-3 rounded-xl transition-colors ${isWaypointMode ? 'bg-riduck-primary text-white shadow-lg shadow-riduck-primary/20' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+          className={`p-3 rounded-xl transition-colors ${isWaypointMode ? 'bg-routy-primary text-white shadow-lg shadow-routy-primary/20' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
           title="Waypoints (Admin)"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
