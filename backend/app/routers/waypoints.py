@@ -5,6 +5,7 @@ from psycopg2.extras import RealDictCursor
 import json
 import os
 from dotenv import load_dotenv
+from app.core.security import get_admin_user
 
 load_dotenv()
 
@@ -23,7 +24,7 @@ def get_db_connection():
     )
 
 @router.get("/{waypoint_id}")
-async def get_waypoint_detail(waypoint_id: int):
+async def get_waypoint_detail(waypoint_id: int, user_id: int = Depends(get_admin_user)):
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -69,7 +70,7 @@ async def get_waypoint_detail(waypoint_id: int):
 
 
 @router.get("", response_model=List[Dict[str, Any]])
-async def get_waypoints():
+async def get_waypoints(user_id: int = Depends(get_admin_user)):
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:

@@ -59,7 +59,8 @@ async def login(request: LoginRequest):
                 "username": user['username'],
                 "email": user['email'],
                 "profile_image_url": user['profile_image_url'],
-                "onboarding_completed": user.get('onboarding_completed', False)
+                "onboarding_completed": user.get('onboarding_completed', False),
+                "is_admin": user.get('is_admin', False)
             }
         }
 
